@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Write(/Users/ryom/!(sushi battle)/**)",
+      "Edit(/Users/ryom/!(sushi battle)/**)",
+      "Bash(rm * /Users/ryom/!(sushi battle)/**)",
+      "Bash(rsync * /Users/ryom/!(sushi battle)/**)"
+    ]
+  }
+}

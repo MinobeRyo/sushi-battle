@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@keyframes conveyor {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #1a0a00;
+  color: #fff;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  overflow: hidden;
+  height: 100svh;
+  width: 100svw;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
