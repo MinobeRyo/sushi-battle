@@ -1,32 +1,139 @@
-# React + TypeScript + Vite
+# 寿司デッキバトル
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+回転寿司レーンでデッキを構築し、相手のお腹を満タンにさせて勝つカードゲーム風Webアプリ。
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ゲーム概要
 
-## React Compiler
+**2フェーズ構成**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **ドラフトフェーズ** — 回転レーンから流れてくる皿を軍資金（初期¥3,000）で購入し、最大20枚のデッキを組む
+2. **バトルフェーズ** — 構築したデッキで相手のお腹ゲージを0→100にしたら勝ち
 
-## Expanding the Oxlint configuration
+### 用語
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+| 用語 | 意味 |
+|------|------|
+| 軍資金 | ドラフトで皿を買うお金 |
+| 食欲ポイント | バトルでカードを出すコスト（マナ相当） |
+| お腹ゲージ | 満タン（100）になったら負け |
+| 机 | バトルの場。持続型カードを最大8枚並べる |
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+---
+
+## ドラフトフェーズ — レーン構成
+
+| レーン | 仕組み |
+|--------|--------|
+| 汎用・サイドメニュー | ベルトで循環。たまご・サーモン系の汎用カード |
+| ビルド系雑多 | ベルトで循環。各アーキタイプ・特殊効果・高級カード混在 |
+| 新幹線ゾーン | 全3回まで。好きなカードを定価×1.5で即注文 → 皿が右から飛んでくる |
+
+- 購入した皿の位置は穴（ダッシュ円）になりベルトは止まらない
+- 皿をタップすると購入モーダルが開き、皿が画面外に流れたら自動で閉じる
+
+---
+
+## カードデータ
+
+**アーキタイプ 5種**
+
+| アーキタイプ | 代表例 | 戦略 |
+|-------------|--------|------|
+| 赤身 (akami) | マグロ・大トロ | 高火力バースト |
+| 巻物 (makimono) | かんぴょう・きゅうり | 持続じわじわ型 |
+| 光り物 (hikari) | サバ・アジ・コハダ | 切れ味スタックビルド |
+| 海鮮 (kaisen) | たこ・いか・うに | 連鎖攻撃 |
+| 肉寿司 (niku) | 和牛・カルビ | お腹が多いほど強い |
+
+**カードタイプ 2種**
+
+- **即時型** — 出したターンに攻撃して捨て札へ
+- **持続型** — 机に残り毎ターン継続ダメージ（満腹度=持続ターン数）
+
+---
+
+## 技術スタック
+
+```
+React 19 + TypeScript + Vite 8
+Tailwind CSS v4 (@tailwindcss/vite)
+Framer Motion 12
+Three.js 0.184 + @react-three/fiber 9 + @react-three/drei 10
+Pixi.js 7.4 (実験的、現在未使用)
+Zustand 5 (インストール済み、バトル実装時に使用予定)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## ディレクトリ構成
+
+```
+src/
+├── App.tsx                          # フェーズ管理・CSS/3Dトグル
+├── types/index.ts                   # 全型定義（Card, Player, GameState等）
+├── data/
+│   └── cards.ts                     # カードマスターデータ
+└── features/
+    ├── title/
+    │   ├── TitleScreen.tsx
+    │   └── ModeSelectScreen.tsx
+    ├── draft/
+    │   ├── DraftScreen.tsx          # CSS版ドラフト画面（メイン）
+    │   ├── DraftScreenThree.tsx     # Three.js版ドラフト画面（◈ 3D）
+    │   ├── ConveyorLane.tsx         # CSSアニメーションのベルトレーン
+    │   ├── SushiPlate.tsx           # 皿コンポーネント（Framer Motion）
+    │   ├── ShinkansenLane.tsx       # 新幹線レーン（ベルト部分）
+    │   ├── PurchaseModal.tsx        # 皿購入モーダル
+    │   └── ShinkansenOrderModal.tsx # 新幹線注文UI（iPad風）
+    └── battle/
+        └── BattleScreen.tsx         # バトル画面（未実装）
+```
+
+---
+
+## ドラフト画面の実装詳細
+
+### CSS版（DraftScreen）
+
+- **ベルト**: `@keyframes conveyor` で `-50%` translateX ループ。カード配列を2倍にしてシームレス
+- **購入済み穴**: カードを消すのではなくダッシュ円に差し替え → アニメーションが途切れない
+- **自動クローズ**: `DOMMatrix.m41` でベルトの現在X位置を読み取り、皿が画面外に出るタイミングを計算してモーダルを閉じる
+- **新幹線皿**: 注文時に即課金 → 皿が右からspringアニメーションで飛んでくる → タップで受け取り
+
+### Three.js版（DraftScreenThree）
+
+- **`useFrame` でベルト制御**: CSSアニメーションの代わりにrefで位置を管理して毎フレーム更新
+- **皿**: `CylinderGeometry` + `meshStandardMaterial`、ホバーで浮き上がり
+- **ライティング**: AmbientLight + DirectionalLight（シャドウ付き）+ PointLight×3（暖色・店内照明）
+- **フォグ**: `<fog>` で奥行き感を演出
+- **タブレットUI**: HTML overlayとしてCanvasの上に絶対配置
+- **切り替え**: 上部の `CSS / ◈ 3D` トグルで随時切り替え可能
+
+### タブレット端末（カウンター上）
+
+実際のスシロー店舗のiPadオーダー端末を参考に設計。カウンターの茶色い木目エリアの上部中央にスタンド付きで配置。
+
+- 注文可能時: 赤ヘッダー + カテゴリグリッド + 残り回数ドット
+- 使い切り時: 「本日終了」表示でグレーアウト
+
+---
+
+## 今後の実装予定
+
+- [ ] バトル画面（Zustandで状態管理）
+- [ ] コンボエンジン
+- [ ] CPU対戦ロジック
+- [ ] 寿司3Dモデル（GLTFアセット）の読み込み
+- [ ] Supabaseによるオンライン対戦（v2）
+
+---
+
+## 起動方法
+
+```bash
+npm install
+npm run dev
+# → http://localhost:5173/
+```

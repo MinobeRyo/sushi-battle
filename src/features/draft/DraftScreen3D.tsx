@@ -33,7 +33,7 @@ function shuffled<T>(arr: T[]): T[] {
   return a
 }
 
-export function DraftScreen({ onComplete }: Props) {
+export function DraftScreen3D({ onComplete }: Props) {
   const [budget, setBudget] = useState(INITIAL_BUDGET)
   const [timeLeft, setTimeLeft] = useState(DRAFT_SECONDS)
   const [deck, setDeck] = useState<Card[]>([])
@@ -113,7 +113,10 @@ export function DraftScreen({ onComplete }: Props) {
         <div className={`font-mono text-lg font-bold tabular-nums tracking-wider ${urgent ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
           ⏱ {mins}:{String(secs).padStart(2, '0')}
         </div>
-        <div className="text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#0369a1', color: '#bae6fd' }}>
+            ◈ 3D
+          </span>
           <span className="text-amber-600">デッキ </span>
           <span className="text-amber-200 font-bold">{deck.length}</span>
           <span className="text-amber-600">/20</span>
@@ -128,18 +131,16 @@ export function DraftScreen({ onComplete }: Props) {
           style={{ backgroundImage: 'repeating-linear-gradient(180deg, transparent 0, transparent 8px, rgba(0,0,0,0.8) 8px, rgba(0,0,0,0.8) 9px)' }}
         />
 
-        {/* ── タブレット端末（カウンター上にスタンドで設置） ── */}
+        {/* タブレット（カウンター上・フラット） */}
         <div className="flex justify-center pt-3 pb-0 flex-shrink-0 relative z-10">
           <div className="flex flex-col items-center">
-            {/* 端末本体 */}
             <motion.button
               onClick={canOrder ? () => setShowShinkansenModal(true) : undefined}
               whileHover={canOrder ? { scale: 1.03, y: -3 } : {}}
               whileTap={canOrder ? { scale: 0.97 } : {}}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
               style={{
-                width: 240, height: 156,
-                borderRadius: 14,
+                width: 240, height: 156, borderRadius: 14,
                 background: canOrder
                   ? 'linear-gradient(160deg, #e0e0e0 0%, #c4c4c4 50%, #d4d4d4 100%)'
                   : 'linear-gradient(160deg, #555 0%, #383838 100%)',
@@ -147,18 +148,12 @@ export function DraftScreen({ onComplete }: Props) {
                 boxShadow: canOrder
                   ? '0 10px 30px rgba(0,0,0,0.8), inset 0 1px 3px rgba(255,255,255,0.5)'
                   : '0 6px 16px rgba(0,0,0,0.6)',
-                display: 'flex',
-                flexDirection: 'column' as const,
-                alignItems: 'center',
-                padding: '6px 8px 8px',
-                gap: 5,
+                display: 'flex', flexDirection: 'column' as const,
+                alignItems: 'center', padding: '6px 8px 8px', gap: 5,
                 cursor: canOrder ? 'pointer' : 'default',
               }}
             >
-              {/* カメラ */}
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: canOrder ? '#999' : '#444', border: `1.5px solid ${canOrder ? '#777' : '#2a2a2a'}` }} />
-
-              {/* スクリーン */}
               <div style={{
                 flex: 1, width: '100%', borderRadius: 8, overflow: 'hidden',
                 background: canOrder ? '#faf7f2' : '#060606',
@@ -169,13 +164,10 @@ export function DraftScreen({ onComplete }: Props) {
                   <>
                     <div style={{ background: '#e8381a', padding: '5px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: 'white', fontSize: 13, fontWeight: 'bold' }}>🚄 特急注文</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ display: 'flex', gap: 3 }}>
-                          {[...Array(3)].map((_, i) => (
-                            <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i < shinkansenLeft ? '#facc15' : 'rgba(255,255,255,0.25)', border: `1.5px solid ${i < shinkansenLeft ? '#eab308' : 'rgba(255,255,255,0.3)'}` }} />
-                          ))}
-                        </div>
-                        <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 10, fontWeight: 'bold' }}>残り{shinkansenLeft}回</span>
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i < shinkansenLeft ? '#facc15' : 'rgba(255,255,255,0.25)' }} />
+                        ))}
                       </div>
                     </div>
                     <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, padding: '6px 8px' }}>
@@ -184,10 +176,7 @@ export function DraftScreen({ onComplete }: Props) {
                         { label: '光り物', color: '#2563eb' }, { label: '海鮮', color: '#0891b2' },
                         { label: '肉寿司', color: '#ea580c' }, { label: '汎用', color: '#78716c' },
                       ].map(c => (
-                        <div key={c.label} style={{
-                          borderRadius: 5, background: c.color + '1a', border: `1.5px solid ${c.color}55`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
+                        <div key={c.label} style={{ borderRadius: 5, background: c.color + '1a', border: `1.5px solid ${c.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ color: c.color, fontSize: 11, fontWeight: 'bold' }}>{c.label}</span>
                         </div>
                       ))}
@@ -199,29 +188,44 @@ export function DraftScreen({ onComplete }: Props) {
                 ) : (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                     <span style={{ color: '#333', fontSize: 14, fontWeight: 'bold' }}>本日終了</span>
-                    <span style={{ color: '#222', fontSize: 9 }}>特急便の受付を終了しました</span>
                   </div>
                 )}
               </div>
-
-              {/* ホームバー */}
               <div style={{ width: 44, height: 4, borderRadius: 2, background: canOrder ? '#b0b0b0' : '#333' }} />
             </motion.button>
-
-            {/* スタンド */}
             <div style={{ width: 10, height: 12, background: '#888', borderRadius: '0 0 3px 3px' }} />
             <div style={{ width: 32, height: 5, background: '#777', borderRadius: 3 }} />
           </div>
         </div>
 
-        {/* 3本のベルト */}
-        <div className="flex flex-col gap-3 mt-2">
-          <ShinkansenLane
-            plate={shinkansenPlate}
-            onPickup={handleShinkansenPickup}
+        {/* ── CSS 3D ベルトエリア ── */}
+        <div className="mt-2 flex-shrink-0 relative z-0"
+          style={{
+            perspective: '700px',
+            perspectiveOrigin: '50% -60px',
+          }}
+        >
+          {/* カウンター床面の影（奥行き演出） */}
+          <div className="absolute inset-x-0 top-0 h-4 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)', zIndex: 2 }}
           />
-          <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} excludeIds={beltPurchased} duration={32} paused={false} onSelect={handleBeltSelect} />
-          <ConveyorLane label="ビルド系雑多" cards={buildCards} excludeIds={beltPurchased} duration={16} paused={false} onSelect={handleBeltSelect} />
+
+          {/* 3D 回転させたベルト群 */}
+          <div
+            style={{
+              transform: 'rotateX(26deg)',
+              transformOrigin: 'top center',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              // 奥に縮んだ分を補正して見やすくする
+              paddingBottom: 8,
+            }}
+          >
+            <ShinkansenLane plate={shinkansenPlate} onPickup={handleShinkansenPickup} />
+            <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} excludeIds={beltPurchased} duration={32} paused={false} onSelect={handleBeltSelect} />
+            <ConveyorLane label="ビルド系雑多" cards={buildCards} excludeIds={beltPurchased} duration={16} paused={false} onSelect={handleBeltSelect} />
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ConveyorLane } from './ConveyorLane'
+import { PixiConveyorBelt } from './PixiConveyorBelt'
 import { ShinkansenLane } from './ShinkansenLane'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import { PurchaseModal } from './PurchaseModal'
@@ -33,7 +33,7 @@ function shuffled<T>(arr: T[]): T[] {
   return a
 }
 
-export function DraftScreen({ onComplete }: Props) {
+export function DraftScreenPixi({ onComplete }: Props) {
   const [budget, setBudget] = useState(INITIAL_BUDGET)
   const [timeLeft, setTimeLeft] = useState(DRAFT_SECONDS)
   const [deck, setDeck] = useState<Card[]>([])
@@ -113,7 +113,11 @@ export function DraftScreen({ onComplete }: Props) {
         <div className={`font-mono text-lg font-bold tabular-nums tracking-wider ${urgent ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
           ⏱ {mins}:{String(secs).padStart(2, '0')}
         </div>
-        <div className="text-sm">
+        <div className="flex items-center gap-2">
+          {/* Pixi.js バッジ */}
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#7c3aed', color: '#e9d5ff' }}>
+            ⚡ Pixi.js
+          </span>
           <span className="text-amber-600">デッキ </span>
           <span className="text-amber-200 font-bold">{deck.length}</span>
           <span className="text-amber-600">/20</span>
@@ -128,10 +132,9 @@ export function DraftScreen({ onComplete }: Props) {
           style={{ backgroundImage: 'repeating-linear-gradient(180deg, transparent 0, transparent 8px, rgba(0,0,0,0.8) 8px, rgba(0,0,0,0.8) 9px)' }}
         />
 
-        {/* ── タブレット端末（カウンター上にスタンドで設置） ── */}
+        {/* タブレット端末（カウンター上） */}
         <div className="flex justify-center pt-3 pb-0 flex-shrink-0 relative z-10">
           <div className="flex flex-col items-center">
-            {/* 端末本体 */}
             <motion.button
               onClick={canOrder ? () => setShowShinkansenModal(true) : undefined}
               whileHover={canOrder ? { scale: 1.03, y: -3 } : {}}
@@ -155,10 +158,7 @@ export function DraftScreen({ onComplete }: Props) {
                 cursor: canOrder ? 'pointer' : 'default',
               }}
             >
-              {/* カメラ */}
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: canOrder ? '#999' : '#444', border: `1.5px solid ${canOrder ? '#777' : '#2a2a2a'}` }} />
-
-              {/* スクリーン */}
               <div style={{
                 flex: 1, width: '100%', borderRadius: 8, overflow: 'hidden',
                 background: canOrder ? '#faf7f2' : '#060606',
@@ -203,25 +203,33 @@ export function DraftScreen({ onComplete }: Props) {
                   </div>
                 )}
               </div>
-
-              {/* ホームバー */}
               <div style={{ width: 44, height: 4, borderRadius: 2, background: canOrder ? '#b0b0b0' : '#333' }} />
             </motion.button>
-
-            {/* スタンド */}
             <div style={{ width: 10, height: 12, background: '#888', borderRadius: '0 0 3px 3px' }} />
             <div style={{ width: 32, height: 5, background: '#777', borderRadius: 3 }} />
           </div>
         </div>
 
-        {/* 3本のベルト */}
+        {/* 3本のベルト（PixiConveyorBelt使用） */}
         <div className="flex flex-col gap-3 mt-2">
           <ShinkansenLane
             plate={shinkansenPlate}
             onPickup={handleShinkansenPickup}
           />
-          <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} excludeIds={beltPurchased} duration={32} paused={false} onSelect={handleBeltSelect} />
-          <ConveyorLane label="ビルド系雑多" cards={buildCards} excludeIds={beltPurchased} duration={16} paused={false} onSelect={handleBeltSelect} />
+          <PixiConveyorBelt
+            label="汎用・サイドメニュー"
+            cards={generalCards}
+            excludeIds={beltPurchased}
+            duration={32}
+            onSelect={handleBeltSelect}
+          />
+          <PixiConveyorBelt
+            label="ビルド系雑多"
+            cards={buildCards}
+            excludeIds={beltPurchased}
+            duration={16}
+            onSelect={handleBeltSelect}
+          />
         </div>
       </div>
 

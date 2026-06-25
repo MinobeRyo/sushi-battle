@@ -30,14 +30,16 @@ const ARCHETYPE_COLORS: Record<string, string> = {
 
 type Props = {
   card: Card
+  displayPrice: number
+  isPremium?: boolean
   budget: number
   deckCount: number
   onPurchase: (card: Card) => void
   onClose: () => void
 }
 
-export function PurchaseModal({ card, budget, deckCount, onPurchase, onClose }: Props) {
-  const canAfford = budget >= card.price
+export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount, onPurchase, onClose }: Props) {
+  const canAfford = budget >= displayPrice
   const deckFull = deckCount >= 20
   const canBuy = canAfford && !deckFull
 
@@ -63,7 +65,10 @@ export function PurchaseModal({ card, budget, deckCount, onPurchase, onClose }: 
           {/* 上部 */}
           <div className="flex items-start justify-between mb-3">
             <div>
-              <h3 className="text-xl font-bold text-amber-100">{card.name}</h3>
+              <h3 className="text-xl font-bold text-amber-100 flex items-center gap-2">
+                {card.name}
+                {isPremium && <span className="text-xs bg-red-700 text-white px-1.5 py-0.5 rounded font-bold">🚄 特急</span>}
+              </h3>
               <div className="flex flex-wrap gap-1 mt-1">
                 {card.archetype.map(a => (
                   <span key={a} className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${ARCHETYPE_COLORS[a]}`}>
@@ -73,11 +78,18 @@ export function PurchaseModal({ card, budget, deckCount, onPurchase, onClose }: 
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
                   card.type === 'instant' ? 'bg-sky-900 text-sky-300' : 'bg-emerald-900 text-emerald-300'
                 }`}>
-                  {card.type === 'instant' ? '即時型' : '持続型'}
+                  {card.type === 'instant' ? '即時' : '持続'}
                 </span>
               </div>
             </div>
-            <p className="text-2xl font-bold text-yellow-400 tabular-nums">¥{card.price}</p>
+            <div className="text-right">
+              {isPremium && (
+                <p className="text-xs text-stone-500 line-through tabular-nums">¥{card.price}</p>
+              )}
+              <p className={`text-2xl font-bold tabular-nums ${isPremium ? 'text-red-400' : 'text-yellow-400'}`}>
+                ¥{displayPrice}
+              </p>
+            </div>
           </div>
 
           {/* ステータス */}
@@ -120,11 +132,11 @@ export function PurchaseModal({ card, budget, deckCount, onPurchase, onClose }: 
               whileTap={canBuy ? { scale: 0.95 } : {}}
               className={`flex-1 py-2.5 font-bold rounded-xl text-sm transition-colors ${
                 canBuy
-                  ? 'bg-red-700 hover:bg-red-600 text-white'
+                  ? isPremium ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-red-700 hover:bg-red-600 text-white'
                   : 'bg-stone-600 text-stone-400 cursor-not-allowed'
               }`}
             >
-              {deckFull ? 'デッキ満杯' : !canAfford ? '残高不足' : `購入 ¥${card.price}`}
+              {deckFull ? 'デッキ満杯' : !canAfford ? '残高不足' : `購入 ¥${displayPrice}`}
             </motion.button>
           </div>
         </motion.div>
