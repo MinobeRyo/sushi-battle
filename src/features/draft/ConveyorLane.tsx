@@ -1,9 +1,21 @@
-import { useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import type { Card } from '../../types'
 import { SushiPlate } from './SushiPlate'
 
-const CARD_SLOT = 90 + 32  // plate width + gap-8
-const PADDING_LEFT = 24    // px-6
+const CARD_W = 90
+const CARD_SLOT = CARD_W + 32  // plate width + gap
+
+let uidCounter = 0
+
+type LiveCard = {
+  id: string
+  card: Card
+  startX: number
+  endX: number
+  dur: number
+  born: number
+}
 
 type Props = {
   label: string
@@ -15,23 +27,88 @@ type Props = {
 }
 
 export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSelect }: Props) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const doubled = [...cards, ...cards]
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [liveCards, setLiveCards] = useState<LiveCard[]>([])
 
-  const calcTimeToExit = (index: number): number => {
-    const el = trackRef.current
-    if (!el) return 8
+  // Refs so the spawn loop always reads current values without stale closures
+  const cardsRef = useRef(cards)
+  cardsRef.current = cards
+  const excludeRef = useRef(excludeIds)
+  excludeRef.current = excludeIds
+  const durationRef = useRef(duration)
+  durationRef.current = duration
+  const pausedRef = useRef(paused)
+  pausedRef.current = paused
 
-    const matrix = new DOMMatrix(window.getComputedStyle(el).transform)
-    const currentX = matrix.m41  // 現在のX offset（負の値）
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>
 
-    // 皿の中心が画面左端を超えるまでの残りpx
-    const cardCenterX = PADDING_LEFT + index * CARD_SLOT + 45 + currentX
-    if (cardCenterX <= 0) return 0  // すでに画面外
+    // Derive speed from original duration prop, scaled 1.2×
+    const getSpeed = () => {
+      const n = cardsRef.current.length || 1
+      return (n * CARD_SLOT / durationRef.current) * 1.2  // px/s
+    }
 
-    const speed = (cards.length * CARD_SLOT) / duration  // px/s
-    return cardCenterX / speed
-  }
+    const makeCard = (): LiveCard | null => {
+      const available = cardsRef.current.filter(c => !excludeRef.current.has(c.id))
+      if (available.length === 0) return null
+      const w = containerRef.current?.getBoundingClientRect().width ?? 500
+      const speed = getSpeed()
+      const card = available[Math.floor(Math.random() * available.length)]
+      return {
+        id: String(++uidCounter),
+        card,
+        startX: w + CARD_W,
+        endX: -(CARD_W + 20),
+        dur: (w + CARD_W * 2) / speed,
+        born: Date.now(),
+      }
+    }
+
+    // 1.5× card slot spacing between spawns
+    const getSpawnInterval = () => (1.5 * CARD_SLOT / getSpeed()) * 1000  // ms
+
+    const scheduleNext = () => {
+      timeoutId = setTimeout(() => {
+        if (!pausedRef.current) {
+          const lc = makeCard()
+          if (lc) setLiveCards(prev => [...prev, lc])
+        }
+        scheduleNext()
+      }, getSpawnInterval())
+    }
+
+    // Pre-fill belt with cards already in motion
+    const w = containerRef.current?.getBoundingClientRect().width ?? 500
+    const speed = getSpeed()
+    const spacing = 1.5 * CARD_SLOT
+    const fullDist = w + CARD_W * 2
+    const initial: LiveCard[] = []
+    let x = w - CARD_W  // rightmost visible position
+    while (x > -(CARD_W + 20)) {
+      const available = cardsRef.current.filter(c => !excludeRef.current.has(c.id))
+      if (available.length === 0) break
+      const card = available[Math.floor(Math.random() * available.length)]
+      const remainDist = x + CARD_W + 20
+      const remainDur = remainDist / speed
+      const elapsed = fullDist / speed - remainDur
+      initial.push({
+        id: String(++uidCounter),
+        card,
+        startX: x,
+        endX: -(CARD_W + 20),
+        dur: remainDur,
+        born: Date.now() - elapsed * 1000,
+      })
+      x -= spacing
+    }
+    if (initial.length > 0) setLiveCards(initial)
+
+    // Schedule next spawn after the rightmost card would have fully exited
+    scheduleNext()
+
+    return () => clearTimeout(timeoutId)
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative select-none">
@@ -40,6 +117,7 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
       </p>
 
       <div
+        ref={containerRef}
         className="relative overflow-hidden"
         style={{
           height: 112,
@@ -60,34 +138,39 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
           style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.05), transparent)' }}
         />
 
-        <div
-          ref={trackRef}
-          className="flex items-center gap-8 px-6 absolute inset-y-0 left-0"
-          style={{
-            animation: `conveyor ${duration}s linear infinite`,
-            animationPlayState: paused ? 'paused' : 'running',
-            width: 'max-content',
-          }}
-        >
-          {doubled.map((card, i) =>
-            excludeIds.has(card.id) ? (
+        {liveCards.map(lc => (
+          <motion.div
+            key={lc.id}
+            className="absolute top-1/2 -translate-y-1/2"
+            style={{ left: 0 }}
+            initial={{ x: lc.startX }}
+            animate={{ x: lc.endX }}
+            transition={{ duration: lc.dur, ease: 'linear' }}
+            onAnimationComplete={() =>
+              setLiveCards(prev => prev.filter(c => c.id !== lc.id))
+            }
+          >
+            {excludeRef.current.has(lc.card.id) ? (
               <div
-                key={`${card.id}-${i}`}
                 style={{
-                  width: 90, height: 90, borderRadius: '50%', flexShrink: 0,
+                  width: CARD_W,
+                  height: CARD_W,
+                  borderRadius: '50%',
                   border: '3px dashed rgba(87,83,78,0.5)',
                   background: 'rgba(0,0,0,0.2)',
                 }}
               />
             ) : (
               <SushiPlate
-                key={`${card.id}-${i}`}
-                card={card}
-                onClick={() => onSelect(card, calcTimeToExit(i))}
+                card={lc.card}
+                onClick={() => {
+                  const elapsed = (Date.now() - lc.born) / 1000
+                  onSelect(lc.card, Math.max(0, lc.dur - elapsed))
+                }}
               />
-            )
-          )}
-        </div>
+            )}
+          </motion.div>
+        ))}
       </div>
     </div>
   )

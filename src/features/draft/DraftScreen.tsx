@@ -271,6 +271,18 @@ export function DraftScreen({ onComplete }: Props) {
       {showShinkansenModal && (
         <ShinkansenOrderModal budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)} />
       )}
+
+      {/* DEVボタン: 今の手札でバトルへスキップ */}
+      <button
+        onClick={() => onComplete(deck)}
+        style={{
+          position: 'absolute', bottom: 12, right: 12, zIndex: 50,
+          padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+          background: '#7f1d1d', color: '#fca5a5', border: '1px solid #991b1b',
+        }}
+      >
+        ⚡ DEV: バトルへ ({deck.length}枚)
+      </button>
     </div>
   )
 }

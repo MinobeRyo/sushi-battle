@@ -18,6 +18,7 @@ export default function App() {
     setPhase('battle')
   }
 
+
   return (
     <div className="w-full h-full relative">
       {phase === 'title' && (
@@ -36,7 +37,7 @@ export default function App() {
         <DraftScreenThree onComplete={handleDraftComplete} />
       )}
       {phase === 'battle' && (
-        <BattleScreen deck={playerDeck} />
+        <BattleScreen deck={playerDeck} onBack={() => setPhase('title')} />
       )}
 
       {/* CSS / Three.js 切り替えトグル */}
