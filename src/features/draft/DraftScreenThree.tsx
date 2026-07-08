@@ -13,7 +13,6 @@ import type { Card } from '../../types'
 const DRAFT_SECONDS = 90
 const INITIAL_BUDGET = 3000
 const SHINKANSEN_TOTAL = 3
-const BUILD_LANE_MAX = 12
 const SPACING = 2.3   // world-unit spacing between plates
 const LEFT_EDGE = -12 // plate wraps when it goes below this x
 
@@ -46,6 +45,7 @@ const BASE_NETA_COLOR: Record<string, string> = {
   'マグロ': '#b01020', 'アジ': '#9ab0c0', 'サバ': '#8090a8',
   'コハダ': '#788898', '和牛': '#7c3014', 'カルビ': '#8c3818',
   'うめ': '#d04060', '納豆': '#b89040',
+  'いなり': '#c8883c', 'ツナサラダ': '#ded0b2',
 }
 
 const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string }> = {
@@ -70,7 +70,9 @@ function shuffled<T>(arr: T[]): T[] {
 
 const GUNKAN_BASES = new Set(['うに', 'いくら', 'とびこ', 'コーン', '明太子', '納豆', 'うめ', 'チーズ', 'アボカド'])
 
-function NigiriNeta({ color, roughness, metalness }: { color: string; roughness: number; metalness: number }) {
+function NigiriNeta({ color, roughness, metalness, map }: {
+  color: string; roughness: number; metalness: number; map?: THREE.Texture | null
+}) {
   const geometry = useMemo(() => {
     const segsX = 24, segsZ = 6
     const w = 1.00, d = 0.58, thickness = 0.08
@@ -78,8 +80,11 @@ function NigiriNeta({ color, roughness, metalness }: { color: string; roughness:
     const droopY = (x: number) => -0.15 * (x / halfW) ** 2
 
     const pos: number[] = []
+    const uv: number[] = []
     const idx: number[] = []
-    const addV = (x: number, y: number, z: number) => { pos.push(x, y, z); return pos.length / 3 - 1 }
+    const addV = (x: number, y: number, z: number, u: number, v: number) => {
+      pos.push(x, y, z); uv.push(u, v); return pos.length / 3 - 1
+    }
 
     // 上面・下面の頂点グリッド
     const top: number[][] = [], bot: number[][] = []
@@ -89,8 +94,8 @@ function NigiriNeta({ color, roughness, metalness }: { color: string; roughness:
         const x = (xi / segsX - 0.5) * w
         const z = (zi / segsZ - 0.5) * d
         const y = droopY(x)
-        top[zi].push(addV(x, y, z))
-        bot[zi].push(addV(x, y - thickness, z))
+        top[zi].push(addV(x, y, z, xi / segsX, zi / segsZ))
+        bot[zi].push(addV(x, y - thickness, z, xi / segsX, zi / segsZ))
       }
     }
 
@@ -127,6 +132,7 @@ function NigiriNeta({ color, roughness, metalness }: { color: string; roughness:
 
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
     geo.setIndex(idx)
     geo.computeVertexNormals()
     return geo
@@ -134,14 +140,48 @@ function NigiriNeta({ color, roughness, metalness }: { color: string; roughness:
 
   return (
     <mesh geometry={geometry}>
-      <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} />
+      <meshPhysicalMaterial
+        color={map ? '#ffffff' : color}
+        map={map ?? undefined}
+        roughness={roughness}
+        metalness={metalness}
+        clearcoat={0.45}
+        clearcoatRoughness={0.35}
+      />
     </mesh>
   )
+}
+
+// サーモン・えび用の白い筋テクスチャ（Canvas生成）
+function useStripeTexture(base: string, color: string): THREE.Texture | null {
+  return useMemo(() => {
+    if (base !== 'サーモン' && base !== 'えび') return null
+    const cv = document.createElement('canvas')
+    cv.width = 256; cv.height = 128
+    const ctx = cv.getContext('2d')
+    if (!ctx) return null
+    ctx.fillStyle = color
+    ctx.fillRect(0, 0, 256, 128)
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+    ctx.lineWidth = 9
+    ctx.lineCap = 'round'
+    for (let x = -20; x <= 300; x += 44) {
+      ctx.beginPath()
+      ctx.moveTo(x - 22, 142)
+      ctx.quadraticCurveTo(x + 12, 64, x - 22, -14)
+      ctx.stroke()
+    }
+    const tex = new THREE.CanvasTexture(cv)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.anisotropy = 4
+    return tex
+  }, [base, color])
 }
 
 function NigiriSushi({ archetype, base }: { archetype: string; base: string }) {
   const mat = NETA_MAT[archetype] ?? NETA_MAT.general
   const netaColor = BASE_NETA_COLOR[base] ?? mat.color
+  const stripeTex = useStripeTexture(base, netaColor)
   return (
     <group>
       {/* シャリ - ふっくらした楕円 */}
@@ -151,14 +191,30 @@ function NigiriSushi({ archetype, base }: { archetype: string; base: string }) {
       </mesh>
       {/* ネタ - シャリの上から両端に垂れ下がる曲面 */}
       <group position={[0, 0.53, 0]}>
-        <NigiriNeta color={netaColor} roughness={mat.roughness} metalness={mat.metalness} />
+        <NigiriNeta color={netaColor} roughness={mat.roughness} metalness={mat.metalness} map={stripeTex} />
       </group>
+      {/* たまごの海苔帯 */}
+      {base === 'たまご' && (
+        <mesh position={[0, 0.32, 0]}>
+          <boxGeometry args={[0.22, 0.54, 0.66]} />
+          <meshStandardMaterial color="#1a2410" roughness={0.85} metalness={0} />
+        </mesh>
+      )}
     </group>
   )
 }
 
+// 粒もの軍艦（いくら・とびこ・コーン・納豆）の粒配置（決め打ちで自然なばらつき）
+const GUNKAN_DOT_BASES = new Set(['いくら', 'とびこ', 'コーン', '納豆'])
+const GUNKAN_DOTS: Array<[number, number, number]> = [
+  [0, 0.60, 0], [0.13, 0.58, 0.07], [-0.13, 0.58, 0.05], [0.06, 0.59, -0.11],
+  [-0.08, 0.58, -0.10], [0.19, 0.55, -0.04], [-0.19, 0.55, -0.02], [0.01, 0.59, 0.13],
+  [0.11, 0.56, 0.14], [-0.12, 0.56, 0.13], [0.20, 0.54, 0.09], [-0.21, 0.54, 0.08],
+]
+
 function GunkanSushi({ base }: { base: string }) {
   const toppingColor = BASE_NETA_COLOR[base] ?? '#f0a830'
+  const isDots = GUNKAN_DOT_BASES.has(base)
   return (
     <group scale={[1.45, 1, 0.85]}>
       {/* 海苔 - 高い筒状カップ */}
@@ -176,16 +232,41 @@ function GunkanSushi({ base }: { base: string }) {
         <cylinderGeometry args={[0.29, 0.29, 0.22, 22]} />
         <meshStandardMaterial color="#f5f0e8" roughness={0.85} metalness={0} />
       </mesh>
-      {/* 具材メイン（海苔からはみ出す） */}
-      <mesh position={[0, 0.56, 0]} scale={[1.05, 0.62, 1.05]}>
-        <sphereGeometry args={[0.34, 20, 14]} />
-        <meshStandardMaterial color={toppingColor} roughness={0.44} metalness={0} />
-      </mesh>
-      {/* 具材サブ（でこぼこ感） */}
-      <mesh position={[-0.09, 0.60, 0.07]} scale={[0.72, 0.52, 0.72]}>
-        <sphereGeometry args={[0.26, 16, 12]} />
-        <meshStandardMaterial color={toppingColor} roughness={0.48} metalness={0} />
-      </mesh>
+      {isDots ? (
+        <>
+          {/* シャリの盛り（粒の土台） */}
+          <mesh position={[0, 0.48, 0]} scale={[1, 0.55, 1]}>
+            <sphereGeometry args={[0.29, 18, 12]} />
+            <meshStandardMaterial color="#f5f0e8" roughness={0.85} metalness={0} />
+          </mesh>
+          {/* 粒（ツヤのある小球） */}
+          {GUNKAN_DOTS.map(([x, y, z], i) => (
+            <mesh key={i} position={[x, y, z]}>
+              <sphereGeometry args={[0.075, 12, 10]} />
+              <meshPhysicalMaterial
+                color={toppingColor}
+                roughness={0.12}
+                metalness={0}
+                clearcoat={1}
+                clearcoatRoughness={0.12}
+              />
+            </mesh>
+          ))}
+        </>
+      ) : (
+        <>
+          {/* 具材メイン（海苔からはみ出す） */}
+          <mesh position={[0, 0.56, 0]} scale={[1.05, 0.62, 1.05]}>
+            <sphereGeometry args={[0.34, 20, 14]} />
+            <meshPhysicalMaterial color={toppingColor} roughness={0.4} metalness={0} clearcoat={0.5} clearcoatRoughness={0.4} />
+          </mesh>
+          {/* 具材サブ（でこぼこ感） */}
+          <mesh position={[-0.09, 0.60, 0.07]} scale={[0.72, 0.52, 0.72]}>
+            <sphereGeometry args={[0.26, 16, 12]} />
+            <meshPhysicalMaterial color={toppingColor} roughness={0.45} metalness={0} clearcoat={0.5} clearcoatRoughness={0.4} />
+          </mesh>
+        </>
+      )}
     </group>
   )
 }
@@ -218,7 +299,7 @@ function MakiPlate({ base }: { base: string }) {
             <meshStandardMaterial color={fillColor} roughness={0.6} metalness={0} />
           </mesh>
           {/* 切り口（両端） */}
-          {([h / 2, -h / 2] as [number, number][]).map((y, j) => (
+          {[h / 2, -h / 2].map((y, j) => (
             <group key={j} position={[0, y, 0]} rotation={[y > 0 ? -Math.PI / 2 : Math.PI / 2, 0, 0]}>
               <mesh>
                 <ringGeometry args={[rRice, rNori, 22]} />
@@ -249,29 +330,37 @@ function SushiGeometry({ card }: { card: Card }) {
 }
 
 // ─── 3D Plate ─────────────────────────────────────────────────────────────────
+// 各皿は「スロット」：左端に消えたら右端から新しいカードとして再登場する
+// カードはレーン共有のシャッフルバッグから引く（出現の偏りを防ぐ）
 
 interface BeltPlate3DProps {
-  card: Card
+  drawCard: () => Card
   laneZ: number
   initialX: number
   speed: number
   wrapWidth: number
-  excluded: boolean
-  onSelect: (card: Card) => void
+  onSelect: (card: Card, markSold: () => void) => void
 }
 
-function BeltPlate3D({ card, laneZ, initialX, speed, wrapWidth, excluded, onSelect }: BeltPlate3DProps) {
+function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const posX = useRef(initialX)
   const liftY = useRef(0)
   const [hovered, setHovered] = useState(false)
+  const [card, setCard] = useState<Card>(() => drawCard())
+  const [sold, setSold] = useState(false)
   const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
 
   useFrame((_, delta) => {
     posX.current -= speed * delta
-    if (posX.current < LEFT_EDGE) posX.current += wrapWidth
+    if (posX.current < LEFT_EDGE) {
+      // 右端へ戻し、バッグから新しいカードを補充
+      posX.current += wrapWidth
+      setCard(drawCard())
+      setSold(false)
+    }
 
-    const targetY = hovered ? 0.28 : 0
+    const targetY = hovered && !sold ? 0.28 : 0
     liftY.current += (targetY - liftY.current) * 10 * delta
 
     if (groupRef.current) {
@@ -280,10 +369,11 @@ function BeltPlate3D({ card, laneZ, initialX, speed, wrapWidth, excluded, onSele
     }
   })
 
-  if (excluded) {
+  if (sold) {
+    // 購入済みの皿（この皿だけ空になり、流れ続けて右から補充される）
     return (
       <group ref={groupRef} position={[initialX, 0, laneZ]}>
-        <mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <torusGeometry args={[0.7, 0.035, 6, 24]} />
           <meshStandardMaterial color="#57534e" transparent opacity={0.4} />
         </mesh>
@@ -302,7 +392,7 @@ function BeltPlate3D({ card, laneZ, initialX, speed, wrapWidth, excluded, onSele
       <mesh
         position={[0, 0.06, 0]}
         scale={hovered ? [1.12, 1, 1.12] : [1, 1, 1]}
-        onClick={(e) => { e.stopPropagation(); onSelect(card) }}
+        onClick={(e) => { e.stopPropagation(); onSelect(card, () => setSold(true)) }}
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
         onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto' }}
       >
@@ -341,23 +431,31 @@ function BeltPlate3D({ card, laneZ, initialX, speed, wrapWidth, excluded, onSele
 interface BeltLane3DProps {
   label: string
   cards: Card[]
-  excludeIds: Set<string>
   duration: number
   laneZ: number
   isShinkansen?: boolean
-  onSelect: (card: Card) => void
+  onSelect: (card: Card, markSold: () => void) => void
 }
 
-function BeltLane3D({ label, cards, excludeIds, duration, laneZ, isShinkansen, onSelect }: BeltLane3DProps) {
-  const wrapWidth = cards.length * SPACING
-  const speed = wrapWidth / duration
+function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSelect }: BeltLane3DProps) {
+  // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
+  const slotCount = Math.min(cards.length, 12)
+  const wrapWidth = slotCount * SPACING
+  const speed = duration > 0 ? wrapWidth / duration : 0
   const railColor = isShinkansen ? '#ca8a04' : '#57534e'
   const beltColor = isShinkansen ? '#0f0d0b' : '#1c1917'
 
+  // シャッフルバッグ：プール全体を使い切るまで重複なしで引く
+  const bagRef = useRef<Card[]>([])
+  const drawCard = () => {
+    if (bagRef.current.length === 0) bagRef.current = shuffled(cards)
+    return bagRef.current.pop()!
+  }
+
   const initialXs = useMemo(
-    () => cards.map((_, i) => LEFT_EDGE + 1 + i * SPACING),
+    () => Array.from({ length: slotCount }, (_, i) => LEFT_EDGE + 1 + i * SPACING),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cards.length]
+    [slotCount]
   )
 
   return (
@@ -385,16 +483,15 @@ function BeltLane3D({ label, cards, excludeIds, duration, laneZ, isShinkansen, o
       >
         {label}
       </Text>
-      {/* Plates */}
-      {cards.map((card, i) => (
+      {/* Plates（スロット式：右端に戻るたびシャッフルバッグから補充） */}
+      {initialXs.map((x, i) => (
         <BeltPlate3D
-          key={card.id}
-          card={card}
+          key={i}
+          drawCard={drawCard}
           laneZ={laneZ}
-          initialX={initialXs[i]}
+          initialX={x}
           speed={speed}
           wrapWidth={wrapWidth}
-          excluded={excludeIds.has(card.id)}
           onSelect={onSelect}
         />
       ))}
@@ -490,13 +587,12 @@ function Counter() {
 interface SceneProps {
   generalCards: Card[]
   buildCards: Card[]
-  beltPurchased: Set<string>
   shinkansenPlate: { card: Card } | null
-  onBeltSelect: (card: Card) => void
+  onBeltSelect: (card: Card, markSold: () => void) => void
   onShinkansenPickup: () => void
 }
 
-function Scene({ generalCards, buildCards, beltPurchased, shinkansenPlate, onBeltSelect, onShinkansenPickup }: SceneProps) {
+function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup }: SceneProps) {
   const LANE_SHINKANSEN = -2.6
   const LANE_GENERAL = 0
   const LANE_BUILD = 2.6
@@ -518,7 +614,6 @@ function Scene({ generalCards, buildCards, beltPurchased, shinkansenPlate, onBel
       <BeltLane3D
         label="🚄 新幹線レーン"
         cards={[]}
-        excludeIds={new Set()}
         duration={1}
         laneZ={LANE_SHINKANSEN}
         isShinkansen
@@ -530,7 +625,6 @@ function Scene({ generalCards, buildCards, beltPurchased, shinkansenPlate, onBel
       <BeltLane3D
         label="汎用・サイドメニュー"
         cards={generalCards}
-        excludeIds={beltPurchased}
         duration={32}
         laneZ={LANE_GENERAL}
         onSelect={onBeltSelect}
@@ -540,7 +634,6 @@ function Scene({ generalCards, buildCards, beltPurchased, shinkansenPlate, onBel
       <BeltLane3D
         label="ビルド系雑多"
         cards={buildCards}
-        excludeIds={beltPurchased}
         duration={16}
         laneZ={LANE_BUILD}
         onSelect={onBeltSelect}
@@ -552,7 +645,7 @@ function Scene({ generalCards, buildCards, beltPurchased, shinkansenPlate, onBel
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = { onComplete: (deck: Card[]) => void }
-type SelectedItem = { card: Card; price: number }
+type SelectedItem = { card: Card; price: number; markSold?: () => void }
 
 export function DraftScreenThree({ onComplete }: Props) {
   const [budget, setBudget] = useState(INITIAL_BUDGET)
@@ -562,7 +655,6 @@ export function DraftScreenThree({ onComplete }: Props) {
   const [shinkansenLeft, setShinkansenLeft] = useState(SHINKANSEN_TOTAL)
   const [showShinkansenModal, setShowShinkansenModal] = useState(false)
   const [shinkansenPlate, setShinkansenPlate] = useState<{ card: Card } | null>(null)
-  const [beltPurchased, setBeltPurchased] = useState<Set<string>>(new Set())
   const [handOpen, setHandOpen] = useState(false)
 
   const deckRef = useRef<Card[]>([])
@@ -585,9 +677,9 @@ export function DraftScreenThree({ onComplete }: Props) {
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }
 
-  const handleBeltSelect = (card: Card) => {
+  const handleBeltSelect = (card: Card, markSold: () => void) => {
     clearAutoClose()
-    setSelected({ card, price: card.price })
+    setSelected({ card, price: card.price, markSold })
     autoCloseTimer.current = setTimeout(() => setSelected(null), 10000)
   }
 
@@ -596,7 +688,7 @@ export function DraftScreenThree({ onComplete }: Props) {
     if (!selected || budget < selected.price || deck.length >= 20) return
     setBudget(b => b - selected.price)
     setDeck(d => [...d, card])
-    setBeltPurchased(prev => new Set([...prev, card.id]))
+    selected.markSold?.()  // 買った皿だけをベルトから消す
     setSelected(null)
   }
 
@@ -617,7 +709,8 @@ export function DraftScreenThree({ onComplete }: Props) {
   }
 
   const generalCards = getCardsByLane('general')
-  const buildCards = useMemo(() => shuffled(getCardsByLane('build')).slice(0, BUILD_LANE_MAX), [])
+  // 全ビルドカードが対象（レーン側のシャッフルバッグで満遍なく流れる）
+  const buildCards = useMemo(() => getCardsByLane('build'), [])
 
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
@@ -656,7 +749,6 @@ export function DraftScreenThree({ onComplete }: Props) {
             <Scene
               generalCards={generalCards}
               buildCards={buildCards}
-              beltPurchased={beltPurchased}
               shinkansenPlate={shinkansenPlate}
               onBeltSelect={handleBeltSelect}
               onShinkansenPickup={handleShinkansenPickup}
@@ -779,6 +871,19 @@ export function DraftScreenThree({ onComplete }: Props) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* バトルへ進むボタン */}
+      <button
+        onClick={() => onComplete(deck)}
+        style={{
+          position: 'absolute', bottom: 52, right: 12, zIndex: 50,
+          padding: '8px 18px', borderRadius: 20, fontSize: 13, fontWeight: 800,
+          background: '#ea580c', color: '#fff', border: '1px solid #fb923c',
+          cursor: 'pointer', boxShadow: '0 0 16px rgba(234,88,12,0.5)',
+        }}
+      >
+        ⚔ バトルへ ({deck.length}枚)
+      </button>
     </div>
   )
 }

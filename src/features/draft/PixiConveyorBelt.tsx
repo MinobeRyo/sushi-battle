@@ -124,8 +124,8 @@ export function PixiConveyorBelt({ label, cards, excludeIds, duration, onSelect 
       const drawPlate = (excluded: boolean) => {
         gfx.clear()
         plateContainer.removeAllListeners()
-        plateContainer.interactive = false
-        plateContainer.buttonMode = false
+        plateContainer.eventMode = 'none'
+        plateContainer.cursor = 'default'
 
         if (excluded) {
           gfx.lineStyle(3, 0x57534e, 0.45)
@@ -159,8 +159,8 @@ export function PixiConveyorBelt({ label, cards, excludeIds, duration, onSelect 
           nameTxt.visible = true
           priceTxt.visible = true
 
-          plateContainer.interactive = true
-          plateContainer.buttonMode = true
+          plateContainer.eventMode = 'static'
+          plateContainer.cursor = 'pointer'
 
           let hovering = false
 

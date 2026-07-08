@@ -9,16 +9,16 @@ export function ModeSelectScreen({ onSelect, onBack }: Props) {
       <h2 className="text-4xl font-bold text-amber-100">モード選択</h2>
       <div className="flex flex-col gap-4 w-56">
         <button
+          onClick={() => onSelect('cpu')}
+          className="py-4 bg-orange-700 hover:bg-orange-600 text-white text-xl font-bold rounded-xl transition-colors"
+        >
+          CPU対戦
+        </button>
+        <button
           onClick={() => onSelect('2p')}
           className="py-4 bg-emerald-700 hover:bg-emerald-600 text-white text-xl font-bold rounded-xl transition-colors"
         >
           二人対戦
-        </button>
-        <button
-          disabled
-          className="py-4 bg-stone-700 text-stone-500 text-xl font-bold rounded-xl cursor-not-allowed"
-        >
-          CPU対戦（準備中）
         </button>
       </div>
       <button onClick={onBack} className="text-stone-400 hover:text-stone-200 transition-colors">

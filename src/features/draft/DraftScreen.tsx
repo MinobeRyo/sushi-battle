@@ -10,7 +10,6 @@ import type { Card } from '../../types'
 const DRAFT_SECONDS = 90
 const INITIAL_BUDGET = 3000
 const SHINKANSEN_TOTAL = 3
-const BUILD_LANE_MAX = 12
 
 const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   akami:    { bg: '#7f1d1d', text: '#fca5a5', label: '赤身' },
@@ -21,27 +20,22 @@ const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string 
   general:  { bg: '#292524', text: '#d6d3d1', label: '汎用' },
 }
 
-type Props = { onComplete: (deck: Card[]) => void }
-type SelectedItem = { card: Card; price: number }
-
-function shuffled<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
+type Props = {
+  onComplete: (deck: Card[]) => void
+  playerNum?: 1 | 2
+  initialBudget?: number   // 追加注文タイムでは¥1500
+  seconds?: number         // 追加注文タイムでは短め
 }
+type SelectedItem = { card: Card; price: number; markSold?: () => void }
 
-export function DraftScreen({ onComplete }: Props) {
-  const [budget, setBudget] = useState(INITIAL_BUDGET)
-  const [timeLeft, setTimeLeft] = useState(DRAFT_SECONDS)
+export function DraftScreen({ onComplete, playerNum, initialBudget = INITIAL_BUDGET, seconds = DRAFT_SECONDS }: Props) {
+  const [budget, setBudget] = useState(initialBudget)
+  const [timeLeft, setTimeLeft] = useState(seconds)
   const [deck, setDeck] = useState<Card[]>([])
   const [selected, setSelected] = useState<SelectedItem | null>(null)
   const [shinkansenLeft, setShinkansenLeft] = useState(SHINKANSEN_TOTAL)
   const [showShinkansenModal, setShowShinkansenModal] = useState(false)
   const [shinkansenPlate, setShinkansenPlate] = useState<{ card: Card } | null>(null)
-  const [beltPurchased, setBeltPurchased] = useState<Set<string>>(new Set())
   const [handOpen, setHandOpen] = useState(false)
 
   const deckRef = useRef<Card[]>([])
@@ -64,9 +58,9 @@ export function DraftScreen({ onComplete }: Props) {
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }
 
-  const handleBeltSelect = (card: Card, timeToExit: number) => {
+  const handleBeltSelect = (card: Card, timeToExit: number, markSold: () => void) => {
     clearAutoClose()
-    setSelected({ card, price: card.price })
+    setSelected({ card, price: card.price, markSold })
     if (timeToExit > 0) {
       autoCloseTimer.current = setTimeout(() => setSelected(null), timeToExit * 1000)
     }
@@ -77,7 +71,7 @@ export function DraftScreen({ onComplete }: Props) {
     if (!selected || budget < selected.price || deck.length >= 20) return
     setBudget(b => b - selected.price)
     setDeck(d => [...d, card])
-    setBeltPurchased(prev => new Set([...prev, card.id]))
+    selected.markSold?.()  // 買った皿だけをベルトから消す
     setSelected(null)
   }
 
@@ -98,7 +92,8 @@ export function DraftScreen({ onComplete }: Props) {
   }
 
   const generalCards = getCardsByLane('general')
-  const buildCards = useMemo(() => shuffled(getCardsByLane('build')).slice(0, BUILD_LANE_MAX), [])
+  // 全ビルドカードが対象（レーン側のシャッフルバッグで満遍なく流れる）
+  const buildCards = useMemo(() => getCardsByLane('build'), [])
 
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
@@ -110,8 +105,15 @@ export function DraftScreen({ onComplete }: Props) {
       {/* ヘッダー */}
       <div className="flex items-center justify-between px-5 py-2.5 flex-shrink-0 z-10"
         style={{ background: '#2c1006', borderBottom: '1px solid #78350f' }}>
-        <div className={`font-mono text-lg font-bold tabular-nums tracking-wider ${urgent ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
-          ⏱ {mins}:{String(secs).padStart(2, '0')}
+        <div className="flex items-center gap-2">
+          <div className={`font-mono text-lg font-bold tabular-nums tracking-wider ${urgent ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
+            ⏱ {mins}:{String(secs).padStart(2, '0')}
+          </div>
+          {playerNum && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#78350f', color: '#fde68a' }}>
+              P{playerNum}
+            </span>
+          )}
         </div>
         <div className="text-sm">
           <span className="text-amber-600">デッキ </span>
@@ -220,8 +222,8 @@ export function DraftScreen({ onComplete }: Props) {
             plate={shinkansenPlate}
             onPickup={handleShinkansenPickup}
           />
-          <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} excludeIds={beltPurchased} duration={32} paused={false} onSelect={handleBeltSelect} />
-          <ConveyorLane label="ビルド系雑多" cards={buildCards} excludeIds={beltPurchased} duration={16} paused={false} onSelect={handleBeltSelect} />
+          <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} duration={32} paused={false} onSelect={handleBeltSelect} />
+          <ConveyorLane label="ビルド系雑多" cards={buildCards} duration={16} paused={false} onSelect={handleBeltSelect} />
         </div>
       </div>
 

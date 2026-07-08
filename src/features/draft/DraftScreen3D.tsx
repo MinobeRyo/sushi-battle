@@ -22,7 +22,7 @@ const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string 
 }
 
 type Props = { onComplete: (deck: Card[]) => void }
-type SelectedItem = { card: Card; price: number }
+type SelectedItem = { card: Card; price: number; markSold?: () => void }
 
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -41,7 +41,6 @@ export function DraftScreen3D({ onComplete }: Props) {
   const [shinkansenLeft, setShinkansenLeft] = useState(SHINKANSEN_TOTAL)
   const [showShinkansenModal, setShowShinkansenModal] = useState(false)
   const [shinkansenPlate, setShinkansenPlate] = useState<{ card: Card } | null>(null)
-  const [beltPurchased, setBeltPurchased] = useState<Set<string>>(new Set())
   const [handOpen, setHandOpen] = useState(false)
 
   const deckRef = useRef<Card[]>([])
@@ -64,9 +63,9 @@ export function DraftScreen3D({ onComplete }: Props) {
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }
 
-  const handleBeltSelect = (card: Card, timeToExit: number) => {
+  const handleBeltSelect = (card: Card, timeToExit: number, markSold: () => void) => {
     clearAutoClose()
-    setSelected({ card, price: card.price })
+    setSelected({ card, price: card.price, markSold })
     if (timeToExit > 0) {
       autoCloseTimer.current = setTimeout(() => setSelected(null), timeToExit * 1000)
     }
@@ -77,7 +76,7 @@ export function DraftScreen3D({ onComplete }: Props) {
     if (!selected || budget < selected.price || deck.length >= 20) return
     setBudget(b => b - selected.price)
     setDeck(d => [...d, card])
-    setBeltPurchased(prev => new Set([...prev, card.id]))
+    selected.markSold?.()
     setSelected(null)
   }
 
@@ -223,8 +222,8 @@ export function DraftScreen3D({ onComplete }: Props) {
             }}
           >
             <ShinkansenLane plate={shinkansenPlate} onPickup={handleShinkansenPickup} />
-            <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} excludeIds={beltPurchased} duration={32} paused={false} onSelect={handleBeltSelect} />
-            <ConveyorLane label="ビルド系雑多" cards={buildCards} excludeIds={beltPurchased} duration={16} paused={false} onSelect={handleBeltSelect} />
+            <ConveyorLane label="汎用・サイドメニュー" cards={generalCards} duration={32} paused={false} onSelect={handleBeltSelect} />
+            <ConveyorLane label="ビルド系雑多" cards={buildCards} duration={16} paused={false} onSelect={handleBeltSelect} />
           </div>
         </div>
       </div>

@@ -8,8 +8,10 @@ const EFFECT_LABELS: Record<string, string> = {
   kireta_stack: '切れ味スタック +1',
   kireta_consume_x2: '切れ味スタック全消費 ×2ダメージ',
   chain_on_kaisen_summon: '海鮮召喚時に連鎖攻撃',
+  draw_1: '召喚時、カードを1枚引く',
+  ap_next_1: '次のターンだけ AP +1',
   belly_boost_70: '相手お腹 >70 で攻撃 +8',
-  belly_boost_65: '相手お腹 >65 で攻撃 +8',
+  belly_boost_65: '相手お腹 >65 で攻撃 +6',
   belly_boost_60: '相手お腹 >60 で攻撃 +5',
   belly_boost_persist_50: '机にいる間 相手お腹 >50 で攻撃 +2',
 }

@@ -8,6 +8,15 @@ const CARD_SLOT = CARD_W + 32  // plate width + gap
 
 let uidCounter = 0
 
+function shuffleCopy<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 type LiveCard = {
   id: string
   card: Card
@@ -15,26 +24,27 @@ type LiveCard = {
   endX: number
   dur: number
   born: number
+  sold: boolean
 }
 
 type Props = {
   label: string
   cards: Card[]
-  excludeIds: Set<string>
   duration: number
   paused: boolean
-  onSelect: (card: Card, timeToExit: number) => void
+  // markSold: この皿だけを売り切れ表示にするコールバック
+  onSelect: (card: Card, timeToExit: number, markSold: () => void) => void
 }
 
-export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSelect }: Props) {
+export function ConveyorLane({ label, cards, duration, paused, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [liveCards, setLiveCards] = useState<LiveCard[]>([])
+  // シャッフルバッグ：全カードを使い切るまで重複なしで出す → 出現の偏りを防ぐ
+  const bagRef = useRef<Card[]>([])
 
   // Refs so the spawn loop always reads current values without stale closures
   const cardsRef = useRef(cards)
   cardsRef.current = cards
-  const excludeRef = useRef(excludeIds)
-  excludeRef.current = excludeIds
   const durationRef = useRef(duration)
   durationRef.current = duration
   const pausedRef = useRef(paused)
@@ -44,17 +54,25 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
     let timeoutId: ReturnType<typeof setTimeout>
 
     // Derive speed from original duration prop, scaled 1.2×
+    // プール全体が大きくてもベルト速度が上がりすぎないよう12枚相当で頭打ち
     const getSpeed = () => {
-      const n = cardsRef.current.length || 1
+      const n = Math.min(cardsRef.current.length, 12) || 1
       return (n * CARD_SLOT / durationRef.current) * 1.2  // px/s
     }
 
+    const pickCard = (): Card | null => {
+      const pool = cardsRef.current
+      if (pool.length === 0) return null
+      if (bagRef.current.length === 0) bagRef.current = shuffleCopy(pool)
+      return bagRef.current.pop()!
+    }
+
+    // 右端からランダムなカードが流れてくる（購入済みでも補充される）
     const makeCard = (): LiveCard | null => {
-      const available = cardsRef.current.filter(c => !excludeRef.current.has(c.id))
-      if (available.length === 0) return null
+      const card = pickCard()
+      if (!card) return null
       const w = containerRef.current?.getBoundingClientRect().width ?? 500
       const speed = getSpeed()
-      const card = available[Math.floor(Math.random() * available.length)]
       return {
         id: String(++uidCounter),
         card,
@@ -62,6 +80,7 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
         endX: -(CARD_W + 20),
         dur: (w + CARD_W * 2) / speed,
         born: Date.now(),
+        sold: false,
       }
     }
 
@@ -86,9 +105,8 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
     const initial: LiveCard[] = []
     let x = w - CARD_W  // rightmost visible position
     while (x > -(CARD_W + 20)) {
-      const available = cardsRef.current.filter(c => !excludeRef.current.has(c.id))
-      if (available.length === 0) break
-      const card = available[Math.floor(Math.random() * available.length)]
+      const card = pickCard()
+      if (!card) break
       const remainDist = x + CARD_W + 20
       const remainDur = remainDist / speed
       const elapsed = fullDist / speed - remainDur
@@ -99,6 +117,7 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
         endX: -(CARD_W + 20),
         dur: remainDur,
         born: Date.now() - elapsed * 1000,
+        sold: false,
       })
       x -= spacing
     }
@@ -150,7 +169,8 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
               setLiveCards(prev => prev.filter(c => c.id !== lc.id))
             }
           >
-            {excludeRef.current.has(lc.card.id) ? (
+            {lc.sold ? (
+              // 購入済みの皿（この皿だけが空になる）
               <div
                 style={{
                   width: CARD_W,
@@ -165,7 +185,11 @@ export function ConveyorLane({ label, cards, excludeIds, duration, paused, onSel
                 card={lc.card}
                 onClick={() => {
                   const elapsed = (Date.now() - lc.born) / 1000
-                  onSelect(lc.card, Math.max(0, lc.dur - elapsed))
+                  onSelect(
+                    lc.card,
+                    Math.max(0, lc.dur - elapsed),
+                    () => setLiveCards(prev => prev.map(c => c.id === lc.id ? { ...c, sold: true } : c)),
+                  )
                 }}
               />
             )}

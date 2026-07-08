@@ -1,23 +1,45 @@
 import { useRef, useReducer, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CARDS } from '../../data/cards'
+import { SushiArt } from '../../components/SushiArt'
+import { DraftScreen } from '../draft/DraftScreen'
 import type { Card, Archetype } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FieldCard = Card & { fid: string; turnsLeft: number }
-type Phase = 'player' | 'animating' | 'cpu' | 'over'
+type Phase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder'
 type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 type ComboAnim = { name: string; emoji: string; desc: string }
 type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number }
 
 type S = {
+  // Active player (always "p")
   pHand: Card[]; pField: FieldCard[]; pDeck: Card[]
   pBelly: number; pAP: number; pMaxAP: number
-  pSummonedIds: string[]; pSummonedArch: Record<string, number>
-  pDrawBonus: number; pAttackBuff: Record<string, number>; pCombosFired: string[]
+  pSummonedIds: string[]
+  pSummonedArch: Record<string, number>
+  pDrawBonus: number
+  pAttackBuff: Record<string, number>
+  pCombosFired: string[]
+  pKiretaStack: number
+  pThisTurnBases: string[]
+  pThisTurnArch: Record<string, number>
+  pDigestStopTurns: number
+  pApNextBonus: number   // 次のターンだけのAPボーナス
+  // Opponent / CPU (always "c")
   cHand: Card[]; cField: FieldCard[]; cDeck: Card[]
   cBelly: number
+  cSummonedIds: string[]
+  cSummonedArch: Record<string, number>
+  cDrawBonus: number
+  cAttackBuff: Record<string, number>
+  cCombosFired: string[]
+  cKiretaStack: number
+  cDigestStopTurns: number
+  cApNextBonus: number
+  // Game
+  activePlayer: 1 | 2
   turn: number; phase: Phase; winner: 'player' | 'cpu' | null
   log: string[]; flash: 'cpu' | 'player' | null
 }
@@ -38,6 +60,7 @@ const C = {
   fieldBorder: 'rgba(0,0,0,0.07)', atk: '#dc2626', ap: '#d97706', apBorder: '#b45309', apEmpty: '#d4c4ae',
   gaugeTrack: '#e0d4c0',
   btnEnd: 'linear-gradient(135deg,#e07b1a,#c05a0e)', btnEndBorder: '#f4a050', btnEndGlow: 'rgba(224,123,26,0.5)',
+  kireta: '#2563eb',
 }
 
 // ── レスポンシブスケール ──────────────────────────────────────────────────────
@@ -59,8 +82,20 @@ const R = {
 const MAX_BELLY = 100
 const HAND_LIMIT = 7
 const FIELD_MAX = 8
-const INIT_AP = 3
-const DIGESTION = 5
+const INIT_AP = 2
+const DIGESTION_MAX = 5
+const CHAIN_BONUS = 3
+const REORDER_BUDGET = 1500   // 追加注文タイムの軍資金
+const REORDER_SECONDS = 45    // 追加注文タイムの制限時間
+
+// 消化量：序盤は軽く、ターンが進むごとに増えて最大5で頭打ち
+// （1ターン目終了時 -2 → 2T -3 → 3T -4 → 4T以降 -5）
+function digestionAmount(round: number) {
+  return Math.min(DIGESTION_MAX, 1 + round)
+}
+
+// 海鮮連鎖を起動するbase
+const CHAIN_TRIGGER_BASES = new Set(['いか', 'たこ', 'えび'])
 
 const CARD_EMOJI: Record<string, string> = {
   'マグロ': '🐟', 'サーモン': '🐠', 'えび': '🦐', 'いか': '🦑', 'たこ': '🐙',
@@ -70,7 +105,8 @@ const CARD_EMOJI: Record<string, string> = {
   'シーフード': '🦞', 'なす': '🍆', '明太子': '🔴', 'チーズ': '🧀',
   '納豆': '🫘', 'うめ': '🍑', 'アボカド': '🥑', 'かに': '🦀',
   'ネギトロ': '🐟', 'ローストビーフ': '🥩', '焼肉': '🥩', '牛タン': '🥩',
-  'サンマ': '🐡', '太巻き': '🌀',
+  'サンマ': '🐡', '太巻き': '🌀', 'あなご': '🐠',
+  'いなり': '🍘', 'ツナサラダ': '🥗',
 }
 
 const EFFECT_FULL: Record<string, string> = {
@@ -80,9 +116,11 @@ const EFFECT_FULL: Record<string, string> = {
   'kireta_consume_x2': '切れ味スタックを全消費し、スタック数×2のダメージ',
   'belly_boost_70': '相手お腹が70以上のとき 攻撃 +8',
   'belly_boost_60': '相手お腹が60以上のとき 攻撃 +5',
-  'belly_boost_65': '相手お腹が65以上のとき 攻撃 +',
+  'belly_boost_65': '相手お腹が65以上のとき 攻撃 +6',
   'belly_boost_persist_50': '机に居る間、相手お腹50以上で 攻撃 +2',
-  'chain_on_kaisen_summon': '海鮮系カードを召喚するたびに追加攻撃',
+  'chain_on_kaisen_summon': '海鮮系カードを召喚するたびに連鎖追加攻撃',
+  'draw_1': '召喚時、カードを1枚引く',
+  'ap_next_1': '次のターンだけ AP +1',
   'multi_base': '複数のbaseコンボ条件を同時に満たせる',
   'multi_base_combo': '複数のbaseコンボ条件を同時に満たせる',
 }
@@ -98,23 +136,40 @@ function cardEmoji(c: Card) { return CARD_EMOJI[c.base] ?? '🍣' }
 
 const COMBOS: Array<{
   id: string; name: string; emoji: string; desc: string
-  check: (ids: string[], arch: Record<string, number>) => boolean
+  checkCumulative?: (ids: string[], arch: Record<string, number>) => boolean
+  checkSimultaneous?: (bases: string[], arch: Record<string, number>) => boolean
   instantDmg: number
+  instantDmgFn?: (field: FieldCard[], buff: Record<string, number>, kStack: number, cBelly: number) => number
   applyBuff: (buff: Record<string, number>, draw: number) => { buff: Record<string, number>; draw: number }
 }> = [
   {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
     desc: '即時+10ダメージ / マグロ系攻撃+2',
-    check: (ids) => ['maguro', 'chutoro', 'otoro'].every(id => ids.includes(id)),
+    checkCumulative: (ids) => ['maguro', 'chutoro', 'otoro'].every(id => ids.includes(id)),
     instantDmg: 10,
     applyBuff: (buff, draw) => ({ buff: { ...buff, 'マグロ': (buff['マグロ'] ?? 0) + 2 }, draw }),
   },
   {
     id: 'maki_comp', name: '巻物コンプ！！！', emoji: '🌀',
     desc: '以降ドロー+1',
-    check: (_ids, arch) => (arch['makimono'] ?? 0) >= 5,
+    checkCumulative: (_ids, arch) => (arch['makimono'] ?? 0) >= 5,
     instantDmg: 0,
     applyBuff: (buff, draw) => ({ buff, draw: draw + 1 }),
+  },
+  {
+    id: 'umi_zanmai', name: '海の幸三昧！！！', emoji: '🌊',
+    desc: '追加攻撃×2（フィールドダメージ×2を即時追加）',
+    checkSimultaneous: (bases) => bases.includes('いか') && bases.includes('たこ'),
+    instantDmg: 0,
+    instantDmgFn: (field, buff, kStack, cBelly) => calcFieldDmg(field, buff, kStack, cBelly) * 2,
+    applyBuff: (buff, draw) => ({ buff, draw }),
+  },
+  {
+    id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
+    desc: '同ターン肉寿司攻撃ボーナス×2（即時+12）',
+    checkSimultaneous: (_bases, arch) => (arch['niku'] ?? 0) >= 2,
+    instantDmg: 12,
+    applyBuff: (buff, draw) => ({ buff, draw }),
   },
 ]
 
@@ -135,17 +190,164 @@ function shuffled<T>(arr: T[]): T[] {
   return a
 }
 
-function calcFieldDmg(field: FieldCard[], buff: Record<string, number>) {
-  return field.reduce((sum, c) => sum + c.attack + (buff[c.base] ?? 0), 0)
+function calcFieldDmg(
+  field: FieldCard[],
+  buff: Record<string, number>,
+  kiretaStack = 0,
+  enemyBelly = 0,
+) {
+  return field.reduce((sum, c) => {
+    const base = c.attack + (buff[c.base] ?? 0)
+    const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack : 0
+    let effectBonus = 0
+    switch (c.effect) {
+      case 'belly_boost_60': if (enemyBelly >= 60) effectBonus = 5; break
+      case 'belly_boost_70': if (enemyBelly >= 70) effectBonus = 8; break
+      case 'belly_boost_65': if (enemyBelly >= 65) effectBonus = 6; break
+      case 'belly_boost_persist_50': if (enemyBelly >= 50) effectBonus = 2; break
+    }
+    return sum + base + kiretaBonus + effectBonus
+  }, 0)
+}
+
+// ── 召喚処理（プレイヤー / CPU 共通の純関数） ────────────────────────────────
+
+type SummonInput = {
+  card: Card
+  belly: number
+  kireta: number
+  field: FieldCard[]
+  summonedIds: string[]
+  summonedArch: Record<string, number>
+  thisTurnBases: string[]
+  thisTurnArch: Record<string, number>
+  combosFired: string[]
+  attackBuff: Record<string, number>
+  drawBonus: number
+  enemyBelly: number
+}
+
+type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly'> & {
+  extraDmg: number
+  stopOppDigest: boolean
+  drawNow: number   // 召喚時ドロー枚数
+  apNext: number    // 次のターンだけのAPボーナス
+  fired: Array<(typeof COMBOS)[number]>
+  logs: string[]
+}
+
+function applySummon(input: SummonInput): SummonResult {
+  const { card, enemyBelly } = input
+  const logs: string[] = []
+  let extraDmg = 0
+  let belly = input.belly
+  let kireta = input.kireta
+  let stopOppDigest = false
+  let drawNow = 0
+  let apNext = 0
+
+  // ── カード効果（即時適用）
+  switch (card.effect) {
+    case 'draw_1':
+      drawNow = 1
+      logs.push('🎴 カードを1枚引いた！')
+      break
+    case 'ap_next_1':
+      apNext = 1
+      logs.push('⚡ 次のターン AP +1！')
+      break
+    case 'kireta_stack':
+      kireta += 1
+      logs.push(`✂ 切れ味スタック +1（計${kireta}）`)
+      break
+    case 'kireta_consume_x2':
+      if (kireta > 0) {
+        extraDmg += kireta * 2
+        logs.push(`✂ 切れ味全消費！ スタック${kireta} × 2 = +${kireta * 2} ダメージ`)
+        kireta = 0
+      }
+      break
+    case 'self_digest_3':
+      belly = Math.max(0, belly - 3)
+      logs.push('🫧 消化促進！ お腹 -3')
+      break
+    case 'digest_stop_1t':
+      stopOppDigest = true
+      logs.push('🚫 相手の消化を1ターン止めた！')
+      break
+  }
+
+  const field = [...input.field, toField(card)]
+
+  // ── 海鮮連鎖
+  if (CHAIN_TRIGGER_BASES.has(card.base)) {
+    const chainCards = field.filter(c => c.effect === 'chain_on_kaisen_summon')
+    if (chainCards.length > 0) {
+      const chainDmg = chainCards.length * CHAIN_BONUS
+      extraDmg += chainDmg
+      logs.push(`🔗 連鎖攻撃！ ${chainCards.map(c => c.name).join('+')} → +${chainDmg}`)
+    }
+  }
+
+  // ── 召喚履歴
+  const summonedIds = [...input.summonedIds, card.id]
+  const summonedArch = { ...input.summonedArch }
+  const thisTurnBases = [...input.thisTurnBases, card.base]
+  const thisTurnArch = { ...input.thisTurnArch }
+  for (const a of card.archetype) {
+    summonedArch[a] = (summonedArch[a] ?? 0) + 1
+    thisTurnArch[a] = (thisTurnArch[a] ?? 0) + 1
+  }
+
+  // ── コンボ判定
+  let attackBuff = { ...input.attackBuff }
+  let drawBonus = input.drawBonus
+  const combosFired = [...input.combosFired]
+  const fired: Array<(typeof COMBOS)[number]> = []
+
+  for (const combo of COMBOS) {
+    if (combosFired.includes(combo.id)) continue
+    const hit =
+      (combo.checkCumulative && combo.checkCumulative(summonedIds, summonedArch)) ||
+      (combo.checkSimultaneous && combo.checkSimultaneous(thisTurnBases, thisTurnArch))
+    if (!hit) continue
+
+    combosFired.push(combo.id)
+    fired.push(combo)
+    const r = combo.applyBuff(attackBuff, drawBonus)
+    attackBuff = r.buff
+    drawBonus = r.draw
+    extraDmg += combo.instantDmgFn
+      ? combo.instantDmgFn(field, attackBuff, kireta, enemyBelly)
+      : combo.instantDmg
+    logs.push(`🎉 コンボ発動: ${combo.name}！ ${combo.desc}`)
+  }
+
+  return {
+    belly, kireta, field, summonedIds, summonedArch,
+    thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus,
+    extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
+  }
 }
 
 // ── CPU ───────────────────────────────────────────────────────────────────────
 
 function getCpuDeck(): Card[] {
-  const ids = ['tamago', 'salmon', 'ebi', 'mentaiko', 'cheese', 'wasabi_nasu', 'corn_gunkan', 'seafood_gunkan', 'botan_ebi']
+  const ids = ['tamago', 'salmon', 'ebi', 'mentaiko', 'cheese', 'inari', 'tuna_salad_gunkan', 'corn_gunkan', 'seafood_gunkan', 'botan_ebi']
   const found = ids.map(id => CARDS.find(c => c.id === id)).filter(Boolean) as Card[]
   const extra = CARDS.filter(c => c.lane === 'general' && !found.some(f => f.id === c.id))
   return shuffled([...found, ...extra]).slice(0, 15)
+}
+
+// 追加注文タイム用：CPUは¥1500相当をランダム購入
+function getCpuReorderDeck(): Card[] {
+  let budget = REORDER_BUDGET
+  const picks: Card[] = []
+  for (const c of shuffled(CARDS.filter(c => c.lane !== 'shinkansen'))) {
+    if (picks.length >= 8) break
+    if (c.price <= budget) { picks.push(c); budget -= c.price }
+  }
+  return picks
 }
 
 function cpuChoose(hand: Card[], ap: number): Card[] {
@@ -153,38 +355,51 @@ function cpuChoose(hand: Card[], ap: number): Card[] {
   const played: Card[] = []
   let rem = ap
   for (const c of sorted) {
-    if (c.cost <= rem && played.length < FIELD_MAX) { played.push(c); rem -= c.cost }
+    if (c.cost <= rem && played.length < FIELD_MAX) {
+      played.push(c)
+      rem -= c.cost
+    }
   }
   return played
 }
 
 // ── Initial state ─────────────────────────────────────────────────────────────
 
-function initState(deck: Card[]): S {
+function initState(deck: Card[], mode: 'cpu' | 'two_player', p2Deck?: Card[]): S {
   const pDeck = shuffled(deck.length > 0 ? deck : CARDS.filter(c => c.lane === 'general').slice(0, 10))
-  const cpuAll = shuffled(getCpuDeck())
+  const cDeckCards = mode === 'two_player'
+    ? shuffled(p2Deck && p2Deck.length > 0 ? p2Deck : CARDS.filter(c => c.lane === 'general').slice(0, 10))
+    : shuffled(getCpuDeck())
   return {
     pHand: pDeck.slice(0, 5), pField: [], pDeck: pDeck.slice(5),
     pBelly: 0, pAP: INIT_AP, pMaxAP: INIT_AP,
     pSummonedIds: [], pSummonedArch: {}, pDrawBonus: 0, pAttackBuff: {}, pCombosFired: [],
-    cHand: cpuAll.slice(0, 5), cField: [], cDeck: cpuAll.slice(5),
-    cBelly: 0, turn: 1, phase: 'player', winner: null, log: ['バトル開始！'], flash: null,
+    pKiretaStack: 0, pThisTurnBases: [], pThisTurnArch: {}, pDigestStopTurns: 0, pApNextBonus: 0,
+    cHand: cDeckCards.slice(0, 5), cField: [], cDeck: cDeckCards.slice(5),
+    cBelly: 0,
+    cSummonedIds: [], cSummonedArch: {}, cDrawBonus: 0, cAttackBuff: {}, cCombosFired: [],
+    cKiretaStack: 0, cDigestStopTurns: 0, cApNextBonus: 0,
+    activePlayer: 1,
+    turn: 1, phase: 'player', winner: null,
+    log: ['バトル開始！'], flash: null,
   }
 }
 
 // ── CardDetailSheet ──────────────────────────────────────────────────────────
 
 function CardDetailSheet({
-  inspect, attackBuff, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, onPlay, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
+  kiretaStack: number
   onPlay: () => void
   onClose: () => void
 }) {
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = attackBuff[card.base] ?? 0
+  const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const isField = remainingTurns !== undefined
   const effectDesc = card.effect ? EFFECT_FULL[card.effect] : null
 
@@ -214,7 +429,6 @@ function CardDetailSheet({
           boxShadow: '0 -8px 40px rgba(0,0,0,0.2)',
         }}
       >
-        {/* ヘッダー */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'clamp(12px, 2vh, 20px)' }}>
           <div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
@@ -242,9 +456,7 @@ function CardDetailSheet({
           }}>✕</button>
         </div>
 
-        {/* 本体 */}
         <div style={{ display: 'flex', gap: 'clamp(16px, 3vw, 32px)', alignItems: 'center' }}>
-          {/* 絵文字 */}
           <div style={{
             flexShrink: 0,
             width: 'clamp(72px, 9vw, 140px)', height: 'clamp(72px, 9vw, 140px)',
@@ -252,14 +464,11 @@ function CardDetailSheet({
             background: isPersist ? C.persBg : C.instBg,
             border: `2px solid ${isPersist ? C.persBorder : C.instBorder}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 'clamp(40px, 5.5vw, 88px)',
           }}>
-            {cardEmoji(card)}
+            <SushiArt card={card} size="86%" />
           </div>
 
-          {/* ステータス */}
           <div style={{ flex: 1 }}>
-            {/* 数値行 */}
             <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', marginBottom: 'clamp(8px, 1.5vh, 14px)', flexWrap: 'wrap' }}>
               <div>
                 <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>コスト</p>
@@ -272,7 +481,9 @@ function CardDetailSheet({
               <div>
                 <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>攻撃力</p>
                 <p style={{ fontSize: R.flg, fontWeight: 800, color: C.atk }}>
-                  ⚔ {card.attack}{buff > 0 && <span style={{ color: C.ap, fontSize: R.fsm }}> +{buff}</span>}
+                  ⚔ {card.attack}
+                  {buff > 0 && <span style={{ color: C.ap, fontSize: R.fsm }}> +{buff}</span>}
+                  {kBonus > 0 && <span style={{ color: C.kireta, fontSize: R.fsm }}> +{kBonus}✂</span>}
                 </p>
               </div>
               {isPersist && (
@@ -291,7 +502,6 @@ function CardDetailSheet({
               </div>
             </div>
 
-            {/* 効果 */}
             <div style={{
               background: effectDesc ? 'rgba(251,191,36,0.14)' : 'transparent',
               borderRadius: 10, padding: effectDesc ? 'clamp(8px, 1vh, 14px)' : 0,
@@ -307,7 +517,6 @@ function CardDetailSheet({
           </div>
         </div>
 
-        {/* アクションボタン */}
         {!isField && (
           <div style={{ display: 'flex', gap: 12, marginTop: 'clamp(14px, 2.5vh, 24px)' }}>
             <button onClick={onClose}
@@ -382,7 +591,9 @@ function FieldSushi({ card, isEnemy = false, onSelect }: {
         gap: 'clamp(2px, 0.3vw, 5px)', overflow: 'hidden',
       }}
     >
-      <span style={{ fontSize: R.fe, lineHeight: 1 }}>{cardEmoji(card)}</span>
+      <div style={{ width: '82%', display: 'flex', justifyContent: 'center' }}>
+        <SushiArt card={card} size="100%" />
+      </div>
       <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', lineHeight: 1.2, maxWidth: '90%' }}>
         {card.name.slice(0, 6)}
       </p>
@@ -408,13 +619,14 @@ function FieldSushi({ card, isEnemy = false, onSelect }: {
 // ── HandSushi ─────────────────────────────────────────────────────────────────
 
 function HandSushi({
-  card, canPlay, attackBuff, isSelected, onSelect,
+  card, canPlay, attackBuff, kiretaStack, isSelected, onSelect,
 }: {
   card: Card; canPlay: boolean; attackBuff: Record<string, number>
-  isSelected: boolean; onSelect: () => void
+  kiretaStack: number; isSelected: boolean; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const buff = attackBuff[card.base] ?? 0
+  const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const effectLabel = card.effect
     ? (EFFECT_FULL[card.effect]?.slice(0, 14) + '…')
     : null
@@ -453,15 +665,17 @@ function HandSushi({
         }}>{card.cost}</span>
         <span style={{ fontSize: R.fxs }}>{isPersist ? '🔄' : '⚡'}</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: R.he }}>
-        {cardEmoji(card)}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '0 4px' }}>
+        <SushiArt card={card} size="88%" />
       </div>
       <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', padding: '0 4px', lineHeight: 1.25 }}>
         {card.name.slice(0, 8)}
       </p>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 5, padding: 'clamp(2px, 0.3vw, 4px) 4px' }}>
         <span style={{ fontSize: R.fsm, color: C.atk, fontWeight: 800 }}>
-          ⚔ {card.attack}{buff > 0 && <span style={{ color: C.ap, fontSize: R.fxs }}>+{buff}</span>}
+          ⚔ {card.attack}
+          {buff > 0 && <span style={{ color: C.ap, fontSize: R.fxs }}>+{buff}</span>}
+          {kBonus > 0 && <span style={{ color: C.kireta, fontSize: R.fxs }}>+{kBonus}</span>}
         </span>
         {isPersist && <span style={{ fontSize: R.fxs, color: C.persBorder, fontWeight: 700 }}>{card.fullness}T</span>}
       </div>
@@ -498,13 +712,29 @@ function BellyGauge({ value, label, flip = false }: { value: number; label: stri
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => void }) {
-  const ref = useRef<S>(initState(deck))
+export function BattleScreen({
+  deck,
+  p2Deck,
+  mode = 'cpu',
+  onBack,
+}: {
+  deck: Card[]
+  p2Deck?: Card[]
+  mode?: 'cpu' | 'two_player'
+  onBack?: () => void
+}) {
+  // 遅延初期化：initState はマウント時に1回だけ実行する
+  const lazyRef = useRef<S | null>(null)
+  if (lazyRef.current === null) lazyRef.current = initState(deck, mode, p2Deck)
+  const ref = lazyRef as { current: S }
   const [, tick] = useReducer(n => n + 1, 0)
   const [showLog, setShowLog] = useState(false)
   const [comboAnim, setComboAnim] = useState<ComboAnim | null>(null)
   const [floats, setFloats] = useState<FloatNum[]>([])
   const [inspect, setInspect] = useState<Inspect | null>(null)
+  // 追加注文タイム（二人対戦では p→c の順にドラフト）
+  const [reorderStep, setReorderStep] = useState<'p' | 'c'>('p')
+  const pendingReorder = useRef<Card[]>([])
   const floatId = useRef(0)
   const s = ref.current
 
@@ -512,14 +742,16 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
   const addLog = (msg: string) => { ref.current.log = [msg, ...ref.current.log].slice(0, 40) }
 
   const addFloat = (dmg: number, target: 'cpu' | 'player') => {
+    if (dmg <= 0) return
     const id = ++floatId.current
     setFloats(f => [...f, { id, dmg, target }])
     setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), 1300)
   }
 
   const drawCards = (hand: Card[], dk: Card[], n: number): [Card[], Card[]] => {
-    const drawn = dk.slice(0, n)
-    return [[...hand, ...drawn].slice(0, HAND_LIMIT), dk.slice(n)]
+    // 手札上限を超える分は引かずに山札に残す（引いたカードが消滅しないように）
+    const take = Math.min(n, Math.max(0, HAND_LIMIT - hand.length))
+    return [[...hand, ...dk.slice(0, take)], dk.slice(take)]
   }
 
   const checkWin = (pBelly: number, cBelly: number): boolean => {
@@ -528,102 +760,352 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
     return false
   }
 
+  const fireComboAnim = (combo: typeof COMBOS[number]) => {
+    setComboAnim({ name: combo.name, emoji: combo.emoji, desc: combo.desc })
+    setTimeout(() => setComboAnim(null), 2800)
+  }
+
   const playCard = (card: Card) => {
-    const { pAP, pField, pHand, phase, pSummonedIds, pSummonedArch, pCombosFired, pAttackBuff, pDrawBonus } = ref.current
-    if (phase !== 'player' || pAP < card.cost || pField.length >= FIELD_MAX) return
+    const st = ref.current
+    if (st.phase !== 'player' || st.pAP < card.cost || st.pField.length >= FIELD_MAX) return
 
     setInspect(null)
     addLog(`あなた ▶ ${cardEmoji(card)} ${card.name} 召喚`)
-    const newIds = [...pSummonedIds, card.id]
-    const newArch = { ...pSummonedArch }
-    for (const a of card.archetype) newArch[a] = (newArch[a] ?? 0) + 1
 
-    let newBuff = { ...pAttackBuff }
-    let newDraw = pDrawBonus
-    let extraDmg = 0
-    const newlyFired: string[] = []
-
-    for (const combo of COMBOS) {
-      if (!pCombosFired.includes(combo.id) && combo.check(newIds, newArch)) {
-        newlyFired.push(combo.id)
-        const r = combo.applyBuff(newBuff, newDraw)
-        newBuff = r.buff; newDraw = r.draw
-        extraDmg += combo.instantDmg
-        setComboAnim({ name: combo.name, emoji: combo.emoji, desc: combo.desc })
-        setTimeout(() => setComboAnim(null), 2800)
-        addLog(`🎉 コンボ発動: ${combo.name}！ ${combo.desc}`)
-      }
-    }
-
-    const newCBelly = ref.current.cBelly + extraDmg
-    if (extraDmg > 0) addFloat(extraDmg, 'cpu')
-
-    set({
-      pField: [...pField, toField(card)],
-      pHand: pHand.filter(c => c !== card),
-      pAP: pAP - card.cost,
-      pSummonedIds: newIds, pSummonedArch: newArch,
-      pCombosFired: [...pCombosFired, ...newlyFired],
-      pAttackBuff: newBuff, pDrawBonus: newDraw, cBelly: newCBelly,
+    const r = applySummon({
+      card,
+      belly: st.pBelly,
+      kireta: st.pKiretaStack,
+      field: st.pField,
+      summonedIds: st.pSummonedIds,
+      summonedArch: st.pSummonedArch,
+      thisTurnBases: st.pThisTurnBases,
+      thisTurnArch: st.pThisTurnArch,
+      combosFired: st.pCombosFired,
+      attackBuff: st.pAttackBuff,
+      drawBonus: st.pDrawBonus,
+      enemyBelly: st.cBelly,
     })
-    if (extraDmg > 0) checkWin(ref.current.pBelly, newCBelly)
+    for (const m of r.logs) addLog(m)
+    for (const combo of r.fired) fireComboAnim(combo)
+
+    const newCBelly = Math.min(MAX_BELLY, st.cBelly + r.extraDmg)
+    if (r.extraDmg > 0) addFloat(r.extraDmg, 'cpu')
+
+    // 同一カードを複数枚持っている場合でも1枚だけ取り除く
+    const handIdx = st.pHand.indexOf(card)
+    const handAfterPlay = st.pHand.filter((_, i) => i !== handIdx)
+    // draw_1 効果：即時ドロー
+    const [handDrawn, deckAfter] = drawCards(handAfterPlay, st.pDeck, r.drawNow)
+    set({
+      pField: r.field,
+      pHand: handDrawn,
+      pDeck: deckAfter,
+      pAP: st.pAP - card.cost,
+      pApNextBonus: st.pApNextBonus + r.apNext,
+      pBelly: r.belly,
+      pSummonedIds: r.summonedIds, pSummonedArch: r.summonedArch,
+      pThisTurnBases: r.thisTurnBases, pThisTurnArch: r.thisTurnArch,
+      pCombosFired: r.combosFired,
+      pAttackBuff: r.attackBuff, pDrawBonus: r.drawBonus,
+      pKiretaStack: r.kireta,
+      cBelly: newCBelly,
+      cDigestStopTurns: r.stopOppDigest ? 1 : st.cDigestStopTurns,
+    })
+    if (r.extraDmg > 0) checkWin(ref.current.pBelly, newCBelly)
   }
 
-  const endTurn = () => {
+  // ── ターン終了（CPU モード） ───────────────────────────────────────────────
+  const endTurnCpu = () => {
     if (ref.current.phase !== 'player') return
     setInspect(null)
     set({ phase: 'animating' })
+
     setTimeout(() => {
-      const { pField, cBelly, pDeck, pHand, pDrawBonus, turn, pAttackBuff } = ref.current
-      const totalDmg = calcFieldDmg(pField, pAttackBuff)
+      const { pField, cBelly, pDeck, pHand, pDrawBonus, turn, pAttackBuff, pKiretaStack } = ref.current
+
+      // プレイヤー場が攻撃
+      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly)
       if (totalDmg > 0) { addLog(`あなたの攻撃: ${totalDmg} ダメージ！`); addFloat(totalDmg, 'cpu') }
-      const newCBelly = cBelly + totalDmg
+      const newCBelly = Math.min(MAX_BELLY, cBelly + totalDmg)
       set({ flash: 'cpu', cBelly: newCBelly })
       setTimeout(() => set({ flash: null }), 500)
       if (checkWin(ref.current.pBelly, newCBelly)) return
 
+      // プレイヤー場を更新・ドロー・このターンリセット
       const newPField = pField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
       const [h1, d1] = drawCards(pHand, pDeck, 1 + pDrawBonus)
-      set({ pField: newPField, pHand: h1, pDeck: d1, phase: 'cpu' })
+      set({ pField: newPField, pHand: h1, pDeck: d1, pThisTurnBases: [], pThisTurnArch: {}, phase: 'cpu' })
 
       setTimeout(() => {
-        const { cHand, cField, cBelly: cb2, pBelly, cDeck } = ref.current
-        const cpuAfterDigest = Math.max(0, cb2 - DIGESTION)
+        const st = ref.current
         const newTurn = turn + 1
-        const cpuMaxAP = Math.min(INIT_AP + newTurn - 1, 10)
-        const toPlay = cpuChoose(cHand, cpuMaxAP)
-        let newCField = [...cField]
-        if (toPlay.length > 0) {
-          addLog(`CPU ▶ ${toPlay.map(c => c.name).join(' / ')} 召喚`)
-          newCField = [...cField, ...toPlay.map(toField)].slice(0, FIELD_MAX)
-        }
-        const cpuDmg = calcFieldDmg(newCField, {})
-        if (cpuDmg > 0) { addLog(`CPU攻撃: ${cpuDmg} ダメージ！`); addFloat(cpuDmg, 'player') }
-        const newPBelly = pBelly + cpuDmg
-        set({ flash: 'player', cBelly: cpuAfterDigest, pBelly: newPBelly })
-        setTimeout(() => set({ flash: null }), 500)
-        if (checkWin(newPBelly, ref.current.cBelly)) return
+        // CPUの一時APボーナス（前のCPUターンに貯めた分）を消費
+        const cpuMaxAP = Math.min(INIT_AP + newTurn - 1, 10) + st.cApNextBonus
 
-        const nextCField = newCField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
-        const [nextCHand, nextCDeck] = drawCards(cHand.filter(c => !toPlay.includes(c)), cDeck, 1)
-        const pAfterDigest = Math.max(0, ref.current.pBelly - DIGESTION)
-        const nextMaxAP = Math.min(INIT_AP + newTurn - 1, 10)
-        addLog(`── ターン ${newTurn} ──`)
+        // CPU 消化
+        const cpuAfterDigest = st.cDigestStopTurns > 0 ? st.cBelly : Math.max(0, st.cBelly - digestionAmount(turn))
+        if (st.cDigestStopTurns > 0) addLog('🚫 CPUの消化がスキップされた！')
+
+        // CPU 行動（プレイヤーと同じ召喚ロジックで効果・コンボ・バフを適用）
+        const slots = Math.max(0, FIELD_MAX - st.cField.length)
+        const toPlay = cpuChoose(st.cHand, cpuMaxAP).slice(0, slots)
+
+        let cs = {
+          belly: cpuAfterDigest,
+          kireta: st.cKiretaStack,
+          field: st.cField,
+          summonedIds: st.cSummonedIds,
+          summonedArch: st.cSummonedArch,
+          thisTurnBases: [] as string[],
+          thisTurnArch: {} as Record<string, number>,
+          combosFired: st.cCombosFired,
+          attackBuff: st.cAttackBuff,
+          drawBonus: st.cDrawBonus,
+        }
+        let cpuExtraDmg = 0
+        let stopPlayerDigest = false
+        let cpuExtraDraw = 0
+        let cpuApNext = 0
+
+        for (const c of toPlay) {
+          addLog(`CPU ▶ ${cardEmoji(c)} ${c.name} 召喚`)
+          const r = applySummon({ card: c, ...cs, enemyBelly: ref.current.pBelly })
+          for (const m of r.logs) addLog(`CPU: ${m}`)
+          for (const combo of r.fired) fireComboAnim(combo)
+          cpuExtraDmg += r.extraDmg
+          cpuExtraDraw += r.drawNow
+          cpuApNext += r.apNext
+          if (r.stopOppDigest) stopPlayerDigest = true
+          cs = {
+            belly: r.belly, kireta: r.kireta, field: r.field,
+            summonedIds: r.summonedIds, summonedArch: r.summonedArch,
+            thisTurnBases: r.thisTurnBases, thisTurnArch: r.thisTurnArch,
+            combosFired: r.combosFired, attackBuff: r.attackBuff, drawBonus: r.drawBonus,
+          }
+        }
+
+        // 召喚したカードをまず机に表示（即時型も見えるように）
+        const bellyAfterEffects = Math.min(MAX_BELLY, ref.current.pBelly + cpuExtraDmg)
+        if (cpuExtraDmg > 0) addFloat(cpuExtraDmg, 'player')
         set({
-          cField: nextCField, cHand: nextCHand, cDeck: nextCDeck,
-          pBelly: pAfterDigest, turn: newTurn, pAP: nextMaxAP, pMaxAP: nextMaxAP, phase: 'player',
+          cField: cs.field,
+          cHand: st.cHand.filter(c => !toPlay.includes(c)),
+          cBelly: cs.belly,
+          cKiretaStack: cs.kireta,
+          cSummonedIds: cs.summonedIds, cSummonedArch: cs.summonedArch,
+          cCombosFired: cs.combosFired, cAttackBuff: cs.attackBuff, cDrawBonus: cs.drawBonus,
+          cApNextBonus: cpuApNext,  // 今ターンに貯めた分は次のCPUターンで消費
+          pBelly: bellyAfterEffects,
+          pDigestStopTurns: stopPlayerDigest ? 1 : st.pDigestStopTurns,
         })
-      }, 1000)
+        if (checkWin(bellyAfterEffects, cs.belly)) return
+
+        // 少し見せてから CPU 場の攻撃
+        setTimeout(() => {
+          const st2 = ref.current
+
+          // CPU 場が攻撃（バフ・切れ味スタックも反映）
+          const cpuDmg = calcFieldDmg(st2.cField, st2.cAttackBuff, st2.cKiretaStack, st2.pBelly)
+          if (cpuDmg > 0) { addLog(`CPU攻撃: ${cpuDmg} ダメージ！`); addFloat(cpuDmg, 'player') }
+          const newPBelly = Math.min(MAX_BELLY, st2.pBelly + cpuDmg)
+          set({ flash: 'player', pBelly: newPBelly })
+          setTimeout(() => set({ flash: null }), 500)
+          if (checkWin(newPBelly, st2.cBelly)) return
+
+          // CPU 場を更新・CPU ドロー
+          const nextCField = st2.cField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
+          const [nextCHand, nextCDeck] = drawCards(st2.cHand, st2.cDeck, 1 + st2.cDrawBonus + cpuExtraDraw)
+
+          // プレイヤー消化
+          const pAfterDigest = st2.pDigestStopTurns > 0 ? newPBelly : Math.max(0, newPBelly - digestionAmount(turn))
+          if (st2.pDigestStopTurns > 0) addLog('🚫 あなたの消化がスキップされた！')
+
+          // プレイヤーの一時APボーナスを消費（1ターン限り）
+          const pApBonus = st2.pApNextBonus
+          if (pApBonus > 0) addLog(`⚡ 一時APボーナス +${pApBonus}！`)
+          const nextMaxAP = Math.min(INIT_AP + newTurn - 1, 10) + pApBonus
+
+          // 両者の手札・山札が尽きたら追加注文タイム
+          const allOut =
+            st2.pHand.length === 0 && st2.pDeck.length === 0 &&
+            nextCHand.length === 0 && nextCDeck.length === 0
+          if (allOut) addLog('🍽 追加注文タイム！ 軍資金 ¥1500 で補充しよう')
+
+          addLog(`── ターン ${newTurn} ──`)
+          set({
+            cField: nextCField, cHand: nextCHand, cDeck: nextCDeck,
+            cDigestStopTurns: Math.max(0, st.cDigestStopTurns - 1),
+            pBelly: pAfterDigest,
+            pDigestStopTurns: Math.max(0, st2.pDigestStopTurns - 1),
+            pApNextBonus: 0,
+            turn: newTurn, pAP: nextMaxAP, pMaxAP: nextMaxAP,
+            phase: allOut ? 'reorder' : 'player',
+          })
+        }, 900)
+      }, 700)
     }, 200)
   }
 
+  // ── ターン終了（二人対戦モード） ──────────────────────────────────────────
+  const endTurnTwoPlayer = () => {
+    if (ref.current.phase !== 'player') return
+    setInspect(null)
+    set({ phase: 'animating' })
+
+    setTimeout(() => {
+      const { pField, cBelly, pDeck, pHand, pDrawBonus, pAttackBuff, pKiretaStack } = ref.current
+
+      // アクティブプレイヤー場が攻撃
+      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly)
+      if (totalDmg > 0) { addLog(`P${s.activePlayer}の攻撃: ${totalDmg} ダメージ！`); addFloat(totalDmg, 'cpu') }
+      const newCBelly = Math.min(MAX_BELLY, cBelly + totalDmg)
+      set({ flash: 'cpu', cBelly: newCBelly })
+      setTimeout(() => set({ flash: null }), 500)
+      if (checkWin(ref.current.pBelly, newCBelly)) return
+
+      // 場を更新・ドロー・このターンリセット
+      const newPField = pField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
+      const [newPHand, newPDeck] = drawCards(pHand, pDeck, 1 + pDrawBonus)
+
+      set({
+        cBelly: newCBelly,
+        pField: newPField, pHand: newPHand, pDeck: newPDeck,
+        pThisTurnBases: [], pThisTurnArch: {},
+        phase: 'pass',
+      })
+    }, 200)
+  }
+
+  const endTurn = mode === 'two_player' ? endTurnTwoPlayer : endTurnCpu
+
+  // ── パス画面で「準備完了」タップ ─────────────────────────────────────────
+  const handlePassReady = () => {
+    const st = ref.current
+    const newTurn = st.turn + 1
+    // 2P モードはラウンド単位でAPが増える（2ターンで+1）
+    // + 次にアクティブになる側（現c*）の一時APボーナスを消費
+    if (st.cApNextBonus > 0) addLog(`⚡ 一時APボーナス +${st.cApNextBonus}！`)
+    const nextMaxAP = Math.min(INIT_AP + Math.floor((newTurn - 1) / 2), 10) + st.cApNextBonus
+
+    // 相手（c*）の持続型フィールドが攻撃
+    const cFieldDmg = calcFieldDmg(st.cField, st.cAttackBuff, st.cKiretaStack, st.pBelly)
+    if (cFieldDmg > 0) {
+      addLog(`P${st.activePlayer === 1 ? 2 : 1}の持続攻撃: ${cFieldDmg} ダメージ！`)
+      addFloat(cFieldDmg, 'player')
+    }
+    const newPBelly = Math.min(MAX_BELLY, st.pBelly + cFieldDmg)
+
+    if (newPBelly >= MAX_BELLY) {
+      set({ pBelly: newPBelly, winner: 'cpu', phase: 'over' })
+      return
+    }
+
+    // 相手の場を更新・相手ドロー
+    const newCField = st.cField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
+    const [newCHand, newCDeck] = drawCards(st.cHand, st.cDeck, 1 + st.cDrawBonus)
+
+    // 相手（次のアクティブ）の消化（2Pモードは2ターンで1ラウンド換算）
+    const nextBelly = st.cDigestStopTurns > 0
+      ? st.cBelly
+      : Math.max(0, st.cBelly - digestionAmount(Math.ceil(st.turn / 2)))
+    if (st.cDigestStopTurns > 0) addLog(`🚫 P${st.activePlayer === 1 ? 2 : 1}の消化がスキップされた！`)
+
+    const nextPlayer: 1 | 2 = st.activePlayer === 1 ? 2 : 1
+
+    // 両者の手札・山札が尽きたら追加注文タイム
+    const allOut =
+      newCHand.length === 0 && newCDeck.length === 0 &&
+      st.pHand.length === 0 && st.pDeck.length === 0
+    if (allOut) addLog('🍽 追加注文タイム！ 両者 ¥1500 で補充しよう')
+
+    addLog(`── ターン ${newTurn}（P${nextPlayer}）──`)
+
+    set({
+      // 新アクティブ（旧 c*）
+      pHand: newCHand, pField: newCField, pDeck: newCDeck,
+      pBelly: nextBelly,
+      pAP: nextMaxAP, pMaxAP: nextMaxAP,
+      pSummonedIds: st.cSummonedIds,
+      pSummonedArch: st.cSummonedArch,
+      pDrawBonus: st.cDrawBonus,
+      pAttackBuff: st.cAttackBuff,
+      pCombosFired: st.cCombosFired,
+      pKiretaStack: st.cKiretaStack,
+      pThisTurnBases: [], pThisTurnArch: {},
+      pDigestStopTurns: Math.max(0, st.cDigestStopTurns - 1),
+      pApNextBonus: 0,  // ボーナスは今消費した
+      // 待機側（旧 p*）
+      cHand: st.pHand, cField: st.pField, cDeck: st.pDeck,
+      cBelly: newPBelly,
+      cSummonedIds: st.pSummonedIds,
+      cSummonedArch: st.pSummonedArch,
+      cDrawBonus: st.pDrawBonus,
+      cAttackBuff: st.pAttackBuff,
+      cCombosFired: st.pCombosFired,
+      cKiretaStack: st.pKiretaStack,
+      cDigestStopTurns: Math.max(0, st.pDigestStopTurns - 1),
+      cApNextBonus: st.pApNextBonus,  // 今ターン貯めた分は次の自分のターンで消費
+      // ゲーム
+      activePlayer: nextPlayer,
+      turn: newTurn,
+      phase: allOut ? 'reorder' : 'player',
+    })
+  }
+
+  // ── 追加注文タイム完了 ────────────────────────────────────────────────────
+  const handleReorderComplete = (cards: Card[]) => {
+    if (mode === 'cpu') {
+      const pd = shuffled(cards)
+      const cd = shuffled(getCpuReorderDeck())
+      addLog('🍽 追加注文完了！ バトル再開')
+      set({
+        pHand: pd.slice(0, 5), pDeck: pd.slice(5),
+        cHand: cd.slice(0, 5), cDeck: cd.slice(5),
+        phase: 'player',
+      })
+      return
+    }
+    // 二人対戦：アクティブ側（p）→ 相手側（c）の順にドラフト
+    if (reorderStep === 'p') {
+      pendingReorder.current = cards
+      setReorderStep('c')
+    } else {
+      const pd = shuffled(pendingReorder.current)
+      const cd = shuffled(cards)
+      addLog('🍽 追加注文完了！ バトル再開')
+      setReorderStep('p')
+      set({
+        pHand: pd.slice(0, 5), pDeck: pd.slice(5),
+        cHand: cd.slice(0, 5), cDeck: cd.slice(5),
+        phase: 'player',
+      })
+    }
+  }
+
+  // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
-  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff)
+  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly)
   const akamiFired = s.pCombosFired.includes('akami_mori')
   const makiFired = s.pCombosFired.includes('maki_comp')
   const akamCount = ['maguro', 'chutoro', 'otoro'].filter(id => s.pSummonedIds.includes(id)).length
   const makiCount = s.pSummonedArch['makimono'] ?? 0
-  const phaseLabel = s.phase === 'player' ? 'あなたのターン' : s.phase === 'animating' ? '攻撃中…' : 'CPU思考中…'
+
+  const phaseLabel = s.phase === 'player' ? 'あなたのターン'
+    : s.phase === 'animating' ? '攻撃中…'
+    : s.phase === 'pass' ? 'ターン終了'
+    : s.phase === 'reorder' ? '追加注文中…'
+    : 'CPU思考中…'
+
+  const opponentLabel = mode === 'two_player'
+    ? `P${s.activePlayer === 1 ? 2 : 1}`
+    : 'CPU'
+  const opponentEmoji = mode === 'two_player' ? '👤' : '💻'
+  const activeLabel = mode === 'two_player' ? `P${s.activePlayer}` : 'あなた'
+
+  const winnerLabel = mode === 'two_player'
+    ? (s.winner === 'player' ? `P${s.activePlayer}の勝利！` : `P${s.activePlayer === 1 ? 2 : 1}の勝利！`)
+    : (s.winner === 'player' ? '勝利！' : '敗北…')
 
   return (
     <div style={{
@@ -632,15 +1114,15 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
       overflow: 'hidden', userSelect: 'none', position: 'relative',
     }}>
 
-      {/* ══ CPU エリア ══ */}
+      {/* ══ 相手エリア ══ */}
       <div style={{
         flex: '5 1 0', minHeight: 0, display: 'flex', flexDirection: 'column',
         padding: 'clamp(10px, 1.5vh, 20px) clamp(12px, 2vw, 28px) clamp(8px, 1vh, 14px)',
         position: 'relative',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)', marginBottom: 'clamp(8px, 1.2vh, 14px)' }}>
-          <span style={{ fontSize: R.flg, flexShrink: 0 }}>💻</span>
-          <div style={{ flex: 1 }}><BellyGauge value={s.cBelly} label="CPU お腹" flip /></div>
+          <span style={{ fontSize: R.flg, flexShrink: 0 }}>{opponentEmoji}</span>
+          <div style={{ flex: 1 }}><BellyGauge value={s.cBelly} label={`${opponentLabel} お腹`} flip /></div>
           <div style={{ flexShrink: 0, textAlign: 'right' }}>
             <p style={{ fontSize: R.fxs, color: C.txtMut }}>手札 {s.cHand.length} 枚</p>
             <p style={{ fontSize: R.fxs, color: C.txtMut }}>山札 {s.cDeck.length} 枚</p>
@@ -653,7 +1135,7 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
           gap: R.gap, flexWrap: 'wrap', position: 'relative',
           minHeight: 'clamp(90px, 10vh, 150px)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.06)',
         }}>
-          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>CPU の机</span>
+          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>{opponentLabel} の机</span>
           <AnimatePresence>
             {s.cField.map(c => (
               <FieldSushi key={c.fid} card={c} isEnemy
@@ -692,6 +1174,13 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
         <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 5, background: 'rgba(0,0,0,0.12)', transform: 'translateY(-50%)', borderRadius: 2 }} />
         <span style={{ fontSize: R.fsm, color: '#5c3a0a', fontWeight: 700, zIndex: 1, textShadow: '0 1px 2px rgba(255,255,255,0.4)' }}>🍵 カウンター席</span>
         <div style={{ flex: 1 }} />
+        {/* 切れ味スタック表示 */}
+        {s.pKiretaStack > 0 && (
+          <motion.span initial={{ scale: 0.7 }} animate={{ scale: 1 }}
+            style={{ zIndex: 1, fontSize: R.fsm, color: '#fff', fontWeight: 800, background: C.kireta, borderRadius: 8, padding: 'clamp(2px,0.3vh,5px) clamp(8px,1vw,14px)', boxShadow: '0 2px 8px rgba(37,99,235,0.4)' }}>
+            ✂ ×{s.pKiretaStack}
+          </motion.span>
+        )}
         {previewDmg > 0 && (
           <motion.span initial={{ scale: 0.7 }} animate={{ scale: 1 }}
             style={{ zIndex: 1, fontSize: R.fsm, color: '#fff', fontWeight: 800, background: '#dc2626', borderRadius: 8, padding: 'clamp(2px,0.3vh,5px) clamp(8px,1vw,14px)', boxShadow: '0 2px 8px rgba(220,38,38,0.4)' }}>
@@ -715,7 +1204,9 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
           gap: R.gap, flexWrap: 'wrap', position: 'relative',
           minHeight: 'clamp(90px, 10vh, 150px)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.04)',
         }}>
-          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>あなたの机</span>
+          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>
+            {activeLabel} の机
+          </span>
           <div style={{ position: 'absolute', top: 'clamp(6px, 0.7vh, 10px)', right: 'clamp(10px, 1.2vw, 18px)', display: 'flex', gap: 'clamp(8px, 1vw, 16px)', alignItems: 'center' }}>
             {akamiFired
               ? <span style={{ fontSize: R.fxs, color: '#b45309', fontWeight: 700 }}>🐟 ✓</span>
@@ -737,7 +1228,7 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)', marginTop: 'clamp(8px, 1.2vh, 14px)' }}>
           <span style={{ fontSize: R.flg, flexShrink: 0 }}>🍱</span>
-          <div style={{ flex: 1 }}><BellyGauge value={s.pBelly} label="あなた お腹" /></div>
+          <div style={{ flex: 1 }}><BellyGauge value={s.pBelly} label={`${activeLabel} お腹`} /></div>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ display: 'flex', gap: 'clamp(3px, 0.4vw, 6px)', flexWrap: 'wrap', maxWidth: 'clamp(80px, 10vw, 160px)', justifyContent: 'flex-end' }}>
               {Array.from({ length: s.pMaxAP }, (_, i) => (
@@ -781,7 +1272,10 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
             📜 {s.log[0] ?? ''}
           </p>
         </button>
-        <motion.button onClick={endTurn} disabled={!isPlayerTurn} whileTap={isPlayerTurn ? { scale: 0.91 } : {}}
+        <motion.button
+          onClick={endTurn}
+          disabled={!isPlayerTurn}
+          whileTap={isPlayerTurn ? { scale: 0.91 } : {}}
           style={{
             flexShrink: 0, padding: 'clamp(9px, 1.2vh, 16px) clamp(18px, 2.5vw, 36px)',
             borderRadius: 999, fontSize: R.fsm, fontWeight: 800,
@@ -810,6 +1304,7 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
             <HandSushi key={`${card.id}-${i}`} card={card}
               canPlay={isPlayerTurn && s.pAP >= card.cost && s.pField.length < FIELD_MAX}
               attackBuff={s.pAttackBuff}
+              kiretaStack={s.pKiretaStack}
               isSelected={inspect?.card === card}
               onSelect={() => setInspect({
                 card,
@@ -850,6 +1345,7 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
           <CardDetailSheet
             inspect={inspect}
             attackBuff={s.pAttackBuff}
+            kiretaStack={s.pKiretaStack}
             onPlay={() => playCard(inspect.card)}
             onClose={() => setInspect(null)}
           />
@@ -875,6 +1371,76 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
         )}
       </AnimatePresence>
 
+      {/* ══ パス画面（二人対戦） ══ */}
+      <AnimatePresence>
+        {s.phase === 'pass' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'absolute', inset: 0, zIndex: 50,
+              background: 'rgba(0,0,0,0.88)',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 20,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ textAlign: 'center' }}
+            >
+              <p style={{ fontSize: 'clamp(48px, 8vw, 80px)', marginBottom: 16 }}>🍣</p>
+              <p style={{ fontSize: 'clamp(20px, 3.5vw, 32px)', fontWeight: 900, color: '#fde68a', marginBottom: 8 }}>
+                P{s.activePlayer === 1 ? 2 : 1} の番です
+              </p>
+              <p style={{ fontSize: R.fmd, color: '#a8a29e', marginBottom: 32, lineHeight: 1.7 }}>
+                デバイスを P{s.activePlayer === 1 ? 2 : 1} に渡してください
+              </p>
+              <motion.button
+                onClick={handlePassReady}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  padding: 'clamp(12px, 2vh, 20px) clamp(32px, 5vw, 64px)',
+                  background: C.btnEnd, border: `2px solid ${C.btnEndBorder}`,
+                  borderRadius: 999, fontSize: R.fmd, fontWeight: 800,
+                  color: '#fff', cursor: 'pointer',
+                  boxShadow: `0 0 28px ${C.btnEndGlow}`,
+                }}
+              >
+                準備完了 →
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══ 追加注文タイム ══ */}
+      {s.phase === 'reorder' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: '#1c0c04', display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            flexShrink: 0, textAlign: 'center', padding: '8px 12px',
+            background: 'linear-gradient(90deg,#7c2d12,#ea580c,#7c2d12)',
+            color: '#fff', fontWeight: 800, fontSize: R.fsm,
+          }}>
+            🍽 追加注文タイム！ 軍資金 ¥{REORDER_BUDGET.toLocaleString()} で山札を補充
+            {mode === 'two_player' && `（P${reorderStep === 'p' ? s.activePlayer : s.activePlayer === 1 ? 2 : 1} の番）`}
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <DraftScreen
+              key={reorderStep}
+              onComplete={handleReorderComplete}
+              initialBudget={REORDER_BUDGET}
+              seconds={REORDER_SECONDS}
+              playerNum={mode === 'two_player'
+                ? (reorderStep === 'p' ? s.activePlayer : (s.activePlayer === 1 ? 2 : 1))
+                : undefined}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ══ ゲームオーバー ══ */}
       <AnimatePresence>
         {s.winner && (
@@ -883,11 +1449,11 @@ export function BattleScreen({ deck, onBack }: { deck: Card[]; onBack?: () => vo
           >
             <motion.div initial={{ scale: 0.4, y: 32 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', damping: 14, stiffness: 180 }} style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 'clamp(60px, 12vw, 120px)', marginBottom: 16 }}>{s.winner === 'player' ? '🎉' : '😔'}</p>
-              <p style={{ fontSize: 'clamp(24px, 4.5vw, 56px)', fontWeight: 700, color: '#fff', marginBottom: 8 }}>{s.winner === 'player' ? '勝利！' : '敗北…'}</p>
+              <p style={{ fontSize: 'clamp(24px, 4.5vw, 56px)', fontWeight: 700, color: '#fff', marginBottom: 8 }}>{winnerLabel}</p>
               <p style={{ fontSize: R.fmd, color: '#a89070', marginBottom: 32 }}>{s.turn} ターンで決着</p>
               <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', justifyContent: 'center' }}>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                  onClick={() => { ref.current = initState(deck); tick() }}
+                  onClick={() => { ref.current = initState(deck, mode, p2Deck); tick() }}
                   style={{ padding: 'clamp(12px, 1.5vh, 20px) clamp(28px, 4vw, 56px)', borderRadius: 999, fontSize: R.fmd, fontWeight: 800, background: C.btnEnd, color: '#fff', border: `1.5px solid ${C.btnEndBorder}`, cursor: 'pointer', boxShadow: `0 0 24px ${C.btnEndGlow}` }}
                 >もう一回</motion.button>
                 {onBack && (
