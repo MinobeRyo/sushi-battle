@@ -1,42 +1,25 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CARDS } from '../../data/cards'
+import { SushiArt } from '../../components/SushiArt'
 import type { Card, Archetype } from '../../types'
-
-const BASE_EMOJI: Record<string, string> = {
-  'マグロ': '🍣', 'サーモン': '🐠', 'えび': '🦐', 'いか': '🦑', 'たこ': '🐙',
-  'たまご': '🥚', 'きゅうり': '🥒', 'かんぴょう': '🌿', 'サバ': '🐡',
-  'アジ': '🐟', 'イワシ': '🐟', 'サンマ': '🐟', 'コハダ': '🐡',
-  '和牛': '🥩', 'カルビ': '🥩', '焼肉': '🥩', '牛タン': '🥩',
-  'ローストビーフ': '🥩', 'うに': '🌟', 'いくら': '🔴', 'とびこ': '🟠',
-  'コーン': '🌽', 'シーフード': '🦞', 'なす': '🍆', '明太子': '🔴',
-  'チーズ': '🧀', '納豆': '🫘', 'うめ': '🍑', 'アボカド': '🥑',
-  '太巻き': '🍱', 'かに': '🦀', 'あなご': '🐠',
-}
 
 type Category = 'all' | Archetype
 
-type CategoryDef = {
-  id: Category
-  label: string
-  sub: string
-  emojis: string[]
-}
-
-const CATEGORY_DEFS: CategoryDef[] = [
-  { id: 'all',      label: 'お薦め',  sub: '全メニュー',         emojis: ['🍣','🦐','🥩','🐡'] },
-  { id: 'akami',    label: '赤身',    sub: 'マグロ・トロ系',     emojis: ['🍣','🍣','🍣'] },
-  { id: 'makimono', label: '巻物・軍艦', sub: '巻き・軍艦寿司',  emojis: ['🌿','🌟','🔴'] },
-  { id: 'hikari',   label: '光り物',  sub: 'サバ・アジ・コハダ', emojis: ['🐡','🐡','🐟'] },
-  { id: 'kaisen',   label: '海鮮',    sub: 'タコ・イカ系',       emojis: ['🐙','🦑','🦐'] },
-  { id: 'niku',     label: '肉寿司',  sub: '和牛・カルビ系',     emojis: ['🥩','🥩','🥩'] },
-  { id: 'general',  label: '汎用',    sub: 'たまご・サーモン',   emojis: ['🥚','🐠','🌽'] },
+const TABS: { id: Category; label: string }[] = [
+  { id: 'all', label: 'おすすめ' },
+  { id: 'akami', label: '赤身' },
+  { id: 'makimono', label: '軍艦・巻き物' },
+  { id: 'hikari', label: '光り物' },
+  { id: 'kaisen', label: '海鮮' },
+  { id: 'niku', label: '肉寿司' },
+  { id: 'general', label: 'サイドメニュー' },
 ]
 
-const ARCHETYPE_COLOR: Record<string, string> = {
-  akami: '#dc2626', makimono: '#16a34a', hikari: '#2563eb',
-  kaisen: '#0891b2', niku: '#ea580c', general: '#78716c', all: '#92400e',
-}
+const PER_PAGE = 9
+
+// 広告ポスター用の一枚
+const adCard = CARDS.find((c) => c.name === '大トロ')
 
 type Props = {
   budget: number
@@ -45,12 +28,18 @@ type Props = {
 }
 
 export function ShinkansenOrderModal({ budget, onOrder, onClose }: Props) {
-  const [screen, setScreen] = useState<'categories' | 'items'>('categories')
-  const [activeCategory, setActiveCategory] = useState<CategoryDef>(CATEGORY_DEFS[0])
+  const [category, setCategory] = useState<Category>('all')
+  const [page, setPage] = useState(0)
 
-  const handleCategoryTap = (cat: CategoryDef) => {
-    setActiveCategory(cat)
-    setScreen('items')
+  const cards = CARDS
+    .filter((c) => category === 'all' || c.archetype.includes(category as Archetype))
+    .sort((a, b) => b.price - a.price)
+  const pages = Math.max(1, Math.ceil(cards.length / PER_PAGE))
+  const view = cards.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
+
+  const selectCategory = (c: Category) => {
+    setCategory(c)
+    setPage(0)
   }
 
   return (
@@ -60,129 +49,134 @@ export function ShinkansenOrderModal({ budget, onOrder, onClose }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={{ background: 'rgba(0,0,0,0.5)' }}
+        style={{ background: 'rgba(0,0,0,0.55)' }}
       >
         <motion.div
-          className="absolute inset-2 rounded-2xl overflow-hidden flex"
-          initial={{ scale: 0.92, opacity: 0 }}
+          className="absolute inset-2 rounded-xl overflow-hidden flex flex-col"
+          initial={{ scale: 0.94, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.92, opacity: 0 }}
+          exit={{ scale: 0.94, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-          style={{ background: '#f5f0e8', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
+          style={{ background: '#ccd0d5', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
         >
-          {/* ── 左サイドバー ── */}
-          <div
-            className="flex flex-col items-center py-4 gap-4 flex-shrink-0"
-            style={{
-              width: 76,
-              background: 'linear-gradient(to bottom, #1a0a00, #3d1a0a)',
-              borderRight: '2px solid #c9a227',
-            }}
-          >
-            {/* ロゴ */}
-            <div className="text-center">
-              <div className="text-2xl">🚄</div>
-              <p className="text-[9px] text-yellow-400 font-bold leading-tight text-center mt-1">
-                特急<br/>注文
-              </p>
-            </div>
+          <div className="flex-1 flex overflow-hidden">
+            {/* ── メイン：メニューグリッド＋ページャ ── */}
+            <div className="flex-1 flex flex-col gap-2 p-2 overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${category}-${page}`}
+                  className="flex-1 grid grid-cols-3 grid-rows-3 gap-2"
+                  initial={{ x: 24, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -24, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {view.map((card) => (
+                    <MenuItemCard key={card.id} card={card} budget={budget} onOrder={onOrder} />
+                  ))}
+                  {Array.from({ length: PER_PAGE - view.length }).map((_, i) => (
+                    <div key={`empty-${i}`} className="rounded-lg" style={{ background: 'rgba(255,255,255,0.25)' }} />
+                  ))}
+                </motion.div>
+              </AnimatePresence>
 
-            <div style={{ width: 40, height: 1, background: '#c9a227' }} />
-
-            {/* 軍資金 */}
-            <div className="text-center">
-              <p className="text-[8px] text-amber-600">軍資金</p>
-              <p className="text-yellow-300 font-bold text-xs tabular-nums">
-                ¥{budget >= 1000 ? (budget / 1000).toFixed(1) + 'k' : budget}
-              </p>
-            </div>
-
-            <div style={{ width: 40, height: 1, background: '#5c2d0e' }} />
-
-            <div className="flex-1" />
-
-            {/* キャンセル */}
-            <button
-              onClick={onClose}
-              className="flex flex-col items-center gap-1"
-            >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid #78350f' }}
-              >
-                ✕
+              {/* ページャ（前へ／次へ） */}
+              <div className="flex gap-2 flex-shrink-0" style={{ height: 34 }}>
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="flex-1 rounded font-bold text-sm"
+                  style={{
+                    background: page === 0 ? '#b9bdc3' : 'white',
+                    color: page === 0 ? '#8d9299' : '#44403c',
+                    border: '1px solid #a9adb4',
+                  }}
+                >
+                  前へ
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
+                  disabled={page >= pages - 1}
+                  className="flex-1 rounded font-bold text-sm"
+                  style={{
+                    background: page >= pages - 1 ? '#b9bdc3' : 'linear-gradient(180deg, #e8381a, #c62b12)',
+                    color: page >= pages - 1 ? '#8d9299' : 'white',
+                    border: page >= pages - 1 ? '1px solid #a9adb4' : '1px solid #a82410',
+                  }}
+                >
+                  次へ（{page + 1}/{pages}）
+                </button>
               </div>
-              <p className="text-[8px] text-stone-400">もどる</p>
-            </button>
+            </div>
+
+            {/* ── 右サイドバー ── */}
+            <div className="flex-shrink-0 flex flex-col gap-2 p-2 pl-0" style={{ width: 148 }}>
+              {/* 状況ボックス */}
+              <div className="flex gap-2">
+                <div className="flex-1 rounded-lg text-center py-1.5" style={{ background: 'white', border: '1px solid #a9adb4' }}>
+                  <p style={{ fontSize: 8, color: '#c62b12', fontWeight: 800 }}>軍資金</p>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#1c1917' }} className="tabular-nums">
+                    ¥{budget.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg text-center py-1.5" style={{ background: 'white', border: '1px solid #a9adb4' }}>
+                <p style={{ fontSize: 8, color: '#c62b12', fontWeight: 800 }}>特急は定価×1.5</p>
+                <p style={{ fontSize: 8.5, color: '#57534e', marginTop: 2, lineHeight: 1.5 }}>
+                  ご注文品は特急レーンで<br />直送いたします 🚄
+                </p>
+              </div>
+
+              {/* 広告ポスター風 */}
+              <div
+                className="flex-1 rounded-lg overflow-hidden flex flex-col items-center justify-center gap-1 px-2 text-center"
+                style={{
+                  background: 'linear-gradient(180deg, #10131c, #1e2436)',
+                  border: '2px solid #b98a1e',
+                }}
+              >
+                <p style={{ fontSize: 8, color: '#d8b45a', fontWeight: 700, letterSpacing: 1 }}>― 季節の逸品 ―</p>
+                <p style={{ fontSize: 14, color: '#f5d98a', fontWeight: 800, lineHeight: 1.3 }}>特急<br />グランプリ</p>
+                {adCard && (
+                  <div style={{ width: 64, maxWidth: '80%', filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.6))' }}>
+                    <SushiArt card={adCard} size="100%" />
+                  </div>
+                )}
+                <p style={{ fontSize: 9, color: '#e7e5e4', fontWeight: 700 }}>大トロ・うに 入荷中</p>
+                <p style={{ fontSize: 6.5, color: '#78716c' }}>※写真はイメージです</p>
+              </div>
+            </div>
           </div>
 
-          {/* ── メインエリア ── */}
-          <div className="flex-1 relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              {screen === 'categories' ? (
-                <motion.div
-                  key="categories"
-                  className="absolute inset-0 p-3"
-                  initial={{ x: -30, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -30, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+          {/* ── 下部タブバー ── */}
+          <div className="flex items-stretch gap-1 px-2 pb-2 flex-shrink-0" style={{ height: 46 }}>
+            <button
+              onClick={onClose}
+              className="rounded font-bold px-3"
+              style={{ background: 'linear-gradient(180deg, #8a6a44, #6e5232)', color: 'white', fontSize: 11, border: '1px solid #55401f' }}
+            >
+              キャンセル
+            </button>
+            {TABS.map((t) => {
+              const active = category === t.id
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => selectCategory(t.id)}
+                  className="flex-1 rounded-t font-bold"
+                  style={{
+                    background: active ? 'white' : '#e6e6e2',
+                    color: active ? '#c62b12' : '#57534e',
+                    fontSize: 10.5,
+                    border: '1px solid #b5b9bf',
+                    borderBottom: active ? '3px solid #e8381a' : '1px solid #b5b9bf',
+                    boxShadow: active ? '0 -2px 4px rgba(0,0,0,0.08)' : 'none',
+                  }}
                 >
-                  <p
-                    className="text-xs font-bold mb-2.5 px-1"
-                    style={{ color: '#78350f' }}
-                  >
-                    カテゴリをお選びください
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 h-[calc(100%-28px)]">
-                    {CATEGORY_DEFS.map(cat => (
-                      <CategoryTile key={cat.id} cat={cat} onTap={handleCategoryTap} />
-                    ))}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="items"
-                  className="absolute inset-0 flex flex-col"
-                  initial={{ x: 30, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: 30, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {/* 品目ヘッダー */}
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
-                    style={{ borderBottom: '1px solid #e5d7b0' }}
-                  >
-                    <button
-                      onClick={() => setScreen('categories')}
-                      className="text-xs font-bold px-2 py-1 rounded"
-                      style={{ background: '#f0e4c8', color: '#78350f' }}
-                    >
-                      ◀ もどる
-                    </button>
-                    <span className="text-sm font-bold" style={{ color: '#3d1a0a' }}>
-                      {activeCategory.label}
-                    </span>
-                    <span className="text-xs" style={{ color: '#a8a29e' }}>
-                      {activeCategory.sub}
-                    </span>
-                    <span className="ml-auto text-xs" style={{ color: '#a8a29e' }}>
-                      定価 ×1.5
-                    </span>
-                  </div>
-
-                  {/* 品目グリッド */}
-                  <div className="flex-1 overflow-y-auto p-2">
-                    <ItemGrid
-                      category={activeCategory.id}
-                      budget={budget}
-                      onOrder={onOrder}
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {t.label}
+                </button>
+              )
+            })}
           </div>
         </motion.div>
       </motion.div>
@@ -190,107 +184,66 @@ export function ShinkansenOrderModal({ budget, onOrder, onClose }: Props) {
   )
 }
 
-// ── カテゴリタイル ──────────────────────────────────────────
-function CategoryTile({ cat, onTap }: { cat: CategoryDef; onTap: (c: CategoryDef) => void }) {
-  const color = ARCHETYPE_COLOR[cat.id] ?? '#92400e'
-
-  return (
-    <motion.button
-      onClick={() => onTap(cat)}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.96 }}
-      className="flex flex-col overflow-hidden rounded-xl relative"
-      style={{
-        background: 'white',
-        border: `3px solid ${color}`,
-        boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.8), 0 2px 8px rgba(0,0,0,0.15)`,
-      }}
-    >
-      {/* 絵文字エリア */}
-      <div
-        className="flex-1 flex items-center justify-center"
-        style={{ background: `linear-gradient(135deg, ${color}18, ${color}08)`, minHeight: 0 }}
-      >
-        <div className="flex flex-wrap justify-center gap-0.5 p-1">
-          {cat.emojis.map((e, i) => (
-            <span key={i} className="text-2xl leading-none">{e}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* テキスト */}
-      <div
-        className="px-2 py-1.5 text-center flex-shrink-0"
-        style={{ background: color, minHeight: 44 }}
-      >
-        <p className="text-white font-bold text-sm leading-tight">{cat.label}</p>
-        <p className="text-white/70 text-[9px] leading-tight mt-0.5">{cat.sub}</p>
-      </div>
-    </motion.button>
-  )
-}
-
-// ── 品目グリッド ──────────────────────────────────────────
-function ItemGrid({ category, budget, onOrder }: {
-  category: Category
+// ── メニューカード（実店舗の写真カード風） ──────────────────────────
+function MenuItemCard({ card, budget, onOrder }: {
+  card: Card
   budget: number
   onOrder: (card: Card, premiumPrice: number) => void
 }) {
-  const cards = CARDS
-    .filter(c => category === 'all' || c.archetype.includes(category as Archetype))
-    .sort((a, b) => b.price - a.price)
+  const premiumPrice = Math.ceil((card.price * 1.5) / 50) * 50
+  const canAfford = budget >= premiumPrice
+  const premium = card.price >= 500
 
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {cards.map(card => {
-        const premiumPrice = Math.ceil((card.price * 1.5) / 50) * 50
-        const canAfford = budget >= premiumPrice
-        const emoji = BASE_EMOJI[card.base] ?? '🍣'
-        const color = ARCHETYPE_COLOR[card.archetype[0]] ?? '#78716c'
-
-        return (
-          <motion.button
-            key={card.id}
-            onClick={() => canAfford && onOrder(card, premiumPrice)}
-            disabled={!canAfford}
-            whileHover={canAfford ? { scale: 1.04, y: -2 } : {}}
-            whileTap={canAfford ? { scale: 0.93 } : {}}
-            className="flex flex-col overflow-hidden rounded-xl"
+    <motion.button
+      onClick={() => canAfford && onOrder(card, premiumPrice)}
+      disabled={!canAfford}
+      whileHover={canAfford ? { scale: 1.03, y: -2 } : {}}
+      whileTap={canAfford ? { scale: 0.95 } : {}}
+      className="relative flex flex-col overflow-hidden rounded-lg"
+      style={{
+        background: 'linear-gradient(180deg, #232833, #13151c)',
+        border: '1px solid #3a3f4a',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+        opacity: canAfford ? 1 : 0.4,
+        minHeight: 0,
+      }}
+    >
+      {/* 写真エリア（カードと同じ絵柄・高さ基準で収める） */}
+      <div className="flex-1 relative" style={{ minHeight: 0 }}>
+        <div style={{ position: 'absolute', inset: '3px 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ height: '100%', maxWidth: '78%', aspectRatio: '100 / 74', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }}>
+            <SushiArt card={card} size="100%" />
+          </div>
+        </div>
+        {/* 価格（写真に重ねる） */}
+        <span style={{ position: 'absolute', left: 7, bottom: 4, color: 'white', fontWeight: 800, fontSize: 14, textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
+          {premiumPrice}円
+        </span>
+        <span style={{ position: 'absolute', right: 7, bottom: 6, color: '#8d939e', fontSize: 8, textDecoration: 'line-through' }}>
+          定価{card.price}円
+        </span>
+        {/* 高級ネタのリボン */}
+        {premium && (
+          <div
             style={{
-              background: 'white',
-              border: `2px solid ${canAfford ? color : '#e0d8cc'}`,
-              boxShadow: canAfford ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
-              opacity: canAfford ? 1 : 0.45,
+              position: 'absolute', top: 0, right: 0,
+              background: 'linear-gradient(135deg, #c99a2e, #8a6210)',
+              color: '#fff8e0', fontSize: 8, fontWeight: 800,
+              padding: '2px 7px', borderBottomLeftRadius: 7,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
             }}
           >
-            {/* 絵文字 */}
-            <div
-              className="flex items-center justify-center py-3"
-              style={{ background: `linear-gradient(135deg, ${color}15, ${color}05)` }}
-            >
-              <span className="text-3xl">{emoji}</span>
-            </div>
-
-            {/* 情報 */}
-            <div className="px-1.5 pb-1.5 pt-1">
-              <p className="text-xs font-bold leading-tight truncate" style={{ color: '#1c1917' }}>
-                {card.name}
-              </p>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-[9px] line-through" style={{ color: '#a8a29e' }}>
-                  ¥{card.price}
-                </span>
-                <span
-                  className="text-xs font-bold"
-                  style={{ color: canAfford ? '#dc2626' : '#a8a29e' }}
-                >
-                  ¥{premiumPrice}
-                </span>
-              </div>
-            </div>
-          </motion.button>
-        )
-      })}
-    </div>
+            旬の極み
+          </div>
+        )}
+      </div>
+      {/* 名前バー */}
+      <div style={{ background: 'rgba(0,0,0,0.55)', borderTop: '1px solid #3a3f4a', padding: '3px 6px' }}>
+        <p className="truncate" style={{ color: 'white', fontSize: 11, fontWeight: 700, textAlign: 'center' }}>
+          {card.name}
+        </p>
+      </div>
+    </motion.button>
   )
 }

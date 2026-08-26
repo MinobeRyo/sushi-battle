@@ -1,0 +1,497 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>すしバトル 改修提案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+
+<style>
+:root{
+  --bg:#f2f1ec; --surface:#ffffff; --surface-2:#eceae3;
+  --ink:#191c1e; --ink-2:#4b524f; --muted:#787f79;
+  --rule:#dcdad0; --rule-2:#c9c6b9;
+  --accent:#1e3f70; --accent-ink:#1e3f70; --accent-soft:#dfe6f0;
+  --hi:#a3301f; --hi-soft:#f7e3df;
+  --mid:#8a5a10; --mid-soft:#f6ecd8;
+  --lo:#3f6b46; --lo-soft:#e3efe5;
+  --shadow:0 1px 0 rgba(25,28,30,.05), 0 6px 18px -12px rgba(25,28,30,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151a; --surface:#191d24; --surface-2:#20252d;
+    --ink:#e9eae5; --ink-2:#b4bab6; --muted:#8b938f;
+    --rule:#2a3038; --rule-2:#3a424c;
+    --accent:#93b6e6; --accent-ink:#a9c7f0; --accent-soft:#1d2a3d;
+    --hi:#ef8878; --hi-soft:#341d19;
+    --mid:#e0b361; --mid-soft:#2c2415;
+    --lo:#84c493; --lo-soft:#18291c;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 8px 22px -14px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151a; --surface:#191d24; --surface-2:#20252d;
+  --ink:#e9eae5; --ink-2:#b4bab6; --muted:#8b938f;
+  --rule:#2a3038; --rule-2:#3a424c;
+  --accent:#93b6e6; --accent-ink:#a9c7f0; --accent-soft:#1d2a3d;
+  --hi:#ef8878; --hi-soft:#341d19;
+  --mid:#e0b361; --mid-soft:#2c2415;
+  --lo:#84c493; --lo-soft:#18291c;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 8px 22px -14px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 24px 96px}
+
+header.masthead{border-bottom:1px solid var(--rule);background:var(--surface)}
+.masthead .wrap{padding-top:44px;padding-bottom:26px}
+.kicker{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+h1{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:clamp(28px,4.6vw,42px);letter-spacing:.02em;line-height:1.25;margin:0;text-wrap:balance}
+.sub{margin:12px 0 0;color:var(--ink-2);max-width:64ch}
+.sub a{color:var(--accent-ink)}
+
+nav.toc{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:0;padding-bottom:0}
+nav.toc a{flex:0 0 auto;padding:12px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent}
+nav.toc a:hover{color:var(--accent-ink);border-bottom-color:var(--rule-2)}
+nav.toc a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:3px}
+
+section{margin-top:52px;scroll-margin-top:60px}
+h2{font-family:"Shippori Mincho B1",serif;font-weight:600;font-size:22px;margin:0 0 4px;letter-spacing:.02em;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:400;color:var(--accent-ink);letter-spacing:.1em}
+.lede{color:var(--ink-2);margin:0 0 22px;max-width:68ch;font-size:14px}
+
+/* summary table */
+.sumwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}
+table.sum{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+table.sum th{background:var(--surface-2);text-align:left;font-weight:700;font-size:11.5px;letter-spacing:.05em;color:var(--ink-2);padding:9px 12px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+table.sum td{padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+table.sum tr:last-child td{border-bottom:none}
+table.sum td.id{font-family:"JetBrains Mono",monospace;font-weight:700;color:var(--accent-ink);white-space:nowrap}
+table.sum td a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule-2)}
+table.sum td a:hover{color:var(--accent-ink)}
+table.sum tr:hover td{background:var(--surface-2)}
+
+/* item cards */
+.item{border:1px solid var(--rule);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;scroll-margin-top:64px}
+.item > .head{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--rule);background:var(--surface-2)}
+.item .id{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;color:var(--accent-ink)}
+.item h3{margin:0;font-size:15.5px;font-weight:700;font-family:inherit;flex:1 1 auto;min-width:200px}
+.item .body{padding:4px 16px 14px}
+.item dl{margin:0;display:grid;grid-template-columns:88px 1fr;gap:0 14px;font-size:13.5px}
+.item dt{color:var(--muted);font-size:11.5px;font-weight:700;letter-spacing:.04em;padding-top:11px;border-top:1px solid var(--rule)}
+.item dd{margin:0;color:var(--ink-2);padding:10px 0 0;border-top:1px solid var(--rule)}
+.item dl > dt:first-of-type, .item dl > dt:first-of-type + dd{border-top:none;padding-top:11px}
+.item dd strong{color:var(--ink)}
+.item dd ul{margin:4px 0 0;padding-left:1.15em}
+.item dd li{margin-bottom:2px}
+@media (max-width:620px){
+  .item dl{grid-template-columns:1fr;gap:0}
+  .item dt{padding-top:10px}
+  .item dd{border-top:none;padding-top:2px}
+}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:3px;word-break:break-word}
+.item .head code{background:transparent;padding:0}
+
+.pri{font-size:10.5px;font-weight:800;letter-spacing:.08em;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pri.hi{background:var(--hi-soft);color:var(--hi)}
+.pri.mid{background:var(--mid-soft);color:var(--mid)}
+.pri.lo{background:var(--lo-soft);color:var(--lo)}
+.pri.done{background:var(--accent);color:var(--bg)}
+.item.done > .head{background:var(--accent-soft)}
+tr.done td:not(.id){color:var(--muted)}
+.cost{font-size:11px;color:var(--muted);white-space:nowrap;font-family:"JetBrains Mono",monospace}
+
+.figure{border:1px solid var(--rule);border-radius:8px;background:var(--surface);overflow-x:auto;margin:12px 0 0}
+table.mini{border-collapse:collapse;width:100%;min-width:460px;font-size:12.5px}
+table.mini th{background:var(--surface-2);text-align:left;font-size:11px;font-weight:700;color:var(--ink-2);padding:7px 11px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+table.mini td{padding:6px 11px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.mini tr:last-child td{border-bottom:none}
+table.mini td.n{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;text-align:right}
+table.mini td .barwrap{display:flex;align-items:center;gap:7px;justify-content:flex-end}
+table.mini i{display:block;height:6px;border-radius:2px;background:var(--accent);opacity:.5}
+table.mini tr.mark td{background:var(--hi-soft)}
+table.mini tr.mark i{background:var(--hi);opacity:.65}
+
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head><body><header class="masthead">
+  <div class="wrap">
+    <p class="kicker">すしバトル / 改修提案 · 2026-08-22</p>
+    <h1>すしバトル 改修提案</h1>
+    <p class="sub">コードと企画資料を突き合わせて洗い出した24件です。各項目は「現状 → 問題 → 修正案」の順にまとめ、優先度と作業量の目安を付けています。<strong>対応済み2件 / 未着手22件。</strong>カードの数値は<a href="https://claude.ai/code/artifact/9340ca97-be54-4358-be65-14f07fead131">データシート</a>を参照してください。</p>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目次">
+  <div class="wrap">
+    <a href="#summary">一覧</a>
+    <a href="#bugs">A. バグ</a>
+    <a href="#spec">B. 仕様の食い違い</a>
+    <a href="#combo">C. 未実装コンボ</a>
+    <a href="#balance">D. 数値バランス</a>
+    <a href="#feature">E. 未実装機能</a>
+    <a href="#hygiene">F. コード衛生</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<section id="summary">
+  <h2><span class="n">00</span>一覧</h2>
+  <p class="lede">優先度は「プレイ体験が壊れているか」で付けています。<strong>高</strong>＝今の状態でゲームとして成立していない、<strong>中</strong>＝遊べるが設計意図と違う、<strong>低</strong>＝将来の負債。</p>
+  <div class="sumwrap">
+    <table class="sum">
+      <thead><tr><th>ID</th><th>内容</th><th>優先度</th><th>作業量</th></tr></thead>
+      <tbody>
+        <tr><td class="id"><a href="#A1">A1</a></td><td>肉祭りコンボのバフが実装されていない</td><td><span class="pri hi">高</span></td><td class="cost">S</td></tr>
+        <tr class="done"><td class="id"><a href="#A2">A2</a></td><td>太巻きの <code>multi_base</code> が完全に無効</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
+        <tr class="done"><td class="id"><a href="#A3">A3</a></td><td>二人対戦だけ持続カードが2回攻撃・2回消耗・2回ドローする</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
+        <tr><td class="id"><a href="#A4">A4</a></td><td>デッキ0枚でもバトルに進めてしまう</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#A5">A5</a></td><td>CPUが同名カードを持つと手札が余分に消える（潜在）</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#A6">A6</a></td><td>追加注文タイムのCPUだけ8枚上限・全レーン購入可</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#A7">A7</a></td><td>ドラフトのタイマーが state 更新関数の中で <code>onComplete</code> を呼ぶ</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#B1">B1</a></td><td>巻物コンプ：累積5枚 vs 机に同時5枚</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#B2">B2</a></td><td>いか2種（即時 / 持続）の共存は意図的か</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#B3">B3</a></td><td>高級ビルドをアーキタイプとして残すか</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#C1">C1</a></td><td>光り物三昧 — 大葉カードが2種しかなく成立不能</td><td><span class="pri mid">中</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#C2">C2</a></td><td>高級三昧 — ¥500皿が大トロ1種しかなく成立不能</td><td><span class="pri lo">低</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#D1">D1</a></td><td>持続型が即時型より約1.5倍効率が良く、上位8枚が全部巻物</td><td><span class="pri hi">高</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#D2">D2</a></td><td>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#D3">D3</a></td><td>コハダが使うと損をする罠カードになっている</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#D4">D4</a></td><td>汎用レーンのえび系がビルドレーン級の効率</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#D5">D5</a></td><td>CPUが汎用デッキ固定でコンボをほぼ踏めない</td><td><span class="pri mid">中</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#E1">E1</a></td><td>薬味スロット（あがり / ガリ / サビ）</td><td><span class="pri lo">低</span></td><td class="cost">L</td></tr>
+        <tr><td class="id"><a href="#E2">E2</a></td><td>サイドメニュー（味噌汁 / 茶碗蒸し）</td><td><span class="pri lo">低</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#E3">E3</a></td><td>CPU難易度（ふつう / むずかしい）</td><td><span class="pri lo">低</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#E4">E4</a></td><td>自動対戦シミュレーションによるバランス検証</td><td><span class="pri mid">中</span></td><td class="cost">M</td></tr>
+        <tr><td class="id"><a href="#F1">F1</a></td><td>未使用の画面ファイル5本と pixi.js 依存</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#F2">F2</a></td><td><code>types/index.ts</code> の10個の型がどこからも使われていない</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
+        <tr><td class="id"><a href="#F3">F3</a></td><td>AP成長式が2箇所に別々にハードコードされている</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="bugs">
+  <h2><span class="n">A</span>バグ・実装漏れ</h2>
+  <p class="lede">コードが仕様どおりに動いていない、または動作が壊れている項目です。</p>
+
+  <article class="item" id="A1">
+    <div class="head"><span class="id">A1</span><h3>肉祭りコンボのバフが実装されていない</h3><span class="pri hi">高</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>BattleScreen.tsx</code> の <code>COMBOS</code> で、肉祭りの <code>applyBuff</code> は <code>(buff, draw) =&gt; ({ buff, draw })</code> ＝ 何もしない関数です。実際に効くのは <code>instantDmg: 12</code> だけ。</dd>
+      <dt>問題</dt><dd>画面には「同ターン肉寿司攻撃ボーナス×2」と表示されるのに何も起きません。企画書の意図は「そのターンの肉寿司カードの終盤強化ボーナスを×2」です。</dd>
+      <dt>修正案</dt><dd>2案あります。<ul>
+        <li><strong>案1（実装重め・企画書どおり）</strong> — <code>calcFieldDmg</code> に「肉祭り発動中フラグ」を渡し、<code>belly_boost_*</code> の <code>effectBonus</code> を2倍にする。ただし現在のコンボは1試合1回きりなので、「そのターンだけ」を表現するには発動ターンを記録する仕組みが要ります。</li>
+        <li><strong>案2（軽い・推奨）</strong> — 説明文を実装に合わせて「即時+12ダメージ」に直す。肉寿司ビルドはすでに <code>belly_boost</code> で終盤に伸びるので、コンボは素直な打点として残す。</li>
+      </ul></dd>
+      <dt>影響</dt><dd>案2なら文字列1箇所。案1は <code>calcFieldDmg</code> のシグネチャ変更＝呼び出し4箇所に波及します。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item done" id="A2">
+    <div class="head"><span class="id">A2</span><h3>太巻きの <code>multi_base</code> が完全に無効</h3><span class="pri done">対応済</span><span class="cost">2026-08-22 実装</span></div>
+    <div class="body"><dl>
+      <dt>だった状態</dt><dd><code>applySummon</code> の効果 switch に <code>multi_base</code> の分岐がなく、召喚履歴には <code>card.base</code>（＝「太巻き」）しか積まれていませんでした。4AP・¥300のカードが、攻撃5・持続3Tの平凡なカードになっていました。</dd>
+      <dt>決めたこと</dt><dd>太巻きが名乗る base を <strong>マグロ・えび</strong> の2つに決定。巻物アーキタイプは今までどおり1枚ぶんのまま（複数枚カウントはしない）。<ul>
+        <li><strong>マグロ</strong> — 赤身三種盛り発動後、攻撃が5→7になります。持続3Tなので総ダメージ15→21。成立判定はカードID（<code>maguro</code>/<code>chutoro</code>/<code>otoro</code>）なので<strong>太巻きでは赤身三種盛りを成立させられず、恩恵だけ受ける</strong>形です。「赤身を揃えてから太巻きを置く」順序が生まれます。</li>
+        <li><strong>えび</strong> — 海鮮連鎖の起爆役になります（机の連鎖カード1枚につき+3）。いか・たこを先に並べておく必要があるので、海鮮ビルドの動きは壊れません。</li>
+        <li><strong>いか・たこは入れない</strong> — 入れると太巻き1枚で海の幸三昧（机の総攻撃力×2）が成立してしまうため。</li>
+      </ul></dd>
+      <dt>実装</dt><dd><code>Card</code> 型に <code>subBases?: string[]</code> を追加し、太巻きに <code>['マグロ','えび']</code> を設定。変更は4箇所です。<ul>
+        <li><code>applySummon</code> — 同時型コンボ用の <code>thisTurnBases</code> に base + subBases を積む</li>
+        <li><code>applySummon</code> — 海鮮連鎖の <code>CHAIN_TRIGGER_BASES</code> 判定が subBases も見る</li>
+        <li><code>calcFieldDmg</code> — base バフの参照を subBases まで広げる（<strong>過去の実装方針メモに抜けていた箇所</strong>。ここを直さないとマグロのバフが乗りません）</li>
+        <li>効果テキストを実際の挙動に合わせて更新。未使用だった <code>multi_base_combo</code> キーも削除</li>
+      </ul>複数の base バフを持つ場合は<strong>合計せず最大値を1つだけ</strong>受けます（現状マグロのバフしか存在しないので実害はありませんが、将来バフが増えたときに青天井にならないように）。</dd>
+      <dt>企画書での扱い</dt><dd>企画書の記述は表の1セル「複数base内包、コンボ条件を複数満たせる」だけで、どの base を内包するかは未定義でした。<code>implementation_flow.md</code> の Phase 1-3 に相当します。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item done" id="A3">
+    <div class="head"><span class="id">A3</span><h3>二人対戦だけ持続カードが2回攻撃・2回消耗・2回ドローする</h3><span class="pri done">対応済</span><span class="cost">2026-08-22 修正</span></div>
+    <div class="body"><dl>
+      <dt>だった状態</dt><dd>二人対戦では、ターン終了処理が<strong>2箇所で二重に走って</strong>いました。自分のターン終了時（<code>endTurnTwoPlayer</code>）と、相手のパス画面（<code>handlePassReady</code>）の両方で、同じプレイヤーについて次の3つが実行されていました。<ul>
+        <li>持続フィールドの攻撃</li>
+        <li><code>turnsLeft</code> の減算</li>
+        <li>ドロー（<code>1 + drawBonus</code> 枚）</li>
+      </ul>結果として、各プレイヤーが<strong>1ラウンドあたり2回攻撃し、2回場が消耗し、2枚多く引いて</strong>いました。CPU戦はいずれも1回だけです。</dd>
+      <dt>影響していたこと</dt><dd>消化（お腹の回復）は1ラウンドに1回のままなので、二人対戦では持続型デッキが相対的に約2倍強くなっていました。満腹度3の巻物が実質1.5ラウンドで消えるため、カードに表示される「3T」も意味を成していませんでした。ドローが倍だったぶん、山札の消費も倍速です。</dd>
+      <dt>修正</dt><dd><code>handlePassReady</code> から攻撃・<code>turnsLeft</code> 減算・ドローの3つを削除しました。パス画面は<strong>手番の受け渡しと、次にアクティブになる側の消化・AP回復だけ</strong>を担当します。攻撃と場の消耗とドローは、各プレイヤー自身のターン終了時に1回だけ処理されるようになり、CPU戦と同じ進行になりました。</dd>
+      <dt>副次的な確認</dt><dd>ドローの二重実行は当初の指摘に含まれていませんでした。修正のために処理を追ったところ発見したものです。原因は同じ（パス画面がターン終了処理を重複して持っていた）なので、まとめて解消しています。</dd>
+      <dt>残る作業</dt><dd>二人対戦のバランスが実質的に変わったので、<a href="#E4">E4</a> のシミュレーションで決着ターン数を確認したいところです。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="A4">
+    <div class="head"><span class="id">A4</span><h3>デッキ0枚でもバトルに進めてしまう</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>ドラフトで1枚も買わずに「バトルへ」を押せます。<code>initState</code> が <code>deck.length &gt; 0</code> でなければ汎用レーンの先頭10枚を黙って代入するため、プレイヤーには何が起きたか分かりません。</dd>
+      <dt>問題</dt><dd>買ったはずのないカードが手札に並びます。<code>implementation_flow.md</code> の Phase 2-2「デッキ下限チェック」が未着手のままです。</dd>
+      <dt>修正案</dt><dd>ドラフト画面で8枚未満のとき「バトルへ」を無効化し、「あと◯枚必要です」と表示します。時間切れで8枚未満だった場合のみ、汎用カードで補充したうえで<strong>その旨をログに出す</strong>。<code>initState</code> の無言フォールバックは残しつつ、ログを追加します。</dd>
+      <dt>影響</dt><dd><code>DraftScreenThree.tsx</code> と <code>BattleScreen.tsx</code> の <code>initState</code>。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="A5">
+    <div class="head"><span class="id">A5</span><h3>CPUが同名カードを持つと手札が余分に消える（潜在バグ）</h3><span class="pri mid">中</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>CPUの手札更新が <code>cHand.filter(c =&gt; !toPlay.includes(c))</code> という<strong>参照一致</strong>のフィルタです。プレイヤー側は <code>indexOf</code> で1枚だけ取り除く正しい実装になっています。</dd>
+      <dt>問題</dt><dd>手札に同じカードオブジェクトが2枚あって1枚だけ召喚した場合、2枚とも手札から消えます。現在は <code>getCpuDeck</code> / <code>getCpuReorderDeck</code> がどちらも重複なしで生成しているため発現しませんが、CPUデッキに重複を許した瞬間（＝D5でCPUドラフトを実装した瞬間）に顕在化します。</dd>
+      <dt>修正案</dt><dd>プレイヤー側と同じく、インデックスを控えて1枚ずつ取り除く方式に統一します。</dd>
+      <dt>影響</dt><dd><code>endTurnCpu</code> の1行。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="A6">
+    <div class="head"><span class="id">A6</span><h3>追加注文タイムのCPUだけ8枚上限・全レーン購入可</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>getCpuReorderDeck()</code> は <code>picks.length &gt;= 8</code> で打ち切ります。またフィルタが <code>lane !== 'shinkansen'</code> ですが、<code>shinkansen</code> レーンのカードは1枚も存在しないため、実質<strong>全54枚</strong>から選んでいます。</dd>
+      <dt>問題</dt><dd>初期デッキ（<code>getCpuDeck</code>）は汎用レーン中心なのに、追加注文の瞬間だけ大トロやうに軍艦を引ける状態になります。一方でプレイヤーは¥1,500で最大15枚買えるのに、CPUは8枚で打ち切られます。両方向に非対称です。</dd>
+      <dt>修正案</dt><dd>8枚上限を外し、予算¥1,500を使い切るまで買うようにします。レーン制限は「CPUに何を持たせたいか」次第なので、D5のCPUドラフト方針とあわせて決めるのがよいと思います。</dd>
+      <dt>影響</dt><dd><code>getCpuReorderDeck</code> のみ。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="A7">
+    <div class="head"><span class="id">A7</span><h3>ドラフトのタイマーが state 更新関数の中で <code>onComplete</code> を呼ぶ</h3><span class="pri lo">低</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>setTimeLeft(t =&gt; { if (t &lt;= 1) { ...; onCompleteRef.current(deckRef.current); return 0 } ... })</code> と、更新関数の内部で副作用を起こしています。</dd>
+      <dt>問題</dt><dd>Reactの更新関数は純粋であることが前提で、<code>StrictMode</code>（<code>main.tsx</code> で有効）の開発ビルドでは意図的に2回呼ばれます。開発中だけ画面遷移が二重に走る可能性があります。</dd>
+      <dt>修正案</dt><dd>残り時間の state と「終了フラグ」を分け、<code>timeLeft === 0</code> を監視する <code>useEffect</code> の中で <code>onComplete</code> を呼ぶ形にします。</dd>
+      <dt>影響</dt><dd><code>DraftScreenThree.tsx</code> のタイマー <code>useEffect</code> のみ。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<section id="spec">
+  <h2><span class="n">B</span>仕様書と実装の食い違い</h2>
+  <p class="lede">コードは動いているものの、どの資料を正とするかの判断が要る項目です。企画書16章で「確認が必要」として残されているものと重なります。</p>
+
+  <article class="item" id="B1">
+    <div class="head"><span class="id">B1</span><h3>巻物コンプ：累積5枚 vs 机に同時5枚</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>実装は「巻物アーキタイプを累計5枚召喚」。<code>implementation_flow.md</code> の確定済み仕様表にも「累積5枚」とあります。一方 <code>card_pool.md</code> と企画書16-7節は「巻物＋軍艦を机に<em>同時に</em>5枚」の同時型と書いています。</dd>
+      <dt>問題</dt><dd>難易度が桁違いです。巻物タグ持ちは54枚中19枚あるので累計5枚はほぼ確実に達成できますが、机に同時5枚（机上限は8）は持続型を並べ続ける必要があり、専用デッキが要ります。</dd>
+      <dt>修正案</dt><dd>実装（累積5枚）を正とし、<code>card_pool.md</code> と企画書16-7節を書き換えるのが低コストです。ただしD2のとおり累積5枚は達成が簡単すぎるので、<strong>「机に同時5枚」に寄せてコンボの重みを上げる案も検討に値します</strong>。効果が「以降ずっとドロー+1」と強力なぶん、同時型のほうが設計として筋は通ります。</dd>
+      <dt>影響</dt><dd>資料側に寄せるなら文書2箇所。実装側を変えるなら <code>ComboCondition</code> に <code>desk_count</code> 判定を足す必要があります（型はすでに宣言済み・未使用 → F2参照）。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="B2">
+    <div class="head"><span class="id">B2</span><h3>いか2種（即時 / 持続）の共存は意図的か</h3><span class="pri lo">低</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>ika_instant</code>（いかにぎり・汎用レーン・即時）と <code>ika</code>（いか・ビルドレーン・持続・連鎖）が別カードとして共存しています。<code>implementation_flow.md</code> は「2種共存」を確定済み仕様としています。</dd>
+      <dt>問題</dt><dd>企画書16章では「MVP版と拡張版で意図的に分けるのか、どちらかが古い記述なのか確認が必要」と保留のままです。プレイヤーから見ると「いかにぎり」と「いか」の違いが分かりづらい懸念があります。</dd>
+      <dt>修正案</dt><dd>共存のままでよいと思いますが、名前で役割が伝わるようにしたいです。「いか」→「いか（連鎖）」あるいは持続型カードに共通の見出しを付けるなど。あわせて企画書16章の当該項目を「決着済み」として畳みます。</dd>
+      <dt>影響</dt><dd>カード名の変更のみ。あるいは文書のみ。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="B3">
+    <div class="head"><span class="id">B3</span><h3>高級ビルドをアーキタイプとして残すか</h3><span class="pri lo">低</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>sushi_deck_battle_memo.md</code> は「赤身／巻物／光り物／高級」の4ビルド軸、<code>card_pool.md</code> と <code>README.md</code> は「赤身／巻物／光り物／海鮮／肉寿司」の5アーキタイプ。実装の <code>Archetype</code> 型は後者＋<code>general</code> です。</dd>
+      <dt>問題</dt><dd>「高級三昧」コンボ（C2）だけが高級ビルドの名残として資料に残っています。</dd>
+      <dt>修正案</dt><dd>実装（5アーキタイプ）を正として、企画書16-10節を決着済みにします。高級三昧を実装する場合は、アーキタイプではなく「価格帯」を条件にする独立コンボとして扱うのが素直です。</dd>
+      <dt>影響</dt><dd>文書のみ。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<section id="combo">
+  <h2><span class="n">C</span>未実装のコンボ</h2>
+  <p class="lede">企画書にあり、<code>implementation_flow.md</code> の Phase 4-1 に積まれている2種です。どちらも<strong>今のカードプールでは条件を満たせません</strong>ので、カード追加とセットになります。</p>
+
+  <article class="item" id="C1">
+    <div class="head"><span class="id">C1</span><h3>光り物三昧 — 大葉カードが2種しかなく成立不能</h3><span class="pri mid">中</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>条件と効果</dt><dd>大葉トッピングのカードを累計3枚召喚 → 切れ味スタック +3（<code>card_pool.md</code> 版）。design.md 版は「切れ味 ×1.5倍」ですが、切れ味が加算スタックとして実装されている以上、<strong>+3 のほうを採る</strong>のが整合的です。</dd>
+      <dt>問題</dt><dd>大葉カードは「サバ大葉」「アジ大葉」の2種のみ。同名カードを重複購入しない限り3枚に届きません。</dd>
+      <dt>修正案</dt><dd>3案あります。<ul>
+        <li><strong>案1</strong> — 大葉カードを1〜2種追加（イワシ大葉 / コハダ大葉など）。光り物のbaseは4種あるので自然に増やせます。</li>
+        <li><strong>案2</strong> — 条件を「大葉2枚」に緩和。カード追加なしで即実装できます。</li>
+        <li><strong>案3（推奨）</strong> — 条件を「薬味トッピング付きカードを3枚」に広げる。トッピングは大葉・ネギ・しそ・わさび・生姜・オニオン・アボカドの7種あるので、光り物以外のビルドにも意味が出ます。ただし「光り物」三昧という名前とは合わなくなります。</li>
+      </ul></dd>
+      <dt>影響</dt><dd><code>COMBOS</code> に1件追加＋<code>topping_count</code> 判定の実装。案1ならカード追加も。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="C2">
+    <div class="head"><span class="id">C2</span><h3>高級三昧 — ¥500皿が大トロ1種しかなく成立不能</h3><span class="pri lo">低</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>条件と効果</dt><dd>500円皿を累計3枚召喚 → 全ステータス +1。</dd>
+      <dt>問題</dt><dd>¥500以上のカードは大トロ1種のみです。大トロを3枚買うと¥1,500＝初期軍資金の半分が消えます。また「全ステータス+1」が何を指すのか（攻撃？AP？満腹度？）が資料で定義されていません。<code>implementation_flow.md</code> では「MVPには含めない（v1.1）」と決定済みです。</dd>
+      <dt>修正案</dt><dd>見送りを推奨します。実装するなら先に¥500皿を2〜3種追加（うに軍艦を¥500に引き上げる、大間マグロ・白子・あわびなどを新設）し、効果は「以降すべての召喚カードの攻撃+1」と明確に定義し直す必要があります。</dd>
+      <dt>影響</dt><dd>カードプール追加＋<code>COMBOS</code> に1件。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<section id="balance">
+  <h2><span class="n">D</span>数値バランス</h2>
+  <p class="lede">全54枚の「総ダメージ ÷ AP」で並べ直した結果です。総ダメージは持続型なら <code>攻撃力 × 残存ターン数</code>、即時型なら攻撃力そのものです。</p>
+
+  <article class="item" id="D1">
+    <div class="head"><span class="id">D1</span><h3>持続型が即時型より約1.5倍効率が良く、上位8枚が全部巻物</h3><span class="pri hi">高</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>平均の「総ダメージ ÷ AP」は<strong>持続型 4.92 / 即時型 3.26</strong>。上位8枚はすべて持続型の巻物系です。除去手段が存在しないため、持続カードは出したら必ず全ターン分殴りきります。</dd>
+      <dt>問題</dt><dd>フィニッシャーであるはずの大トロ（5AP・¥500）が4.40なのに対し、アボカド巻き（1AP・¥150）が8.00で倍近く上回ります。「巻物を並べるのが最適解」という単一の正解ができてしまい、赤身・肉寿司・光り物の存在意義が薄れます。</dd>
+      <dt>修正案</dt><dd>持続型のみ攻撃力を下げるのではなく、<strong>持続型はターン経過で攻撃力が落ちる</strong>ルールを入れるのが効果的だと考えます（例：残存ターンが1減るごとに攻撃 −1）。「食べかけの寿司が乾いていく」という題材とも噛み合います。<br>数値だけで調整するなら、満腹度4の持続カード（アボカド巻き・納豆巻き・鉄火巻き）を3Tに下げるだけでも上位が入れ替わります。</dd>
+      <dt>影響</dt><dd>ルール変更なら <code>calcFieldDmg</code>。数値のみなら <code>cards.ts</code>。いずれもE4のシミュレーションで検証したいところです。</dd>
+      <dt>データ</dt><dd>
+        <div class="figure"><table class="mini">
+          <thead><tr><th>カード</th><th>型</th><th class="n">AP</th><th class="n">定価</th><th class="n">総ダメ</th><th class="n">総ダメ/AP</th></tr></thead>
+          <tbody>
+            <tr class="mark"><td>アボカド巻き</td><td>持続 4T</td><td class="n">1</td><td class="n">150</td><td class="n">8</td><td class="n"><span class="barwrap"><i style="width:48px"></i>8.00</span></td></tr>
+            <tr class="mark"><td>納豆巻き</td><td>持続 4T</td><td class="n">2</td><td class="n">150</td><td class="n">12</td><td class="n"><span class="barwrap"><i style="width:36px"></i>6.00</span></td></tr>
+            <tr class="mark"><td>かっぱ巻き</td><td>持続 3T</td><td class="n">1</td><td class="n">100</td><td class="n">6</td><td class="n"><span class="barwrap"><i style="width:36px"></i>6.00</span></td></tr>
+            <tr class="mark"><td>鉄火巻き</td><td>持続 4T</td><td class="n">3</td><td class="n">300</td><td class="n">16</td><td class="n"><span class="barwrap"><i style="width:32px"></i>5.33</span></td></tr>
+            <tr class="mark"><td>かんぴょう巻き</td><td>持続 3T</td><td class="n">2</td><td class="n">100</td><td class="n">9</td><td class="n"><span class="barwrap"><i style="width:27px"></i>4.50</span></td></tr>
+            <tr><td>大トロ</td><td>即時</td><td class="n">5</td><td class="n">500</td><td class="n">22</td><td class="n"><span class="barwrap"><i style="width:26px"></i>4.40</span></td></tr>
+            <tr><td>マグロ</td><td>即時</td><td class="n">3</td><td class="n">200</td><td class="n">12</td><td class="n"><span class="barwrap"><i style="width:24px"></i>4.00</span></td></tr>
+            <tr><td>うに軍艦</td><td>即時</td><td class="n">5</td><td class="n">400</td><td class="n">20</td><td class="n"><span class="barwrap"><i style="width:24px"></i>4.00</span></td></tr>
+          </tbody>
+        </table></div>
+      </dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="D2">
+    <div class="head"><span class="id">D2</span><h3>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>アーキタイプ別の枚数は 巻物19 / 汎用10 / 赤身9 / 光り物9 / 海鮮8 / 肉寿司8。巻物だけが倍近くあります。巻物コンプの条件は「累計5枚召喚」。</dd>
+      <dt>問題</dt><dd>軍艦カードの多くが巻物タグを持つため、巻物を意識していないデッキでも自然に5枚に到達します。「以降ずっとドロー+1」という強力な効果が実質タダで付いてきます。</dd>
+      <dt>修正案</dt><dd>B1と合わせて条件を「机に同時5枚」に上げるか、累計のまま7枚に引き上げます。あるいは軍艦を巻物タグから外し、独立した <code>gunkan</code> アーキタイプにする案もあります（企画書では「巻物・軍艦」と併記されているので、分離は資料の意図に沿います）。</dd>
+      <dt>影響</dt><dd>条件変更なら1行。タグ分離なら <code>Archetype</code> 型とカード19枚分の書き換えになります。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="D3">
+    <div class="head"><span class="id">D3</span><h3>コハダが使うと損をする罠カードになっている</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>コハダは攻撃力0・4AP。効果は「切れ味スタックを全消費してスタック数×2のダメージ」。一方、切れ味スタックは <code>calcFieldDmg</code> で<strong>その時点で机にいる光り物カード全員に加算</strong>されます。</dd>
+      <dt>問題</dt><dd>スタック6でコハダを撃つと12ダメージ（3.0/AP）ですが、同じ4APでアジたたき（11ダメージ）＋イワシ（4ダメージ）を出せば、スタックを保ったまま15ダメージ＋スタック+2が入ります。さらにコハダはスタックを0にするため、<strong>同じターンに出した他の光り物のボーナスまで消えます</strong>。どの状況でも使わないほうが強いカードになっています。</dd>
+      <dt>修正案</dt><dd>倍率を×2から×4に上げる、コハダ自身に攻撃力を持たせる、あるいは「スタックを消費せず、スタック数ぶんの追加攻撃を行う」に変更する、のいずれか。<strong>「切れ味を消費して爆発させる」という設計を残すなら×4が最も素直</strong>です（スタック6で24ダメージ＝6.0/AP、大トロ級のフィニッシャーになります）。</dd>
+      <dt>影響</dt><dd><code>applySummon</code> の <code>kireta_consume_x2</code> 分岐と、効果テキスト。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="D4">
+    <div class="head"><span class="id">D4</span><h3>汎用レーンのえび系がビルドレーン級の効率</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>えび（3AP・11攻撃・3.67/AP）とボタンエビ（4AP・15攻撃・3.75/AP）が汎用レーンにあります。汎用レーン平均は3.14、ビルドレーン平均は3.76です。</dd>
+      <dt>問題</dt><dd>汎用レーンは「どのビルドにも入る無難なカード」という位置づけのはずが、えび系だけビルドレーン上位と拮抗しています。ビルドレーンを一切見なくても十分戦えてしまう可能性があります。</dd>
+      <dt>修正案</dt><dd>えびを 3AP・9攻撃（3.00/AP）、ボタンエビを 4AP・13攻撃（3.25/AP）程度に下げます。えびは海鮮連鎖の起爆役でもあるので、素の数値は控えめでも役割が残ります。</dd>
+      <dt>影響</dt><dd><code>cards.ts</code> の2枚。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="D5">
+    <div class="head"><span class="id">D5</span><h3>CPUが汎用デッキ固定でコンボをほぼ踏めない</h3><span class="pri mid">中</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>getCpuDeck()</code> は汎用レーンから15枚を組むだけです。<code>cpuChoose()</code> は攻撃力の降順にAPが許す限り出すだけで、効果もコンボも考慮しません。</dd>
+      <dt>問題</dt><dd>汎用レーンにあるコンボ対象は軍艦4枚だけなので、CPUは4種のコンボのうち巻物コンプしか狙えず、それも偶然頼みです。切れ味スタックも海鮮連鎖も肉寿司の終盤強化も一切使いません。プレイヤーがビルドを組むほど一方的な試合になります。</dd>
+      <dt>修正案</dt><dd>アーキタイプを1つ抽選し、そのビルドカードを中心に¥3,000ぶん組む「簡易CPUドラフト」を実装します（<code>implementation_flow.md</code> Phase 2-3）。<code>cpuChoose</code> も「攻撃力＋効果の期待値」で並べ替えるだけでかなり手強くなります。<br>先に<strong>A5（手札の重複バグ）を直してから</strong>着手してください。CPUデッキに重複が入った瞬間に踏みます。</dd>
+      <dt>影響</dt><dd><code>getCpuDeck</code> / <code>cpuChoose</code>。E3の難易度設定の土台にもなります。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<section id="feature">
+  <h2><span class="n">E</span>未実装の企画機能</h2>
+  <p class="lede">企画書にあってコードに存在しない機能です。ロードマップ上はいずれも Phase 4 以降なので、優先度は低めに置いています。</p>
+
+  <article class="item" id="E1">
+    <div class="head"><span class="id">E1</span><h3>薬味スロット（あがり / ガリ / サビ）</h3><span class="pri lo">低</span><span class="cost">L · 数日</span></div>
+    <div class="body"><dl>
+      <dt>企画</dt><dd>0コストで割り込み使用できる2枠。あがり＝デバフ全解除、ガリ＝相手攻撃半減、サビ＝次の攻撃×1.5。</dd>
+      <dt>現状</dt><dd><code>types/index.ts</code> に <code>CondimentSlot</code> / <code>CondimentCard</code> 型だけが宣言されていて、どこからも使われていません（F2）。</dd>
+      <dt>前提</dt><dd>「割り込み」を成立させるには、相手のターン中にプレイヤー入力を受け付ける仕組みが要ります。現在のターン進行は <code>setTimeout</code> の連鎖なので、そこに割り込み点を作る設計変更が必要です。<strong>ここが一番重い部分</strong>で、機能そのものより土台の作り直しがコストになります。</dd>
+      <dt>修正案</dt><dd>まず「自分のターン開始時にのみ使える」簡易版として入れ、割り込みは後回しにするのを提案します。それだけでも戦術の幅は出ます。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="E2">
+    <div class="head"><span class="id">E2</span><h3>サイドメニュー（味噌汁 / 茶碗蒸し）</h3><span class="pri lo">低</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>企画</dt><dd>1枠。味噌汁＝開始時に相手のお腹+5、茶碗蒸し＝毎ターン相手のお腹+1。</dd>
+      <dt>現状</dt><dd><code>Player.sideMenu</code> 型のみ存在。カードも画面もありません。</dd>
+      <dt>修正案</dt><dd>薬味と違って割り込みが要らないため、こちらのほうが先に入れやすいです。ドラフト画面のタブレットに「サイドメニュー」枠を1つ足し、バトル開始時と各ターン開始時に効果を適用するだけで成立します。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="E3">
+    <div class="head"><span class="id">E3</span><h3>CPU難易度（ふつう / むずかしい）</h3><span class="pri lo">低</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>企画</dt><dd>ふつう＝最適手70%・ランダム30%、むずかしい＝常に最適手＋役の先読み。</dd>
+      <dt>現状</dt><dd>難易度の概念自体がありません。モード選択画面は「CPU対戦 / 二人対戦」の2択のみです。</dd>
+      <dt>修正案</dt><dd>D5のCPU改善を先に入れて「最適手」の定義を作ったうえで、ランダム混入率で難易度を分けます。モード選択画面に難易度の3択を足すだけでUIは足ります。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="E4">
+    <div class="head"><span class="id">E4</span><h3>自動対戦シミュレーションによるバランス検証</h3><span class="pri mid">中</span><span class="cost">M · 半日</span></div>
+    <div class="body"><dl>
+      <dt>企画</dt><dd><code>implementation_flow.md</code> Phase 1-4「バランステスト（自動対戦シミュレーション 20 試行）」。</dd>
+      <dt>現状</dt><dd>未着手です。</dd>
+      <dt>修正案</dt><dd><code>applySummon</code> / <code>calcFieldDmg</code> はすでに純関数として切り出されているので、Reactを介さずNode上で回せます。アーキタイプ別に組んだデッキ同士を数百回対戦させ、勝率・平均決着ターン・コンボ発動率を出すスクリプトを <code>scripts/simulate.ts</code> として置くのが良いと思います。<br><strong>D1〜D4の数値調整はこれを作ってからのほうが確実です</strong>。今回の効率計算はカード単体の理論値なので、実際のAP制約や机上限を織り込めていません。</dd>
+      <dt>影響</dt><dd>新規スクリプトのみ。既存コードは変更なしで済むはずです。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<section id="hygiene">
+  <h2><span class="n">F</span>コード衛生</h2>
+  <p class="lede">動作には影響しませんが、放置すると読みづらさとビルドサイズに効いてくる項目です。</p>
+
+  <article class="item" id="F1">
+    <div class="head"><span class="id">F1</span><h3>未使用の画面ファイル5本と pixi.js 依存</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>レーン画面を3Dに一本化したことで、以下がどこからも参照されなくなりました。<ul>
+        <li><code>DraftScreen.tsx</code>（15KB）</li>
+        <li><code>DraftScreenPixi.tsx</code>（14KB）</li>
+        <li><code>DraftScreen3D.tsx</code>（14KB）</li>
+        <li><code>ConveyorLane.tsx</code> / <code>ShinkansenLane.tsx</code> / <code>SushiPlate.tsx</code> / <code>PixiConveyorBelt.tsx</code>（上記からのみ参照）</li>
+      </ul>さらに <code>package.json</code> の <code>pixi.js</code>（^7.4.3）は <code>DraftScreenPixi</code> と <code>PixiConveyorBelt</code> でしか使われていません。</dd>
+      <dt>問題</dt><dd>「どれが本物の画面か」がリポジトリから読み取れません。<code>implementation_flow.md</code> の Phase 3-1 に積まれている項目です。</dd>
+      <dt>修正案</dt><dd>7ファイルを削除し、<code>npm uninstall pixi.js</code> します。git履歴には残るので復元は可能です。<strong>ご指示いただければすぐ実行します。</strong></dd>
+      <dt>影響</dt><dd>削除のみ。型チェックは通ることを確認済みです。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="F2">
+    <div class="head"><span class="id">F2</span><h3><code>types/index.ts</code> の10個の型がどこからも使われていない</h3><span class="pri lo">低</span><span class="cost">S · 1時間</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd><code>src/</code> 全体を検索した結果、以下は <code>types/index.ts</code> の外で一度も使われていません。<br><code>Combo</code> / <code>ComboTrigger</code> / <code>ComboCondition</code> / <code>ComboEffect</code> / <code>Player</code> / <code>DeskCard</code> / <code>SummonHistory</code> / <code>CondimentSlot</code> / <code>CondimentCard</code> / <code>GameState</code></dd>
+      <dt>問題</dt><dd><code>BattleScreen.tsx</code> は独自の <code>S</code> 型と、ファイル内に直接書かれた <code>COMBOS</code> 配列で動いています。<code>types/index.ts</code> の定義は「こう作るつもりだった設計図」であって、現物ではありません。<strong>読む人がどちらを信じればいいか分かりません。</strong></dd>
+      <dt>修正案</dt><dd>2案。<ul>
+        <li><strong>案1（推奨）</strong> — 未使用の10型を削除し、将来使う <code>ComboCondition</code> / <code>ComboEffect</code> だけは B1・C1 の実装時に改めて起こす。</li>
+        <li><strong>案2</strong> — <code>BattleScreen.tsx</code> の <code>S</code> と <code>COMBOS</code> をこれらの型に寄せて統合する。設計としては綺麗ですが、バトル画面の大改修になります。</li>
+      </ul><code>implementation_flow.md</code> Phase 3-2 に該当します。</dd>
+      <dt>影響</dt><dd>案1なら <code>types/index.ts</code> のみ。</dd>
+    </dl></div>
+  </article>
+
+  <article class="item" id="F3">
+    <div class="head"><span class="id">F3</span><h3>AP成長式が2箇所に別々にハードコードされている</h3><span class="pri lo">低</span><span class="cost">S · 30分</span></div>
+    <div class="body"><dl>
+      <dt>現状</dt><dd>CPU戦は <code>Math.min(INIT_AP + newTurn - 1, 10)</code>（3箇所）、二人対戦は <code>Math.min(INIT_AP + Math.floor((newTurn - 1) / 2), 10)</code>（1箇所）と、別々の式が直接書かれています。</dd>
+      <dt>問題</dt><dd>ロジック自体は正しい（二人対戦は2手番＝1ラウンドなので2で割るのが正解）のですが、片方だけ直して片方を忘れる事故が起きやすい形です。同じ理由で <code>digestionAmount</code> の引数も <code>turn</code> と <code>Math.ceil(turn / 2)</code> に分かれています。</dd>
+      <dt>修正案</dt><dd><code>roundOf(turn, mode)</code> という関数を1つ作り、AP成長も消化量もそこから導出します。「ターン」と「ラウンド」の違いがコード上で明示されるので、読みやすさも上がります。</dd>
+      <dt>影響</dt><dd><code>BattleScreen.tsx</code> の5箇所。挙動は変わりません。</dd>
+    </dl></div>
+  </article>
+</section>
+
+<footer>
+  すしバトル 改修提案 — 全24件。対象コミット時点の <code>src/</code> と各企画資料に基づきます。着手する項目を選んでいただければ、その順に実装します。
+</footer>
+
+</div>
+</body></html>

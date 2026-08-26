@@ -2,17 +2,14 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { TitleScreen } from './features/title/TitleScreen'
 import { ModeSelectScreen } from './features/title/ModeSelectScreen'
-import { DraftScreen } from './features/draft/DraftScreen'
 import { DraftScreenThree } from './features/draft/DraftScreenThree'
 import { BattleScreen } from './features/battle/BattleScreen'
 import type { Phase, Card } from './types'
 
-type BeltMode = 'css' | '3d'
 type GameMode = 'cpu' | 'two_player'
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('title')
-  const [beltMode, setBeltMode] = useState<BeltMode>('css')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
@@ -67,14 +64,12 @@ export default function App() {
           onBack={() => setPhase('title')}
         />
       )}
-      {phase === 'draft' && !showHandoff && beltMode === 'css' && (
-        <DraftScreen
+      {phase === 'draft' && !showHandoff && (
+        <DraftScreenThree
+          key={gameMode === 'two_player' ? `p${draftPlayer}` : 'p1'}
           onComplete={handleDraftComplete}
           playerNum={gameMode === 'two_player' ? draftPlayer : undefined}
         />
-      )}
-      {phase === 'draft' && !showHandoff && beltMode === '3d' && (
-        <DraftScreenThree onComplete={handleDraftComplete} />
       )}
       {phase === 'draft' && showHandoff && (
         <HandoffScreen playerNum={2} onReady={handleHandoffReady} />
@@ -88,34 +83,6 @@ export default function App() {
         />
       )}
 
-      {/* CSS / Three.js 切り替えトグル */}
-      {phase === 'draft' && !showHandoff && (
-        <div
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex rounded-full overflow-hidden shadow-lg"
-          style={{ border: '1px solid rgba(255,255,255,0.15)' }}
-        >
-          <button
-            onClick={() => setBeltMode('css')}
-            className="px-3 py-1 text-[11px] font-bold transition-colors"
-            style={{
-              background: beltMode === 'css' ? '#f59e0b' : 'rgba(0,0,0,0.6)',
-              color: beltMode === 'css' ? '#1c0c04' : '#9ca3af',
-            }}
-          >
-            CSS
-          </button>
-          <button
-            onClick={() => setBeltMode('3d')}
-            className="px-3 py-1 text-[11px] font-bold transition-colors"
-            style={{
-              background: beltMode === '3d' ? '#0c4a6e' : 'rgba(0,0,0,0.6)',
-              color: beltMode === '3d' ? '#7dd3fc' : '#9ca3af',
-            }}
-          >
-            ◈ 3D
-          </button>
-        </div>
-      )}
     </div>
   )
 }

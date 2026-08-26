@@ -14,6 +14,7 @@ export type Card = {
   id: string
   name: string
   base: string
+  subBases?: string[]  // 太巻きのように複数のネタを内包するカード（base扱いされる副ネタ）
   topping: string | null
   type: CardType
   cost: number        // 食欲ポイント（バトル）

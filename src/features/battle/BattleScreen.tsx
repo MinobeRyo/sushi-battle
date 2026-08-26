@@ -2,7 +2,7 @@ import { useRef, useReducer, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CARDS } from '../../data/cards'
 import { SushiArt } from '../../components/SushiArt'
-import { DraftScreen } from '../draft/DraftScreen'
+import { DraftScreenThree } from '../draft/DraftScreenThree'
 import type { Card, Archetype } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -121,8 +121,7 @@ const EFFECT_FULL: Record<string, string> = {
   'chain_on_kaisen_summon': '海鮮系カードを召喚するたびに連鎖追加攻撃',
   'draw_1': '召喚時、カードを1枚引く',
   'ap_next_1': '次のターンだけ AP +1',
-  'multi_base': '複数のbaseコンボ条件を同時に満たせる',
-  'multi_base_combo': '複数のbaseコンボ条件を同時に満たせる',
+  'multi_base': 'base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）',
 }
 
 const ARCH_LABEL: Record<Archetype, string> = {
@@ -197,7 +196,10 @@ function calcFieldDmg(
   enemyBelly = 0,
 ) {
   return field.reduce((sum, c) => {
-    const base = c.attack + (buff[c.base] ?? 0)
+    // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
+    const baseBuff = [c.base, ...(c.subBases ?? [])]
+      .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
+    const base = c.attack + baseBuff
     const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack : 0
     let effectBonus = 0
     switch (c.effect) {
@@ -279,8 +281,11 @@ function applySummon(input: SummonInput): SummonResult {
 
   const field = [...input.field, toField(card)]
 
+  // このカードが名乗る base 一覧（太巻きは subBases も含む）
+  const cardBases = [card.base, ...(card.subBases ?? [])]
+
   // ── 海鮮連鎖
-  if (CHAIN_TRIGGER_BASES.has(card.base)) {
+  if (cardBases.some(b => CHAIN_TRIGGER_BASES.has(b))) {
     const chainCards = field.filter(c => c.effect === 'chain_on_kaisen_summon')
     if (chainCards.length > 0) {
       const chainDmg = chainCards.length * CHAIN_BONUS
@@ -292,7 +297,7 @@ function applySummon(input: SummonInput): SummonResult {
   // ── 召喚履歴
   const summonedIds = [...input.summonedIds, card.id]
   const summonedArch = { ...input.summonedArch }
-  const thisTurnBases = [...input.thisTurnBases, card.base]
+  const thisTurnBases = [...input.thisTurnBases, ...cardBases]
   const thisTurnArch = { ...input.thisTurnArch }
   for (const a of card.archetype) {
     summonedArch[a] = (summonedArch[a] ?? 0) + 1
@@ -988,24 +993,11 @@ export function BattleScreen({
     if (st.cApNextBonus > 0) addLog(`⚡ 一時APボーナス +${st.cApNextBonus}！`)
     const nextMaxAP = Math.min(INIT_AP + Math.floor((newTurn - 1) / 2), 10) + st.cApNextBonus
 
-    // 相手（c*）の持続型フィールドが攻撃
-    const cFieldDmg = calcFieldDmg(st.cField, st.cAttackBuff, st.cKiretaStack, st.pBelly)
-    if (cFieldDmg > 0) {
-      addLog(`P${st.activePlayer === 1 ? 2 : 1}の持続攻撃: ${cFieldDmg} ダメージ！`)
-      addFloat(cFieldDmg, 'player')
-    }
-    const newPBelly = Math.min(MAX_BELLY, st.pBelly + cFieldDmg)
+    // ここでは待機側の攻撃・場の消耗・ドローを行わない。
+    // それらは各プレイヤー自身のターン終了時（endTurnTwoPlayer）に1回だけ処理される。
+    // パス画面は「手番の受け渡し」＋次のアクティブ側の消化・AP回復だけを担当する。
 
-    if (newPBelly >= MAX_BELLY) {
-      set({ pBelly: newPBelly, winner: 'cpu', phase: 'over' })
-      return
-    }
-
-    // 相手の場を更新・相手ドロー
-    const newCField = st.cField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
-    const [newCHand, newCDeck] = drawCards(st.cHand, st.cDeck, 1 + st.cDrawBonus)
-
-    // 相手（次のアクティブ）の消化（2Pモードは2ターンで1ラウンド換算）
+    // 次のアクティブ側（c*）の消化（2Pモードは2ターンで1ラウンド換算）
     const nextBelly = st.cDigestStopTurns > 0
       ? st.cBelly
       : Math.max(0, st.cBelly - digestionAmount(Math.ceil(st.turn / 2)))
@@ -1015,7 +1007,7 @@ export function BattleScreen({
 
     // 両者の手札・山札が尽きたら追加注文タイム
     const allOut =
-      newCHand.length === 0 && newCDeck.length === 0 &&
+      st.cHand.length === 0 && st.cDeck.length === 0 &&
       st.pHand.length === 0 && st.pDeck.length === 0
     if (allOut) addLog('🍽 追加注文タイム！ 両者 ¥1500 で補充しよう')
 
@@ -1023,7 +1015,7 @@ export function BattleScreen({
 
     set({
       // 新アクティブ（旧 c*）
-      pHand: newCHand, pField: newCField, pDeck: newCDeck,
+      pHand: st.cHand, pField: st.cField, pDeck: st.cDeck,
       pBelly: nextBelly,
       pAP: nextMaxAP, pMaxAP: nextMaxAP,
       pSummonedIds: st.cSummonedIds,
@@ -1037,7 +1029,7 @@ export function BattleScreen({
       pApNextBonus: 0,  // ボーナスは今消費した
       // 待機側（旧 p*）
       cHand: st.pHand, cField: st.pField, cDeck: st.pDeck,
-      cBelly: newPBelly,
+      cBelly: st.pBelly,
       cSummonedIds: st.pSummonedIds,
       cSummonedArch: st.pSummonedArch,
       cDrawBonus: st.pDrawBonus,
@@ -1428,7 +1420,7 @@ export function BattleScreen({
             {mode === 'two_player' && `（P${reorderStep === 'p' ? s.activePlayer : s.activePlayer === 1 ? 2 : 1} の番）`}
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
-            <DraftScreen
+            <DraftScreenThree
               key={reorderStep}
               onComplete={handleReorderComplete}
               initialBudget={REORDER_BUDGET}

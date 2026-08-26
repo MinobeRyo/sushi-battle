@@ -4,7 +4,7 @@ import type { Card } from '../../types'
 const EFFECT_LABELS: Record<string, string> = {
   digest_stop_1t: '相手の消化を1ターン止める',
   self_digest_3: '自分のお腹 -3',
-  multi_base: '複数baseのコンボ条件を満たす',
+  multi_base: 'マグロ・えびのbaseも兼ねる',
   kireta_stack: '切れ味スタック +1',
   kireta_consume_x2: '切れ味スタック全消費 ×2ダメージ',
   chain_on_kaisen_summon: '海鮮召喚時に連鎖攻撃',
