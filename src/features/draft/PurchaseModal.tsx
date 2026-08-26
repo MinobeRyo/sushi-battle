@@ -3,12 +3,15 @@ import type { Card } from '../../types'
 
 const EFFECT_LABELS: Record<string, string> = {
   digest_stop_1t: '相手の消化を1ターン止める',
-  self_digest_3: '自分のお腹 -3',
+  self_digest_5: '自分のお腹 -5',
+  digest_boost_2: '机にいる間 毎ターンの消化 +2',
   multi_base: 'マグロ・えびのbaseも兼ねる',
   kireta_stack: '切れ味スタック +1',
-  kireta_consume_x2: '切れ味スタック全消費 ×2ダメージ',
+  kireta_consume_x3: '切れ味スタック全消費 ×3ダメージ（消費は攻撃後）',
+  kireta_consume_2_draw_2: '切れ味2を消費して2枚ドロー',
   chain_on_kaisen_summon: '海鮮召喚時に連鎖攻撃',
   draw_1: '召喚時、カードを1枚引く',
+  draw_2: '召喚時、カードを2枚引く',
   ap_next_1: '次のターンだけ AP +1',
   belly_boost_70: '相手お腹 >70 で攻撃 +8',
   belly_boost_65: '相手お腹 >65 で攻撃 +6',
@@ -18,7 +21,7 @@ const EFFECT_LABELS: Record<string, string> = {
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   akami: '赤身', makimono: '巻物', hikari: '光り物',
-  kaisen: '海鮮', niku: '肉寿司', general: '汎用',
+  kaisen: '海鮮', niku: '肉寿司', gunkan: '軍艦', general: '汎用',
 }
 
 const ARCHETYPE_COLORS: Record<string, string> = {
@@ -27,6 +30,7 @@ const ARCHETYPE_COLORS: Record<string, string> = {
   hikari: 'bg-blue-900 text-blue-300',
   kaisen: 'bg-cyan-900 text-cyan-300',
   niku: 'bg-orange-900 text-orange-300',
+  gunkan: 'bg-amber-900 text-amber-300',
   general: 'bg-stone-700 text-stone-300',
 }
 

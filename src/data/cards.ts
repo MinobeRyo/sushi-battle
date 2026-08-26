@@ -106,11 +106,11 @@ export const CARDS: Card[] = [
     base: '明太子',
     topping: null,
     type: 'instant',
-    cost: 2,
+    cost: 3,
     price: 200,
     attack: 7,
     fullness: 0,
-    effect: null,
+    effect: 'draw_2', // 召喚時2枚ドロー
     archetype: ['general'],
     lane: 'general',
   },
@@ -141,7 +141,7 @@ export const CARDS: Card[] = [
     attack: 3,
     fullness: 0,
     effect: 'draw_1', // 召喚時1枚ドロー
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'general',
   },
   {
@@ -155,7 +155,7 @@ export const CARDS: Card[] = [
     attack: 3,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'general',
   },
   {
@@ -169,7 +169,7 @@ export const CARDS: Card[] = [
     attack: 6,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'general',
   },
   {
@@ -183,7 +183,7 @@ export const CARDS: Card[] = [
     attack: 6,
     fullness: 0,
     effect: null,
-    archetype: ['makimono', 'akami'],
+    archetype: ['makimono', 'akami', 'gunkan'],
     lane: 'general',
   },
 
@@ -268,9 +268,9 @@ export const CARDS: Card[] = [
     type: 'persist',
     cost: 1,
     price: 100,
-    attack: 2,
+    attack: 1,
     fullness: 3,
-    effect: null,
+    effect: 'digest_boost_2', // 机にいる間、自分の消化量 +2
     archetype: ['makimono'],
     lane: 'build',
   },
@@ -312,7 +312,7 @@ export const CARDS: Card[] = [
     price: 150,
     attack: 5,
     fullness: 0,
-    effect: 'self_digest_3', // 自分のお腹 -3
+    effect: 'self_digest_5', // 自分のお腹 -5
     archetype: ['makimono'],
     lane: 'build',
   },
@@ -400,7 +400,7 @@ export const CARDS: Card[] = [
     attack: 20,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'build',
   },
   {
@@ -414,7 +414,7 @@ export const CARDS: Card[] = [
     attack: 11,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'build',
   },
   {
@@ -428,7 +428,7 @@ export const CARDS: Card[] = [
     attack: 15,
     fullness: 0,
     effect: null,
-    archetype: ['akami', 'makimono'],
+    archetype: ['akami', 'makimono', 'gunkan'],
     lane: 'build',
   },
   {
@@ -442,7 +442,7 @@ export const CARDS: Card[] = [
     attack: 10,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'build',
   },
   {
@@ -456,7 +456,7 @@ export const CARDS: Card[] = [
     attack: 12,
     fullness: 0,
     effect: null,
-    archetype: ['makimono', 'kaisen'],
+    archetype: ['makimono', 'kaisen', 'gunkan'],
     lane: 'build',
   },
   {
@@ -470,7 +470,7 @@ export const CARDS: Card[] = [
     attack: 19,
     fullness: 0,
     effect: null,
-    archetype: ['makimono'],
+    archetype: ['makimono', 'gunkan'],
     lane: 'build',
   },
 
@@ -499,7 +499,7 @@ export const CARDS: Card[] = [
     price: 200,
     attack: 10,
     fullness: 0,
-    effect: 'kireta_stack',
+    effect: 'kireta_consume_2_draw_2', // 切れ味2を消費して2枚ドロー
     archetype: ['hikari'],
     lane: 'build',
   },
@@ -597,7 +597,7 @@ export const CARDS: Card[] = [
     price: 300,
     attack: 0,
     fullness: 0,
-    effect: 'kireta_consume_x2', // 切れ味スタック全消費×2ダメージ
+    effect: 'kireta_consume_x3', // 切れ味スタック全消費×3ダメージ
     archetype: ['hikari'],
     lane: 'build',
   },

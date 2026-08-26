@@ -7,7 +7,7 @@ import type { Card, Archetype } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type FieldCard = Card & { fid: string; turnsLeft: number }
+type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean }
 type Phase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder'
 type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 type ComboAnim = { name: string; emoji: string; desc: string }
@@ -27,6 +27,8 @@ type S = {
   pThisTurnArch: Record<string, number>
   pDigestStopTurns: number
   pApNextBonus: number   // 次のターンだけのAPボーナス
+  pNikuMatsuri: boolean  // このターン肉祭りが発動中か（終盤強化ボーナス×2）
+  pKiretaSpent: boolean  // コハダで切れ味を使い切ったか（実際のリセットはターン終了時）
   // Opponent / CPU (always "c")
   cHand: Card[]; cField: FieldCard[]; cDeck: Card[]
   cBelly: number
@@ -38,6 +40,8 @@ type S = {
   cKiretaStack: number
   cDigestStopTurns: number
   cApNextBonus: number
+  cNikuMatsuri: boolean
+  cKiretaSpent: boolean
   // Game
   activePlayer: 1 | 2
   turn: number; phase: Phase; winner: 'player' | 'cpu' | null
@@ -85,6 +89,14 @@ const FIELD_MAX = 8
 const INIT_AP = 2
 const DIGESTION_MAX = 5
 const CHAIN_BONUS = 3
+const DIGEST_BOOST = 2        // digest_boost_2: 机にいる間の消化量ボーナス
+const MAKI_COMP_3 = 3         // 巻物コンプ①: 机に同時この枚数で以降ドロー+1（1試合1回）
+const MAKI_COMP_5 = 5         // 巻物コンプ②: 机に同時この枚数の間、軍艦の攻撃1.5倍（状態継続）
+const GUNKAN_BOOST = 1.5
+const KAISEN_REATTACK = 0.5   // 海の幸三昧: 場の海鮮カードがこの倍率で再攻撃
+const OBA_REQUIRED = 3        // 光り物三昧: 大葉トッピングの累計召喚数
+const KIRETA_MULT = 3         // コハダ: 切れ味全消費 ×この倍率
+const NIKU_REQUIRED = 2       // 肉祭り: 同ターンの肉寿司召喚数
 const REORDER_BUDGET = 1500   // 追加注文タイムの軍資金
 const REORDER_SECONDS = 45    // 追加注文タイムの制限時間
 
@@ -110,67 +122,77 @@ const CARD_EMOJI: Record<string, string> = {
 }
 
 const EFFECT_FULL: Record<string, string> = {
-  'self_digest_3': '召喚時、自分のお腹が -3（消化促進）',
+  'self_digest_5': '召喚時、自分のお腹が -5（消化促進）',
+  'digest_boost_2': '机にいる間、毎ターンの消化量 +2',
   'digest_stop_1t': '召喚時、相手の消化を 1ターン止める',
-  'kireta_stack': '召喚時、切れ味スタック +1（コハダで全消費×2）',
-  'kireta_consume_x2': '切れ味スタックを全消費し、スタック数×2のダメージ',
+  'kireta_stack': '召喚時、切れ味スタック +1（コハダで全消費×3）',
+  'kireta_consume_x3': '切れ味スタックを全消費し、スタック数×3のダメージ（消費はそのターンの攻撃が終わってから）',
+  'kireta_consume_2_draw_2': '切れ味スタックを2消費して2枚ドロー（2未満なら不発）',
   'belly_boost_70': '相手お腹が70以上のとき 攻撃 +8',
   'belly_boost_60': '相手お腹が60以上のとき 攻撃 +5',
   'belly_boost_65': '相手お腹が65以上のとき 攻撃 +6',
   'belly_boost_persist_50': '机に居る間、相手お腹50以上で 攻撃 +2',
   'chain_on_kaisen_summon': '海鮮系カードを召喚するたびに連鎖追加攻撃',
   'draw_1': '召喚時、カードを1枚引く',
+  'draw_2': '召喚時、カードを2枚引く',
   'ap_next_1': '次のターンだけ AP +1',
   'multi_base': 'base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）',
 }
 
 const ARCH_LABEL: Record<Archetype, string> = {
   akami: '🔴 赤身', makimono: '🌀 巻物', hikari: '✨ 光り物',
-  kaisen: '🦞 海鮮', niku: '🥩 肉寿司', general: '⭐ 汎用',
+  kaisen: '🦞 海鮮', niku: '🥩 肉寿司', gunkan: '🍙 軍艦', general: '⭐ 汎用',
 }
 
 function cardEmoji(c: Card) { return CARD_EMOJI[c.base] ?? '🍣' }
 
+const CARD_BY_ID: Record<string, Card> =
+  Object.fromEntries(CARDS.map(c => [c.id, c]))
+
+// digest_boost_2 を持つカードが机にいる枚数ぶん、毎ターンの消化量が増える
+function digestBonus(field: FieldCard[]) {
+  return field.filter(c => c.effect === 'digest_boost_2').length * DIGEST_BOOST
+}
+
+function makimonoCount(field: FieldCard[]) {
+  return field.filter(c => c.archetype.includes('makimono')).length
+}
+
 // ── Combos ────────────────────────────────────────────────────────────────────
 
-const COMBOS: Array<{
-  id: string; name: string; emoji: string; desc: string
-  checkCumulative?: (ids: string[], arch: Record<string, number>) => boolean
-  checkSimultaneous?: (bases: string[], arch: Record<string, number>) => boolean
-  instantDmg: number
-  instantDmgFn?: (field: FieldCard[], buff: Record<string, number>, kStack: number, cBelly: number) => number
-  applyBuff: (buff: Record<string, number>, draw: number) => { buff: Record<string, number>; draw: number }
-}> = [
-  {
+type ComboMeta = { id: string; name: string; emoji: string; desc: string }
+
+// 発動タイミングの分類
+//   1試合1回 : 永続効果を配るもの（赤身三種盛り / 巻物コンプ① / 光り物三昧）
+//   都度発動 : 条件を満たすたび何度でも（海の幸三昧 / 肉祭り）
+//   状態継続 : 条件を満たしている間ずっと有効（巻物コンプ②＝軍艦1.5倍）
+// 実際の判定は applySummon と calcFieldDmg にある。ここは演出用のメタ情報だけ。
+const COMBO_META: Record<string, ComboMeta> = {
+  akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
-    desc: '即時+10ダメージ / マグロ系攻撃+2',
-    checkCumulative: (ids) => ['maguro', 'chutoro', 'otoro'].every(id => ids.includes(id)),
-    instantDmg: 10,
-    applyBuff: (buff, draw) => ({ buff: { ...buff, 'マグロ': (buff['マグロ'] ?? 0) + 2 }, draw }),
+    desc: '即時+10ダメージ / 以降マグロ系の攻撃+2',
   },
-  {
-    id: 'maki_comp', name: '巻物コンプ！！！', emoji: '🌀',
-    desc: '以降ドロー+1',
-    checkCumulative: (_ids, arch) => (arch['makimono'] ?? 0) >= 5,
-    instantDmg: 0,
-    applyBuff: (buff, draw) => ({ buff, draw: draw + 1 }),
+  maki_comp_3: {
+    id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀',
+    desc: '机に巻物3枚 — 以降ドロー+1',
   },
-  {
+  maki_comp_5: {
+    id: 'maki_comp_5', name: '巻物フルコンプ！！！', emoji: '🍙',
+    desc: '机に巻物5枚 — 維持している間、軍艦の攻撃1.5倍',
+  },
+  hikari_zanmai: {
+    id: 'hikari_zanmai', name: '光り物三昧！！！', emoji: '✨',
+    desc: '大葉3枚 — 切れ味スタック+3',
+  },
+  umi_zanmai: {
     id: 'umi_zanmai', name: '海の幸三昧！！！', emoji: '🌊',
-    desc: '追加攻撃×2（フィールドダメージ×2を即時追加）',
-    checkSimultaneous: (bases) => bases.includes('いか') && bases.includes('たこ'),
-    instantDmg: 0,
-    instantDmgFn: (field, buff, kStack, cBelly) => calcFieldDmg(field, buff, kStack, cBelly) * 2,
-    applyBuff: (buff, draw) => ({ buff, draw }),
+    desc: '場の海鮮カードが50%の威力で再攻撃',
   },
-  {
+  niku_matsuri: {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
-    desc: '同ターン肉寿司攻撃ボーナス×2（即時+12）',
-    checkSimultaneous: (_bases, arch) => (arch['niku'] ?? 0) >= 2,
-    instantDmg: 12,
-    applyBuff: (buff, draw) => ({ buff, draw }),
+    desc: 'このターン、肉寿司の終盤強化ボーナス×2',
   },
-]
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -189,12 +211,19 @@ function shuffled<T>(arr: T[]): T[] {
   return a
 }
 
+type DmgOpts = {
+  nikuMatsuri?: boolean   // 肉祭り: そのターンの終盤強化ボーナスを2倍
+  gunkanBoost?: boolean   // 巻物コンプ②: 未指定なら渡された field から判定する
+}
+
 function calcFieldDmg(
   field: FieldCard[],
   buff: Record<string, number>,
   kiretaStack = 0,
   enemyBelly = 0,
+  opts: DmgOpts = {},
 ) {
+  const gunkanBoost = opts.gunkanBoost ?? (makimonoCount(field) >= MAKI_COMP_5)
   return field.reduce((sum, c) => {
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
     const baseBuff = [c.base, ...(c.subBases ?? [])]
@@ -208,7 +237,12 @@ function calcFieldDmg(
       case 'belly_boost_65': if (enemyBelly >= 65) effectBonus = 6; break
       case 'belly_boost_persist_50': if (enemyBelly >= 50) effectBonus = 2; break
     }
-    return sum + base + kiretaBonus + effectBonus
+    if (opts.nikuMatsuri) effectBonus *= 2
+    let total = base + kiretaBonus + effectBonus
+    if (gunkanBoost && c.archetype.includes('gunkan')) {
+      total = Math.floor(total * GUNKAN_BOOST)
+    }
+    return sum + total
   }, 0)
 }
 
@@ -226,6 +260,8 @@ type SummonInput = {
   combosFired: string[]
   attackBuff: Record<string, number>
   drawBonus: number
+  nikuMatsuri: boolean
+  kiretaSpent: boolean
   enemyBelly: number
 }
 
@@ -234,7 +270,7 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly'> & {
   stopOppDigest: boolean
   drawNow: number   // 召喚時ドロー枚数
   apNext: number    // 次のターンだけのAPボーナス
-  fired: Array<(typeof COMBOS)[number]>
+  fired: ComboMeta[]
   logs: string[]
 }
 
@@ -247,12 +283,19 @@ function applySummon(input: SummonInput): SummonResult {
   let stopOppDigest = false
   let drawNow = 0
   let apNext = 0
+  let kiretaSpent = input.kiretaSpent
+  // コハダで使い切ったあとは、数値上スタックが残っていても消費には使えない
+  const usableKireta = () => (kiretaSpent ? 0 : kireta)
 
   // ── カード効果（即時適用）
   switch (card.effect) {
     case 'draw_1':
       drawNow = 1
       logs.push('🎴 カードを1枚引いた！')
+      break
+    case 'draw_2':
+      drawNow = 2
+      logs.push('🎴 カードを2枚引いた！')
       break
     case 'ap_next_1':
       apNext = 1
@@ -262,16 +305,41 @@ function applySummon(input: SummonInput): SummonResult {
       kireta += 1
       logs.push(`✂ 切れ味スタック +1（計${kireta}）`)
       break
-    case 'kireta_consume_x2':
-      if (kireta > 0) {
-        extraDmg += kireta * 2
-        logs.push(`✂ 切れ味全消費！ スタック${kireta} × 2 = +${kireta * 2} ダメージ`)
-        kireta = 0
+    case 'kireta_consume_x3': {
+      // スタックは即座には0にしない。ターン終了時の攻撃が解決してから消える。
+      // そのためコハダ自身も、同じターンに出した他の光り物も切れ味ボーナスを受けられる。
+      const use = usableKireta()
+      if (use > 0) {
+        extraDmg += use * KIRETA_MULT
+        kiretaSpent = true
+        logs.push(`✂ 切れ味全消費！ スタック${use} × ${KIRETA_MULT} = +${use * KIRETA_MULT} ダメージ（今ターンの攻撃には乗る）`)
+      } else if (kiretaSpent) {
+        logs.push('✂ このターンはすでに切れ味を使い切っている')
+      } else {
+        logs.push('✂ 切れ味スタックが無いため不発')
       }
       break
-    case 'self_digest_3':
-      belly = Math.max(0, belly - 3)
-      logs.push('🫧 消化促進！ お腹 -3')
+    }
+    case 'kireta_consume_2_draw_2': {
+      // スタックが2未満なら発動しない（消費もしない）
+      const use = usableKireta()
+      if (use >= 2) {
+        kireta -= 2
+        drawNow += 2
+        logs.push(`✂ 切れ味2を消費して2枚ドロー！（残り${kireta}）`)
+      } else if (kiretaSpent) {
+        logs.push('✂ このターンはすでに切れ味を使い切っている')
+      } else {
+        logs.push(`✂ 切れ味スタックが足りず不発（2必要・現在${use}）`)
+      }
+      break
+    }
+    case 'self_digest_5':
+      belly = Math.max(0, belly - 5)
+      logs.push('🫧 消化促進！ お腹 -5')
+      break
+    case 'digest_boost_2':
+      logs.push(`🥒 机にいる間、毎ターンの消化 +${DIGEST_BOOST}`)
       break
     case 'digest_stop_1t':
       stopOppDigest = true
@@ -279,7 +347,7 @@ function applySummon(input: SummonInput): SummonResult {
       break
   }
 
-  const field = [...input.field, toField(card)]
+  let field = [...input.field, toField(card)]
 
   // このカードが名乗る base 一覧（太巻きは subBases も含む）
   const cardBases = [card.base, ...(card.subBases ?? [])]
@@ -307,31 +375,77 @@ function applySummon(input: SummonInput): SummonResult {
   // ── コンボ判定
   let attackBuff = { ...input.attackBuff }
   let drawBonus = input.drawBonus
+  let nikuMatsuri = input.nikuMatsuri
   const combosFired = [...input.combosFired]
-  const fired: Array<(typeof COMBOS)[number]> = []
+  const fired: ComboMeta[] = []
 
-  for (const combo of COMBOS) {
-    if (combosFired.includes(combo.id)) continue
-    const hit =
-      (combo.checkCumulative && combo.checkCumulative(summonedIds, summonedArch)) ||
-      (combo.checkSimultaneous && combo.checkSimultaneous(thisTurnBases, thisTurnArch))
-    if (!hit) continue
+  const announce = (meta: ComboMeta, detail?: string) => {
+    fired.push(meta)
+    logs.push(`🎉 コンボ発動: ${meta.name}！ ${detail ?? meta.desc}`)
+  }
 
-    combosFired.push(combo.id)
-    fired.push(combo)
-    const r = combo.applyBuff(attackBuff, drawBonus)
-    attackBuff = r.buff
-    drawBonus = r.draw
-    extraDmg += combo.instantDmgFn
-      ? combo.instantDmgFn(field, attackBuff, kireta, enemyBelly)
-      : combo.instantDmg
-    logs.push(`🎉 コンボ発動: ${combo.name}！ ${combo.desc}`)
+  // 赤身三種盛り（累積・1試合1回・永続バフ）
+  if (!combosFired.includes('akami_mori') &&
+      ['maguro', 'chutoro', 'otoro'].every(id => summonedIds.includes(id))) {
+    combosFired.push('akami_mori')
+    extraDmg += 10
+    attackBuff = { ...attackBuff, 'マグロ': (attackBuff['マグロ'] ?? 0) + 2 }
+    announce(COMBO_META.akami_mori)
+  }
+
+  // 巻物コンプ①（机に同時3枚・1試合1回・以降ドロー+1）
+  if (!combosFired.includes('maki_comp_3') && makimonoCount(field) >= MAKI_COMP_3) {
+    combosFired.push('maki_comp_3')
+    drawBonus += 1
+    announce(COMBO_META.maki_comp_3)
+  }
+
+  // 光り物三昧（大葉トッピングの累計3枚・1試合1回）
+  const obaCount = summonedIds.filter(id => CARD_BY_ID[id]?.topping === '大葉').length
+  if (!combosFired.includes('hikari_zanmai') && obaCount >= OBA_REQUIRED) {
+    combosFired.push('hikari_zanmai')
+    kireta += 3
+    announce(COMBO_META.hikari_zanmai, `切れ味スタック +3（計${kireta}）`)
+  }
+
+  // 海の幸三昧（いか＋たこのペアを消費して発動・何度でも）
+  // 発動したカードは kaisenPaired が立ち、以後ペアの相手には選ばれない。
+  // 海鮮タグと連鎖効果は残るので、再攻撃の対象にも連鎖の起爆装置にもなり続ける。
+  if (cardBases.includes('いか') || cardBases.includes('たこ')) {
+    const self = field[field.length - 1]
+    const want = cardBases.includes('いか') ? 'たこ' : 'いか'
+    const idx = field.findIndex(c =>
+      c !== self && !c.kaisenPaired && [c.base, ...(c.subBases ?? [])].includes(want))
+    if (idx >= 0) {
+      const partnerFid = field[idx].fid
+      field = field.map(c =>
+        (c.fid === partnerFid || c === self) ? { ...c, kaisenPaired: true } : c)
+      const kaisenField = field.filter(c => c.archetype.includes('kaisen'))
+      const reattack = Math.floor(
+        calcFieldDmg(kaisenField, attackBuff, kireta, enemyBelly, {
+          gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
+          nikuMatsuri,
+        }) * KAISEN_REATTACK)
+      extraDmg += reattack
+      announce(COMBO_META.umi_zanmai, `場の海鮮${kaisenField.length}枚が再攻撃 +${reattack}`)
+    }
+  }
+
+  // 肉祭り（同ターンに肉寿司2枚・そのターンに1回・ターンをまたげば何度でも）
+  if (!nikuMatsuri && (thisTurnArch['niku'] ?? 0) >= NIKU_REQUIRED) {
+    nikuMatsuri = true
+    announce(COMBO_META.niku_matsuri)
+  }
+
+  // 巻物コンプ②（状態継続。効果は calcFieldDmg 側。ここは成立した瞬間の通知だけ）
+  if (makimonoCount(input.field) < MAKI_COMP_5 && makimonoCount(field) >= MAKI_COMP_5) {
+    announce(COMBO_META.maki_comp_5)
   }
 
   return {
     belly, kireta, field, summonedIds, summonedArch,
-    thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus,
-    extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
+    thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
+    kiretaSpent, extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
   }
 }
 
@@ -380,10 +494,11 @@ function initState(deck: Card[], mode: 'cpu' | 'two_player', p2Deck?: Card[]): S
     pBelly: 0, pAP: INIT_AP, pMaxAP: INIT_AP,
     pSummonedIds: [], pSummonedArch: {}, pDrawBonus: 0, pAttackBuff: {}, pCombosFired: [],
     pKiretaStack: 0, pThisTurnBases: [], pThisTurnArch: {}, pDigestStopTurns: 0, pApNextBonus: 0,
+    pNikuMatsuri: false, pKiretaSpent: false,
     cHand: cDeckCards.slice(0, 5), cField: [], cDeck: cDeckCards.slice(5),
     cBelly: 0,
     cSummonedIds: [], cSummonedArch: {}, cDrawBonus: 0, cAttackBuff: {}, cCombosFired: [],
-    cKiretaStack: 0, cDigestStopTurns: 0, cApNextBonus: 0,
+    cKiretaStack: 0, cDigestStopTurns: 0, cApNextBonus: 0, cNikuMatsuri: false, cKiretaSpent: false,
     activePlayer: 1,
     turn: 1, phase: 'player', winner: null,
     log: ['バトル開始！'], flash: null,
@@ -765,7 +880,7 @@ export function BattleScreen({
     return false
   }
 
-  const fireComboAnim = (combo: typeof COMBOS[number]) => {
+  const fireComboAnim = (combo: ComboMeta) => {
     setComboAnim({ name: combo.name, emoji: combo.emoji, desc: combo.desc })
     setTimeout(() => setComboAnim(null), 2800)
   }
@@ -789,6 +904,8 @@ export function BattleScreen({
       combosFired: st.pCombosFired,
       attackBuff: st.pAttackBuff,
       drawBonus: st.pDrawBonus,
+      nikuMatsuri: st.pNikuMatsuri,
+      kiretaSpent: st.pKiretaSpent,
       enemyBelly: st.cBelly,
     })
     for (const m of r.logs) addLog(m)
@@ -813,6 +930,8 @@ export function BattleScreen({
       pThisTurnBases: r.thisTurnBases, pThisTurnArch: r.thisTurnArch,
       pCombosFired: r.combosFired,
       pAttackBuff: r.attackBuff, pDrawBonus: r.drawBonus,
+      pNikuMatsuri: r.nikuMatsuri,
+      pKiretaSpent: r.kiretaSpent,
       pKiretaStack: r.kireta,
       cBelly: newCBelly,
       cDigestStopTurns: r.stopOppDigest ? 1 : st.cDigestStopTurns,
@@ -827,10 +946,10 @@ export function BattleScreen({
     set({ phase: 'animating' })
 
     setTimeout(() => {
-      const { pField, cBelly, pDeck, pHand, pDrawBonus, turn, pAttackBuff, pKiretaStack } = ref.current
+      const { pField, cBelly, pDeck, pHand, pDrawBonus, turn, pAttackBuff, pKiretaStack, pNikuMatsuri, pKiretaSpent } = ref.current
 
       // プレイヤー場が攻撃
-      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly)
+      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly, { nikuMatsuri: pNikuMatsuri })
       if (totalDmg > 0) { addLog(`あなたの攻撃: ${totalDmg} ダメージ！`); addFloat(totalDmg, 'cpu') }
       const newCBelly = Math.min(MAX_BELLY, cBelly + totalDmg)
       set({ flash: 'cpu', cBelly: newCBelly })
@@ -840,7 +959,14 @@ export function BattleScreen({
       // プレイヤー場を更新・ドロー・このターンリセット
       const newPField = pField.map(c => ({ ...c, turnsLeft: c.turnsLeft - 1 })).filter(c => c.turnsLeft > 0)
       const [h1, d1] = drawCards(pHand, pDeck, 1 + pDrawBonus)
-      set({ pField: newPField, pHand: h1, pDeck: d1, pThisTurnBases: [], pThisTurnArch: {}, phase: 'cpu' })
+      // コハダで使い切った切れ味は、攻撃が解決したここで初めて0になる
+      if (pKiretaSpent) addLog('✂ 切れ味スタックを使い切った（0にリセット）')
+      set({
+        pField: newPField, pHand: h1, pDeck: d1,
+        pThisTurnBases: [], pThisTurnArch: {}, pNikuMatsuri: false,
+        pKiretaStack: pKiretaSpent ? 0 : pKiretaStack, pKiretaSpent: false,
+        phase: 'cpu',
+      })
 
       setTimeout(() => {
         const st = ref.current
@@ -849,7 +975,9 @@ export function BattleScreen({
         const cpuMaxAP = Math.min(INIT_AP + newTurn - 1, 10) + st.cApNextBonus
 
         // CPU 消化
-        const cpuAfterDigest = st.cDigestStopTurns > 0 ? st.cBelly : Math.max(0, st.cBelly - digestionAmount(turn))
+        const cpuAfterDigest = st.cDigestStopTurns > 0
+          ? st.cBelly
+          : Math.max(0, st.cBelly - (digestionAmount(turn) + digestBonus(st.cField)))
         if (st.cDigestStopTurns > 0) addLog('🚫 CPUの消化がスキップされた！')
 
         // CPU 行動（プレイヤーと同じ召喚ロジックで効果・コンボ・バフを適用）
@@ -867,6 +995,8 @@ export function BattleScreen({
           combosFired: st.cCombosFired,
           attackBuff: st.cAttackBuff,
           drawBonus: st.cDrawBonus,
+          nikuMatsuri: false,
+          kiretaSpent: false,
         }
         let cpuExtraDmg = 0
         let stopPlayerDigest = false
@@ -887,6 +1017,7 @@ export function BattleScreen({
             summonedIds: r.summonedIds, summonedArch: r.summonedArch,
             thisTurnBases: r.thisTurnBases, thisTurnArch: r.thisTurnArch,
             combosFired: r.combosFired, attackBuff: r.attackBuff, drawBonus: r.drawBonus,
+            nikuMatsuri: r.nikuMatsuri, kiretaSpent: r.kiretaSpent,
           }
         }
 
@@ -900,6 +1031,7 @@ export function BattleScreen({
           cKiretaStack: cs.kireta,
           cSummonedIds: cs.summonedIds, cSummonedArch: cs.summonedArch,
           cCombosFired: cs.combosFired, cAttackBuff: cs.attackBuff, cDrawBonus: cs.drawBonus,
+          cNikuMatsuri: cs.nikuMatsuri, cKiretaSpent: cs.kiretaSpent,
           cApNextBonus: cpuApNext,  // 今ターンに貯めた分は次のCPUターンで消費
           pBelly: bellyAfterEffects,
           pDigestStopTurns: stopPlayerDigest ? 1 : st.pDigestStopTurns,
@@ -911,7 +1043,7 @@ export function BattleScreen({
           const st2 = ref.current
 
           // CPU 場が攻撃（バフ・切れ味スタックも反映）
-          const cpuDmg = calcFieldDmg(st2.cField, st2.cAttackBuff, st2.cKiretaStack, st2.pBelly)
+          const cpuDmg = calcFieldDmg(st2.cField, st2.cAttackBuff, st2.cKiretaStack, st2.pBelly, { nikuMatsuri: st2.cNikuMatsuri })
           if (cpuDmg > 0) { addLog(`CPU攻撃: ${cpuDmg} ダメージ！`); addFloat(cpuDmg, 'player') }
           const newPBelly = Math.min(MAX_BELLY, st2.pBelly + cpuDmg)
           set({ flash: 'player', pBelly: newPBelly })
@@ -923,7 +1055,9 @@ export function BattleScreen({
           const [nextCHand, nextCDeck] = drawCards(st2.cHand, st2.cDeck, 1 + st2.cDrawBonus + cpuExtraDraw)
 
           // プレイヤー消化
-          const pAfterDigest = st2.pDigestStopTurns > 0 ? newPBelly : Math.max(0, newPBelly - digestionAmount(turn))
+          const pAfterDigest = st2.pDigestStopTurns > 0
+            ? newPBelly
+            : Math.max(0, newPBelly - (digestionAmount(turn) + digestBonus(st2.pField)))
           if (st2.pDigestStopTurns > 0) addLog('🚫 あなたの消化がスキップされた！')
 
           // プレイヤーの一時APボーナスを消費（1ターン限り）
@@ -940,6 +1074,8 @@ export function BattleScreen({
           addLog(`── ターン ${newTurn} ──`)
           set({
             cField: nextCField, cHand: nextCHand, cDeck: nextCDeck,
+            cNikuMatsuri: false,
+            cKiretaStack: st2.cKiretaSpent ? 0 : st2.cKiretaStack, cKiretaSpent: false,
             cDigestStopTurns: Math.max(0, st.cDigestStopTurns - 1),
             pBelly: pAfterDigest,
             pDigestStopTurns: Math.max(0, st2.pDigestStopTurns - 1),
@@ -959,10 +1095,10 @@ export function BattleScreen({
     set({ phase: 'animating' })
 
     setTimeout(() => {
-      const { pField, cBelly, pDeck, pHand, pDrawBonus, pAttackBuff, pKiretaStack } = ref.current
+      const { pField, cBelly, pDeck, pHand, pDrawBonus, pAttackBuff, pKiretaStack, pNikuMatsuri, pKiretaSpent } = ref.current
 
       // アクティブプレイヤー場が攻撃
-      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly)
+      const totalDmg = calcFieldDmg(pField, pAttackBuff, pKiretaStack, cBelly, { nikuMatsuri: pNikuMatsuri })
       if (totalDmg > 0) { addLog(`P${s.activePlayer}の攻撃: ${totalDmg} ダメージ！`); addFloat(totalDmg, 'cpu') }
       const newCBelly = Math.min(MAX_BELLY, cBelly + totalDmg)
       set({ flash: 'cpu', cBelly: newCBelly })
@@ -976,7 +1112,8 @@ export function BattleScreen({
       set({
         cBelly: newCBelly,
         pField: newPField, pHand: newPHand, pDeck: newPDeck,
-        pThisTurnBases: [], pThisTurnArch: {},
+        pThisTurnBases: [], pThisTurnArch: {}, pNikuMatsuri: false,
+        pKiretaStack: pKiretaSpent ? 0 : pKiretaStack, pKiretaSpent: false,
         phase: 'pass',
       })
     }, 200)
@@ -1000,7 +1137,7 @@ export function BattleScreen({
     // 次のアクティブ側（c*）の消化（2Pモードは2ターンで1ラウンド換算）
     const nextBelly = st.cDigestStopTurns > 0
       ? st.cBelly
-      : Math.max(0, st.cBelly - digestionAmount(Math.ceil(st.turn / 2)))
+      : Math.max(0, st.cBelly - (digestionAmount(Math.ceil(st.turn / 2)) + digestBonus(st.cField)))
     if (st.cDigestStopTurns > 0) addLog(`🚫 P${st.activePlayer === 1 ? 2 : 1}の消化がスキップされた！`)
 
     const nextPlayer: 1 | 2 = st.activePlayer === 1 ? 2 : 1
@@ -1024,7 +1161,7 @@ export function BattleScreen({
       pAttackBuff: st.cAttackBuff,
       pCombosFired: st.cCombosFired,
       pKiretaStack: st.cKiretaStack,
-      pThisTurnBases: [], pThisTurnArch: {},
+      pThisTurnBases: [], pThisTurnArch: {}, pNikuMatsuri: false, pKiretaSpent: false,
       pDigestStopTurns: Math.max(0, st.cDigestStopTurns - 1),
       pApNextBonus: 0,  // ボーナスは今消費した
       // 待機側（旧 p*）
@@ -1037,6 +1174,7 @@ export function BattleScreen({
       cCombosFired: st.pCombosFired,
       cKiretaStack: st.pKiretaStack,
       cDigestStopTurns: Math.max(0, st.pDigestStopTurns - 1),
+      cNikuMatsuri: false, cKiretaSpent: false,
       cApNextBonus: st.pApNextBonus,  // 今ターン貯めた分は次の自分のターンで消費
       // ゲーム
       activePlayer: nextPlayer,
@@ -1077,11 +1215,11 @@ export function BattleScreen({
 
   // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
-  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly)
+  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly, { nikuMatsuri: s.pNikuMatsuri })
   const akamiFired = s.pCombosFired.includes('akami_mori')
-  const makiFired = s.pCombosFired.includes('maki_comp')
+  const makiFired = s.pCombosFired.includes('maki_comp_3')
   const akamCount = ['maguro', 'chutoro', 'otoro'].filter(id => s.pSummonedIds.includes(id)).length
-  const makiCount = s.pSummonedArch['makimono'] ?? 0
+  const makiCount = makimonoCount(s.pField)   // 机の上の巻物枚数（同時判定）
 
   const phaseLabel = s.phase === 'player' ? 'あなたのターン'
     : s.phase === 'animating' ? '攻撃中…'
@@ -1206,7 +1344,11 @@ export function BattleScreen({
             }
             {makiFired
               ? <span style={{ fontSize: R.fxs, color: '#15803d', fontWeight: 700 }}>🌀 ✓</span>
-              : makiCount > 0 && <span style={{ fontSize: R.fxs, color: C.txtMut }}>🌀 {Math.min(makiCount, 5)}/5</span>
+              : makiCount > 0 && <span style={{ fontSize: R.fxs, color: C.txtMut }}>🌀 {Math.min(makiCount, MAKI_COMP_3)}/{MAKI_COMP_3}</span>
+            }
+            {makiCount >= MAKI_COMP_5
+              ? <span style={{ fontSize: R.fxs, color: '#b45309', fontWeight: 700 }}>🍙 軍艦×1.5</span>
+              : makiFired && <span style={{ fontSize: R.fxs, color: C.txtMut }}>🍙 {makiCount}/{MAKI_COMP_5}</span>
             }
           </div>
           <AnimatePresence>

@@ -1,186 +1,102 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>すしバトル データシート</title>
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>すしバトル データシート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
-
 <style>
 :root{
-  --bg:#f2f1ec;
-  --surface:#ffffff;
-  --surface-2:#eceae3;
-  --ink:#191c1e;
-  --ink-2:#4b524f;
-  --muted:#787f79;
-  --rule:#dcdad0;
-  --rule-2:#c9c6b9;
-  --accent:#1e3f70;
-  --accent-ink:#1e3f70;
-  --accent-soft:#dfe6f0;
-  --warn:#8a5a10;
-  --warn-soft:#f6ecd8;
+  --bg:#f2f1ec; --surface:#fff; --surface-2:#eceae3;
+  --ink:#191c1e; --ink-2:#4b524f; --muted:#787f79;
+  --rule:#dcdad0; --rule-2:#c9c6b9;
+  --accent:#1e3f70; --accent-ink:#1e3f70; --accent-soft:#dfe6f0;
+  --warn:#8a5a10; --warn-soft:#f6ecd8;
   --shadow:0 1px 0 rgba(25,28,30,.05), 0 6px 18px -12px rgba(25,28,30,.35);
-
-  --akami:#b23a2c;
-  --makimono:#2f7d4f;
-  --hikari:#2b5fb8;
-  --kaisen:#0d7280;
-  --niku:#9a5518;
-  --general:#6c6558;
+  --akami:#b23a2c; --makimono:#2f7d4f; --hikari:#2b5fb8;
+  --kaisen:#0d7280; --niku:#9a5518; --general:#6c6558;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#12151a;
-    --surface:#191d24;
-    --surface-2:#20252d;
-    --ink:#e9eae5;
-    --ink-2:#b4bab6;
-    --muted:#8b938f;
-    --rule:#2a3038;
-    --rule-2:#3a424c;
-    --accent:#93b6e6;
-    --accent-ink:#a9c7f0;
-    --accent-soft:#1d2a3d;
-    --warn:#e0b361;
-    --warn-soft:#2c2415;
+    --bg:#12151a; --surface:#191d24; --surface-2:#20252d;
+    --ink:#e9eae5; --ink-2:#b4bab6; --muted:#8b938f;
+    --rule:#2a3038; --rule-2:#3a424c;
+    --accent:#93b6e6; --accent-ink:#a9c7f0; --accent-soft:#1d2a3d;
+    --warn:#e0b361; --warn-soft:#2c2415;
     --shadow:0 1px 0 rgba(0,0,0,.3), 0 8px 22px -14px rgba(0,0,0,.9);
-
-    --akami:#e4776a;
-    --makimono:#6cc38e;
-    --hikari:#7ba7ee;
-    --kaisen:#4ebccb;
-    --niku:#d9985a;
-    --general:#a9a294;
+    --akami:#e4776a; --makimono:#6cc38e; --hikari:#7ba7ee;
+    --kaisen:#4ebccb; --niku:#d9985a; --general:#a9a294;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#12151a;
-  --surface:#191d24;
-  --surface-2:#20252d;
-  --ink:#e9eae5;
-  --ink-2:#b4bab6;
-  --muted:#8b938f;
-  --rule:#2a3038;
-  --rule-2:#3a424c;
-  --accent:#93b6e6;
-  --accent-ink:#a9c7f0;
-  --accent-soft:#1d2a3d;
-  --warn:#e0b361;
-  --warn-soft:#2c2415;
+  --bg:#12151a; --surface:#191d24; --surface-2:#20252d;
+  --ink:#e9eae5; --ink-2:#b4bab6; --muted:#8b938f;
+  --rule:#2a3038; --rule-2:#3a424c;
+  --accent:#93b6e6; --accent-ink:#a9c7f0; --accent-soft:#1d2a3d;
+  --warn:#e0b361; --warn-soft:#2c2415;
   --shadow:0 1px 0 rgba(0,0,0,.3), 0 8px 22px -14px rgba(0,0,0,.9);
-
-  --akami:#e4776a;
-  --makimono:#6cc38e;
-  --hikari:#7ba7ee;
-  --kaisen:#4ebccb;
-  --niku:#d9985a;
-  --general:#a9a294;
+  --akami:#e4776a; --makimono:#6cc38e; --hikari:#7ba7ee;
+  --kaisen:#4ebccb; --niku:#d9985a; --general:#a9a294;
 }
-
 *{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--ink);
+body{margin:0;background:var(--bg);color:var(--ink);
   font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  font-size:15px;
-  line-height:1.75;
-  -webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
-
-/* ── header ── */
-header.masthead{
-  border-bottom:1px solid var(--rule);
-  background:var(--surface);
-}
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px 96px}
+header.masthead{border-bottom:1px solid var(--rule);background:var(--surface)}
 .masthead .wrap{padding-top:44px;padding-bottom:28px}
-.kicker{
-  font-family:"JetBrains Mono",ui-monospace,monospace;
-  font-size:11px;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 10px;
-}
-h1{
-  font-family:"Shippori Mincho B1",serif;
-  font-weight:800;font-size:clamp(30px,5vw,46px);
-  letter-spacing:.02em;line-height:1.25;margin:0;text-wrap:balance;
-}
-.sub{margin:12px 0 0;color:var(--ink-2);max-width:62ch}
-.meta{
-  margin-top:20px;display:flex;flex-wrap:wrap;gap:8px 10px;
-  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;color:var(--muted);
-}
-.meta code{
-  background:var(--surface-2);border:1px solid var(--rule);
-  border-radius:4px;padding:2px 7px;color:var(--ink-2);
-}
-
-/* ── nav ── */
-nav.toc{
-  position:sticky;top:0;z-index:20;
-  background:color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter:blur(8px);
-  border-bottom:1px solid var(--rule);
-}
+.kicker{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;color:var(--muted);margin:0 0 10px}
+h1{font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:clamp(30px,5vw,46px);
+  letter-spacing:.02em;line-height:1.25;margin:0;text-wrap:balance}
+.sub{margin:12px 0 0;color:var(--ink-2);max-width:64ch}
+.meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px 10px;
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted)}
+.meta code{background:var(--surface-2);border:1px solid var(--rule);border-radius:4px;padding:2px 7px;color:var(--ink-2)}
+nav.toc{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
 nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:0;padding-bottom:0}
-nav.toc a{
-  flex:0 0 auto;padding:12px 12px;font-size:13px;font-weight:500;
-  color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent;
-}
+nav.toc a{flex:0 0 auto;padding:12px;font-size:13px;font-weight:500;color:var(--ink-2);
+  text-decoration:none;border-bottom:2px solid transparent}
 nav.toc a:hover{color:var(--accent-ink);border-bottom-color:var(--rule-2)}
 nav.toc a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:3px}
-
-/* ── sections ── */
 section{margin-top:56px;scroll-margin-top:60px}
-h2{
-  font-family:"Shippori Mincho B1",serif;font-weight:600;
-  font-size:23px;margin:0 0 6px;letter-spacing:.02em;
-  display:flex;align-items:baseline;gap:12px;
-}
-h2 .n{
-  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:400;
-  color:var(--accent-ink);letter-spacing:.1em;
-}
-h3{font-family:"Shippori Mincho B1",serif;font-weight:600;font-size:17px;margin:32px 0 10px}
-.lede{color:var(--ink-2);margin:0 0 20px;max-width:66ch;font-size:14px}
-
-/* ── stat grid ── */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin:0}
+h2{font-family:"Shippori Mincho B1",serif;font-weight:600;font-size:23px;margin:0 0 6px;
+  letter-spacing:.02em;display:flex;align-items:baseline;gap:12px}
+h2 .n{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:400;color:var(--accent-ink);letter-spacing:.1em}
+h3{font-family:"Shippori Mincho B1",serif;font-weight:600;font-size:17px;margin:0}
+.subhead{display:flex;align-items:baseline;gap:10px;margin:34px 0 12px}
+.subhead span{font-size:12px;color:var(--muted)}
+.lede{color:var(--ink-2);margin:0 0 20px;max-width:70ch;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px}
 .stat{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:13px 15px}
-.stat dt{font-size:11.5px;color:var(--muted);letter-spacing:.04em;margin:0}
+.stat dt{font-size:11.5px;color:var(--muted);margin:0}
 .stat dd{margin:2px 0 0;font-family:"JetBrains Mono",monospace;font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
-.stat .note{display:block;font-family:"Zen Kaku Gothic New",sans-serif;font-size:11.5px;font-weight:400;color:var(--muted);line-height:1.5;margin-top:2px}
-
-/* ── controls ── */
-.controls{
-  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
-  margin:0 0 14px;padding:12px;border:1px solid var(--rule);border-radius:8px;background:var(--surface)
-}
+.stat .note{display:block;font-family:"Zen Kaku Gothic New",sans-serif;font-size:11.5px;
+  font-weight:400;color:var(--muted);line-height:1.5;margin-top:2px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;
+  padding:12px;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
 .controls .label{font-size:11.5px;color:var(--muted);letter-spacing:.06em;margin-right:2px}
-button.chip{
-  font:inherit;font-size:12.5px;font-weight:500;
-  padding:5px 12px;border-radius:999px;cursor:pointer;
-  border:1px solid var(--rule-2);background:var(--surface);color:var(--ink-2);
-  transition:background .12s, color .12s, border-color .12s;
-}
+button.chip{font:inherit;font-size:12.5px;font-weight:500;padding:5px 12px;border-radius:999px;
+  cursor:pointer;border:1px solid var(--rule-2);background:var(--surface);color:var(--ink-2);
+  transition:background .12s,color .12s,border-color .12s}
 button.chip:hover{border-color:var(--accent);color:var(--accent-ink)}
 button.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
-input.search{
-  font:inherit;font-size:13px;padding:5px 11px;border-radius:6px;
-  border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);
-  min-width:150px;flex:1 1 150px;
-}
+input.search{font:inherit;font-size:13px;padding:5px 11px;border-radius:6px;
+  border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);min-width:150px;flex:1 1 150px}
 input.search:focus-visible{outline:2px solid var(--accent);outline-offset:0}
 
-/* ── table ── */
-.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}
-table{border-collapse:collapse;width:100%;min-width:800px;font-size:13.5px}
-thead th{
-  position:sticky;top:46px;z-index:1;
-  background:var(--surface-2);
+/* 表：この箱自体を縦スクロールさせ、その中でヘッダーを固定する。
+   （縦スクロールできない箱で position:sticky + top を使うと、
+     ヘッダーが押し下げられて1行目を覆い隠す） */
+.tablewrap{overflow:auto;max-height:78vh;border:1px solid var(--rule);border-radius:8px;
+  background:var(--surface);box-shadow:var(--shadow)}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:880px;font-size:13.5px}
+thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);
   text-align:left;font-weight:700;font-size:11.5px;letter-spacing:.05em;color:var(--ink-2);
-  padding:9px 12px;border-bottom:1px solid var(--rule-2);white-space:nowrap;
-}
+  padding:9px 12px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
 thead th.sortable{cursor:pointer;user-select:none}
 thead th.sortable:hover{color:var(--accent-ink)}
 thead th .arrow{opacity:.35;font-size:9px;margin-left:3px}
@@ -191,77 +107,58 @@ tbody tr:hover td{background:var(--surface-2)}
 .num{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .name{font-weight:500;white-space:nowrap}
 .name small{display:block;font-weight:400;font-size:10.5px;color:var(--muted);line-height:1.3}
-
-.tag{
-  display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;
-  padding:1px 7px;border-radius:4px;white-space:nowrap;
-  border:1px solid currentColor;
-}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:4px;
+  white-space:nowrap;border:1px solid currentColor}
 .tag.akami{color:var(--akami)} .tag.makimono{color:var(--makimono)}
 .tag.hikari{color:var(--hikari)} .tag.kaisen{color:var(--kaisen)}
 .tag.niku{color:var(--niku)} .tag.general{color:var(--general)}
 .tags{display:flex;gap:4px;flex-wrap:wrap}
-
 .type-pill{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
 .type-instant{background:var(--accent-soft);color:var(--accent-ink)}
 .type-persist{background:var(--warn-soft);color:var(--warn)}
-
 .bar{display:flex;align-items:center;gap:7px;justify-content:flex-end}
 .bar i{display:block;height:6px;border-radius:2px;background:var(--accent);opacity:.55;flex:0 0 auto}
-.eff{font-size:12px;color:var(--ink-2);line-height:1.5;min-width:220px}
+.eff{font-size:12px;color:var(--ink-2);line-height:1.5;min-width:210px}
 .eff .k{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted);display:block}
 .dash{color:var(--muted)}
-
-/* ── combo cards ── */
-.combos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-.combo{border:1px solid var(--rule);border-radius:10px;background:var(--surface);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.combos{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.combo{border:1px solid var(--rule);border-radius:10px;background:var(--surface);padding:16px 18px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden}
 .combo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--accent))}
-.combo h4{margin:0;font-family:"Shippori Mincho B1",serif;font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
-.combo .trig{
-  display:inline-block;margin:8px 0 10px;font-size:10.5px;font-weight:700;letter-spacing:.05em;
-  padding:1px 8px;border-radius:4px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--rule)
-}
-.combo dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px}
-.combo dt{color:var(--muted);font-size:11.5px;white-space:nowrap;padding-top:2px}
-.combo dd{margin:0;color:var(--ink-2)}
-.combo code{font-family:"JetBrains Mono",monospace;font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px}
 .combo.todo{background:repeating-linear-gradient(135deg,var(--surface),var(--surface) 9px,var(--surface-2) 9px,var(--surface-2) 18px)}
 .combo.todo h4{color:var(--muted)}
+.combo h4{margin:0;font-family:"Shippori Mincho B1",serif;font-size:17px;font-weight:600;
+  display:flex;align-items:center;gap:8px}
+.combo .trig{display:inline-block;margin:8px 0 10px;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  padding:1px 8px;border-radius:4px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--rule)}
 .combo .trig.todo{background:var(--warn-soft);color:var(--warn);border-color:transparent}
-.subhead{display:flex;align-items:baseline;gap:10px;margin:34px 0 12px}
-.subhead h3{margin:0}
-.subhead span{font-size:12px;color:var(--muted)}
-
-/* ── keyword list ── */
+.combo dl{margin:0;display:grid;grid-template-columns:92px 1fr;gap:7px 12px;font-size:12.5px}
+.combo dt{color:var(--muted);font-size:11px;padding-top:2px;line-height:1.45}
+.combo dd{margin:0;color:var(--ink-2)}
 .kw{border:1px solid var(--rule);border-radius:8px;background:var(--surface);overflow:hidden}
-.kw div{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:10px 16px;border-bottom:1px solid var(--rule);font-size:13.5px}
+.kw div{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:10px 16px;
+  border-bottom:1px solid var(--rule);font-size:13.5px}
 .kw div:last-child{border-bottom:none}
 .kw code{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--accent-ink)}
 .kw p{margin:0;color:var(--ink-2)}
+.kw .users{color:var(--muted);font-size:12px}
 @media (max-width:640px){.kw div{grid-template-columns:1fr;gap:2px}}
-
-/* ── notes ── */
-ul.notes{margin:0;padding:0;list-style:none;display:grid;gap:10px}
-ul.notes li{
-  border:1px solid var(--rule);border-left:3px solid var(--warn);
-  border-radius:0 8px 8px 0;background:var(--surface);padding:11px 15px;font-size:13.5px;color:var(--ink-2)
-}
-ul.notes strong{color:var(--ink);font-weight:700}
-ul.notes code{font-family:"JetBrains Mono",monospace;font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:3px}
-
 footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+</head>
+<body>
 
-</head><body><header class="masthead">
+<header class="masthead">
   <div class="wrap">
-    <p class="kicker">すしバトル / 現状仕様 · 2026-08-22 時点</p>
+    <p class="kicker">すしバトル / 現状仕様</p>
     <h1>すしバトル データシート</h1>
-    <p class="sub">全54枚のカード性能と、実装済み4種＋未実装2種のコンボを書き起こした一覧です。数値はすべて <code style="font-family:'JetBrains Mono',monospace;font-size:12px">src/data/cards.ts</code> と <code style="font-family:'JetBrains Mono',monospace;font-size:12px">BattleScreen.tsx</code> の現在値で、企画書との差分は各所に注記しています。</p>
+    <p class="sub">カード全54枚の性能と、実装済み・未実装のコンボ一覧です。数値・枚数・対象カードはすべて <code>src/</code> から読み取って生成しています。手入力の数字はありません。</p>
     <div class="meta">
-      <code>src/data/cards.ts</code>
-      <code>src/features/battle/BattleScreen.tsx</code>
-      <code>54 cards / 4 combos (+2 未実装) / 12 keywords</code>
+      <code>scripts/gen-datasheet.mjs で生成</code>
+      <code>54 cards</code>
+      <code>6 combos (+1 未実装)</code>
+      <code>15 keywords</code>
     </div>
   </div>
 </header>
@@ -272,7 +169,6 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     <a href="#cards">カード性能表</a>
     <a href="#keywords">効果キーワード</a>
     <a href="#combos">コンボ</a>
-    <a href="#notes">バランス上の注意点</a>
   </div>
 </nav>
 
@@ -280,43 +176,59 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
 <section id="rules">
   <h2><span class="n">01</span>基本ルール</h2>
-  <p class="lede">バトル画面の定数と計算式。ドラフト（レーン画面）は現在すべて3D版に統一されています。</p>
+  <p class="lede">バトル画面とドラフト画面の定数です。すべてソースから読み取っています。</p>
   <dl class="stats">
-    <div class="stat"><dt>敗北ライン</dt><dd>100<span class="note">お腹ゲージが100に到達した側の負け</span></dd></div>
-    <div class="stat"><dt>初期AP / 上限</dt><dd>2 → 10<span class="note">CPU戦は毎ターン+1、2人対戦は2ターンで+1</span></dd></div>
-    <div class="stat"><dt>消化量</dt><dd>2 → 5<span class="note">min(5, 1+ラウンド)。ターンが進むほど回復が増える</span></dd></div>
-    <div class="stat"><dt>手札上限</dt><dd>7<span class="note">超過分はドローされない</span></dd></div>
-    <div class="stat"><dt>机（フィールド）上限</dt><dd>8<span class="note">満杯だと召喚不可</span></dd></div>
-    <div class="stat"><dt>連鎖ボーナス</dt><dd>+3<span class="note">連鎖カード1枚につき</span></dd></div>
+    <div class="stat"><dt>敗北ライン</dt><dd>100<span class="note">お腹ゲージがこの値に到達した側の負け</span></dd></div>
+    <div class="stat"><dt>初期AP / 上限</dt><dd>2 → 10<span class="note">CPU戦は毎ターン+1、二人対戦は2ターンで+1</span></dd></div>
+    <div class="stat"><dt>消化量</dt><dd>2 → 5<span class="note">min(5, 1+ラウンド)</span></dd></div>
+    <div class="stat"><dt>手札上限</dt><dd>7<span class="note">超過分は山札に残る</span></dd></div>
+    <div class="stat"><dt>机の上限</dt><dd>8<span class="note">満杯だと召喚不可</span></dd></div>
+    <div class="stat"><dt>連鎖ボーナス</dt><dd>+3<span class="note">連鎖カード1枚につき（base いか・たこ・えび の召喚時）</span></dd></div>
+    <div class="stat"><dt>巻物コンプ①</dt><dd>机に3枚<span class="note">以降ドロー+1（1試合1回）</span></dd></div>
+    <div class="stat"><dt>巻物コンプ②</dt><dd>机に5枚<span class="note">維持している間 軍艦の攻撃 ×1.5</span></dd></div>
+    <div class="stat"><dt>海鮮の再攻撃</dt><dd>×0.5<span class="note">いか＋たこのペア成立時</span></dd></div>
+    <div class="stat"><dt>消化ボーナス</dt><dd>+2<span class="note">digest_boost_2 のカード1枚につき</span></dd></div>
     <div class="stat"><dt>ドラフト</dt><dd>¥3,000 / 90秒<span class="note">デッキ上限20枚</span></dd></div>
     <div class="stat"><dt>追加注文タイム</dt><dd>¥1,500 / 45秒<span class="note">両者の手札・山札が尽きたら発生</span></dd></div>
     <div class="stat"><dt>特急レーン</dt><dd>×1.5 / 3回<span class="note">定価×1.5を50円単位で切り上げ</span></dd></div>
   </dl>
 
-  <h3>ダメージ計算</h3>
+  <div class="subhead"><h3>アーキタイプ別の枚数</h3><span>カードデータから集計</span></div>
+  <dl class="stats">
+    <div class="stat"><dt>巻物</dt><dd>19枚<span class="note">全54枚中 35%</span></dd></div>
+    <div class="stat"><dt>軍艦</dt><dd>10枚<span class="note">全54枚中 19%</span></dd></div>
+    <div class="stat"><dt>汎用</dt><dd>10枚<span class="note">全54枚中 19%</span></dd></div>
+    <div class="stat"><dt>赤身</dt><dd>9枚<span class="note">全54枚中 17%</span></dd></div>
+    <div class="stat"><dt>光り物</dt><dd>9枚<span class="note">全54枚中 17%</span></dd></div>
+    <div class="stat"><dt>海鮮</dt><dd>8枚<span class="note">全54枚中 15%</span></dd></div>
+    <div class="stat"><dt>肉寿司</dt><dd>8枚<span class="note">全54枚中 15%</span></dd></div>
+  </dl>
+
+  <div class="subhead"><h3>ダメージ計算</h3><span>BattleScreen.tsx の calcFieldDmg</span></div>
   <div class="kw">
-    <div><code>1枚あたりの攻撃力</code><p>攻撃力 + baseバフ + 切れ味スタック（光り物のみ） + お腹条件ボーナス</p></div>
-    <div><code>持続ターン</code><p>持続型 = <code>max(満腹度, 2)</code>ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
-    <div><code>コンボの即時ダメージ</code><p>召喚処理の中で加算され、そのターンの通常攻撃とは別に相手のお腹へ直行</p></div>
+    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス〈肉祭り中は×2〉）<br>机の巻物が5枚以上なら、軍艦タグのカードは最後に <strong>×1.5</strong>（切り捨て）</p></div>
+    <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
+    <div><code>総ダメージ（表の列）</code><p>攻撃力 × 持続ターン。バフ・ボーナスを含まない素の値</p></div>
   </div>
 </section>
 
 <section id="cards">
   <h2><span class="n">02</span>カード性能表</h2>
-  <p class="lede">列見出しをクリックで並び替え。AP効率は「攻撃力 ÷ コスト」、円効率は「攻撃力 ÷ 定価×100」です（持続型は1ターン分の攻撃力で計算しているため過小評価になります）。</p>
+  <p class="lede">列見出しをクリックで並び替え。総ダメージは「攻撃力 × 持続ターン」、AP効率は「総ダメージ ÷ AP」、円効率は「総ダメージ ÷ 定価 × 100」です。</p>
 
   <div class="controls">
     <span class="label">ビルド</span>
     <button class="chip" data-filter="arch" data-value="all" aria-pressed="true">すべて</button>
-    <button class="chip" data-filter="arch" data-value="akami" aria-pressed="false">赤身</button>
-    <button class="chip" data-filter="arch" data-value="makimono" aria-pressed="false">巻物・軍艦</button>
-    <button class="chip" data-filter="arch" data-value="hikari" aria-pressed="false">光り物</button>
-    <button class="chip" data-filter="arch" data-value="kaisen" aria-pressed="false">海鮮</button>
-    <button class="chip" data-filter="arch" data-value="niku" aria-pressed="false">肉寿司</button>
-    <button class="chip" data-filter="arch" data-value="general" aria-pressed="false">汎用</button>
+    <button class="chip" data-filter="arch" data-value="makimono" aria-pressed="false">巻物 (19)</button>
+    <button class="chip" data-filter="arch" data-value="gunkan" aria-pressed="false">軍艦 (10)</button>
+    <button class="chip" data-filter="arch" data-value="general" aria-pressed="false">汎用 (10)</button>
+    <button class="chip" data-filter="arch" data-value="akami" aria-pressed="false">赤身 (9)</button>
+    <button class="chip" data-filter="arch" data-value="hikari" aria-pressed="false">光り物 (9)</button>
+    <button class="chip" data-filter="arch" data-value="kaisen" aria-pressed="false">海鮮 (8)</button>
+    <button class="chip" data-filter="arch" data-value="niku" aria-pressed="false">肉寿司 (8)</button>
     <input class="search" id="q" type="search" placeholder="カード名・効果で絞り込み" aria-label="カード検索">
   </div>
-  <div class="controls" style="margin-top:-6px">
+  <div class="controls">
     <span class="label">レーン</span>
     <button class="chip" data-filter="lane" data-value="all" aria-pressed="true">すべて</button>
     <button class="chip" data-filter="lane" data-value="general" aria-pressed="false">一般レーン</button>
@@ -326,21 +238,20 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
   <div class="tablewrap">
     <table id="cardTable">
-      <thead>
-        <tr>
-          <th class="sortable" data-key="name">カード名<span class="arrow">▲▼</span></th>
-          <th>ビルド</th>
-          <th class="sortable" data-key="lane">レーン<span class="arrow">▲▼</span></th>
-          <th class="sortable" data-key="type">型<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="cost">AP<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="price">定価<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="attack">攻撃<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="fullness">持続<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="apEff">AP効率<span class="arrow">▲▼</span></th>
-          <th class="sortable num" data-key="yenEff">円効率<span class="arrow">▲▼</span></th>
-          <th>効果</th>
-        </tr>
-      </thead>
+      <thead><tr>
+        <th class="sortable" data-key="name">カード名<span class="arrow">▲▼</span></th>
+        <th>ビルド</th>
+        <th class="sortable" data-key="lane">レーン<span class="arrow">▲▼</span></th>
+        <th class="sortable" data-key="type">型<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="cost">AP<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="price">定価<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="attack">攻撃<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="turns">持続<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="total">総ダメ<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="apEff">AP効率<span class="arrow">▲▼</span></th>
+        <th class="sortable num" data-key="yenEff">円効率<span class="arrow">▲▼</span></th>
+        <th>効果</th>
+      </tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -348,171 +259,112 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
 <section id="keywords">
   <h2><span class="n">03</span>効果キーワード</h2>
-  <p class="lede">カードの <code style="font-family:'JetBrains Mono',monospace;font-size:12px">effect</code> フィールドに設定されている12種。すべて召喚時に一度だけ処理されます（持続系を除く）。</p>
-  <div class="kw" id="kwList"></div>
+  <p class="lede">カードの <code>effect</code> に設定されている 15 種です。該当カードは自動集計しています。</p>
+  <div class="kw"><div><code>self_digest_5</code><p>召喚時、自分のお腹 −5（消化促進）<br><span class="users">1枚 — 梅しそ巻き</span></p></div><div><code>digest_boost_2</code><p>机にいる間、毎ターンの消化量 +2<br><span class="users">1枚 — かっぱ巻き</span></p></div><div><code>digest_stop_1t</code><p>召喚時、相手の消化を1ターン止める<br><span class="users">1枚 — づけマグロ</span></p></div><div><code>kireta_stack</code><p>召喚時、切れ味スタック +1<br><span class="users">7枚 — サバ · サバ大葉 · アジ · アジたたき · アジ大葉 · イワシ · イワシ生姜</span></p></div><div><code>kireta_consume_x3</code><p>切れ味スタックを全消費し、スタック数×3のダメージ<br><span class="users">1枚 — コハダ</span></p></div><div><code>kireta_consume_2_draw_2</code><p>切れ味スタックを2消費して2枚ドロー（2未満なら不発・消費もしない）<br><span class="users">1枚 — シメサバ</span></p></div><div><code>belly_boost_60</code><p>相手のお腹が60以上のとき 攻撃 +5<br><span class="users">3枚 — カルビ寿司 · えび天にぎり · イカ天</span></p></div><div><code>belly_boost_65</code><p>相手のお腹が65以上のとき 攻撃 +6<br><span class="users">1枚 — アナゴ天</span></p></div><div><code>belly_boost_70</code><p>相手のお腹が70以上のとき 攻撃 +8<br><span class="users">2枚 — 和牛にぎり · ローストビーフ寿司</span></p></div><div><code>belly_boost_persist_50</code><p>机にいる間、相手のお腹50以上で 攻撃 +2<br><span class="users">1枚 — 焼肉寿司</span></p></div><div><code>chain_on_kaisen_summon</code><p>base「いか・たこ・えび」を召喚するたび +3 の連鎖攻撃<br><span class="users">2枚 — いか · たこ</span></p></div><div><code>draw_1</code><p>召喚時、カードを1枚引く<br><span class="users">2枚 — えびアボカド · ツナサラダ軍艦</span></p></div><div><code>draw_2</code><p>召喚時、カードを2枚引く<br><span class="users">1枚 — 明太子</span></p></div><div><code>ap_next_1</code><p>次のターンだけ AP +1<br><span class="users">2枚 — いなり · オニオンサーモン</span></p></div><div><code>multi_base</code><p>base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）<br><span class="users">1枚 — 太巻き</span></p></div></div>
 </section>
 
 <section id="combos">
   <h2><span class="n">04</span>コンボ</h2>
-  <p class="lede">企画書には6種の役がありますが、<strong>実装済みは4種</strong>です。1試合につき各1回のみ発動（<code style="font-family:'JetBrains Mono',monospace;font-size:12px">combosFired</code> で管理）。判定は召喚のたびに走り、累積条件は試合開始からの召喚履歴、同時条件はそのターン中の召喚だけを見ます。</p>
-
-  <div class="subhead"><h3>実装済み</h3><span>4種 · BattleScreen.tsx の <code style="font-family:'JetBrains Mono',monospace;font-size:11.5px">COMBOS</code></span></div>
+  <p class="lede">実装済み 6 種、未実装 1 種。発動の仕方は3種類あります — <strong>永続効果</strong>は1試合1回、<strong>都度発動</strong>は条件を満たすたび何度でも、<strong>状態継続</strong>は条件を満たしている間ずっと有効です。対象カードはカードデータから抽出しています。</p>
   <div class="combos">
-
     <article class="combo" style="--c:var(--akami)">
       <h4><span>🐟</span>赤身三種盛り！！！</h4>
-      <span class="trig">累積 · 試合を通して1回</span>
+      <span class="trig">永続効果 · 1試合1回</span>
       <dl>
-        <dt>条件</dt><dd>マグロ・中トロ・大トロを各1回以上召喚</dd>
-        <dt>効果</dt><dd>即時 <strong>+10</strong> ダメージ／以降 base「マグロ」の攻撃 <strong>+2</strong>（永続）</dd>
-        <dt>対象カード</dt><dd>マグロ / 中トロ / 大トロ / ビントロ / づけマグロ / 鉄火巻き / ネギトロ巻き / ネギトロ軍艦 / ツナ軍艦</dd>
-        <dt>合計コスト</dt><dd>12AP・¥1,000（3枚ぶん）</dd>
+        <dt>条件</dt><dd>マグロ・中トロ・大トロを各1回以上召喚（累積）</dd>
+        <dt>効果</dt><dd>即時 <strong>+10</strong> ダメージ ／ 以降 base「マグロ」の攻撃 <strong>+2</strong></dd>
+        <dt>成立に必要なカード</dt><dd><strong>3枚</strong> — マグロ · 中トロ · 大トロ</dd><dt>バフを受けるカード（base マグロ）</dt><dd><strong>10枚</strong> — ツナ軍艦 · マグロ · 中トロ · 大トロ · ビントロ · づけマグロ · 鉄火巻き · ネギトロ巻き · 太巻き · ネギトロ軍艦</dd>
+        <dt>備考</dt><dd>成立判定はカードIDなので、他のマグロ系カードでは成立しません（恩恵だけ受けます）。永続バフを配るため1試合1回に固定しています。</dd>
       </dl>
     </article>
-
     <article class="combo" style="--c:var(--makimono)">
       <h4><span>🌀</span>巻物コンプ！！！</h4>
-      <span class="trig">累積 · 試合を通して1回</span>
+      <span class="trig">永続効果 · 1試合1回</span>
       <dl>
-        <dt>条件</dt><dd>巻物アーキタイプのカードを累計 <strong>5枚</strong> 召喚</dd>
-        <dt>効果</dt><dd>以降のドロー枚数 <strong>+1</strong>（永続）</dd>
-        <dt>対象カード</dt><dd>巻物タグ持ち21枚（軍艦・ツナサラダ軍艦なども含む）</dd>
-        <dt>注意</dt><dd>ダメージは0。長期戦向けの手札供給コンボ</dd>
+        <dt>条件</dt><dd>机に巻物タグのカードが<strong>同時に3枚</strong></dd>
+        <dt>効果</dt><dd>以降のドロー枚数 <strong>+1</strong></dd>
+        <dt>判定に数えるカード（巻物タグ持ち）</dt><dd><strong>19枚</strong> — ツナサラダ軍艦 · コーン軍艦 · シーフード軍艦 · ツナ軍艦 · かっぱ巻き · かんぴょう巻き · 納豆巻き · 梅しそ巻き · 鉄火巻き · ネギトロ巻き · サーモン巻き · アボカド巻き · 太巻き · うに軍艦 · いくら軍艦 · ネギトロ軍艦 · とびこ軍艦 · えび軍艦 · カニ軍艦</dd>
+        <dt>備考</dt><dd>即時型の軍艦も机にいる間は数えます。ダメージはありません。</dd>
       </dl>
     </article>
-
-    <article class="combo" style="--c:var(--kaisen)">
-      <h4><span>🌊</span>海の幸三昧！！！</h4>
-      <span class="trig">同時 · 同一ターン内</span>
+    <article class="combo" style="--c:var(--gunkan)">
+      <h4><span>🍙</span>巻物フルコンプ！！！</h4>
+      <span class="trig">状態継続 · 条件を満たす間ずっと</span>
       <dl>
-        <dt>条件</dt><dd>同じターンに base「いか」と「たこ」を両方召喚</dd>
-        <dt>効果</dt><dd>その時点の机の総攻撃力 <strong>×2</strong> を即時ダメージとして追加</dd>
-        <dt>対象カード</dt><dd>いか / いかにぎり / イカ天 ＋ たこ / たこわさ</dd>
-        <dt>注意</dt><dd>机が育っているほど爆発する唯一のスケーリング型。発動タイミングの選択が重要</dd>
+        <dt>条件</dt><dd>机に巻物タグのカードが<strong>同時に5枚</strong></dd>
+        <dt>効果</dt><dd>軍艦カードの攻撃 <strong>×1.5</strong>（端数切り捨て）</dd>
+        <dt>倍率を受けるカード（軍艦タグ）</dt><dd><strong>10枚</strong> — ツナサラダ軍艦 · コーン軍艦 · シーフード軍艦 · ツナ軍艦 · うに軍艦 · いくら軍艦 · ネギトロ軍艦 · とびこ軍艦 · えび軍艦 · カニ軍艦</dd>
+        <dt>備考</dt><dd>発動フラグを持たない状態判定なので、机が5枚を割ると効果も消えます。持続型の巻物は倍率を受けません。</dd>
       </dl>
     </article>
-
-    <article class="combo" style="--c:var(--niku)">
-      <h4><span>🥩</span>肉祭り！！！</h4>
-      <span class="trig">同時 · 同一ターン内</span>
-      <dl>
-        <dt>条件</dt><dd>同じターンに肉寿司アーキタイプを <strong>2枚</strong> 召喚</dd>
-        <dt>効果</dt><dd>即時 <strong>+12</strong> ダメージ</dd>
-        <dt>対象カード</dt><dd>和牛にぎり / カルビ寿司 / ローストビーフ寿司 / 焼肉寿司 / 牛タン寿司 / えび天にぎり / イカ天 / アナゴ天</dd>
-        <dt>注意</dt><dd>最低でも6AP必要。説明文の「攻撃ボーナス×2」は実装されておらず、実際は固定+12のみ</dd>
-      </dl>
-    </article>
-
-  </div>
-
-  <div class="subhead"><h3>未実装</h3><span>2種 · implementation_flow.md の Phase 4-1</span></div>
-  <div class="combos">
-
-    <article class="combo todo" style="--c:var(--hikari)">
-      <h4><span>✨</span>光り物三昧</h4>
-      <span class="trig todo">未実装 · v1.1 予定</span>
+    <article class="combo" style="--c:var(--hikari)">
+      <h4><span>✨</span>光り物三昧！！！</h4>
+      <span class="trig">永続効果 · 1試合1回</span>
       <dl>
         <dt>条件</dt><dd>大葉トッピングのカードを累計 <strong>3枚</strong> 召喚</dd>
-        <dt>効果</dt><dd>切れ味スタック <strong>+3</strong>（card_pool.md 版）</dd>
-        <dt>対象カード</dt><dd>サバ大葉 / アジ大葉 の2種のみ</dd>
-        <dt>実装の障壁</dt><dd>大葉カードが2種しかなく、同名カードを重複購入しないと3枚に届きません。カード追加かトッピング条件の緩和が先に必要です</dd>
-        <dt>資料の食い違い</dt><dd>design.md 版は「切れ味 ×1.5倍」。切れ味が加算スタックである以上、card_pool.md 版（+3）が現行実装と整合します</dd>
+        <dt>効果</dt><dd>切れ味スタック <strong>+3</strong></dd>
+        <dt>大葉トッピングのカード</dt><dd><strong>2枚</strong> — サバ大葉 · アジ大葉</dd>
+        <dt>備考</dt><dd>大葉カードは同APの通常版より攻撃が2低く定価も高いぶん、コンボで取り返す設計です。種類が少ないので同名カードの重複購入が前提になります。</dd>
       </dl>
     </article>
-
+    <article class="combo" style="--c:var(--kaisen)">
+      <h4><span>🌊</span>海の幸三昧！！！</h4>
+      <span class="trig">都度発動 · 何度でも</span>
+      <dl>
+        <dt>条件</dt><dd>base「いか」と「たこ」が机で1組そろった瞬間（召喚時に判定）</dd>
+        <dt>効果</dt><dd>場の海鮮カードが <strong>50%</strong> の威力で再攻撃</dd>
+        <dt>「いか」を名乗るカード</dt><dd><strong>3枚</strong> — いかにぎり · いか · イカ天</dd><dt>「たこ」を名乗るカード</dt><dd><strong>2枚</strong> — たこ · たこわさ</dd><dt>再攻撃する対象（海鮮タグ）</dt><dd><strong>8枚</strong> — えびアボカド · えび軍艦 · いかにぎり · いか · たこ · たこわさ · えび天にぎり · イカ天</dd>
+        <dt>備考</dt><dd>発動に使った2枚はペア消費済みになり、以後ペアの相手には選ばれません。海鮮タグと連鎖効果は残るので、再攻撃の対象にも連鎖の起爆装置にもなり続けます。机に残した持続いか・たこと次のターンに組むこともできます。えびはペア対象外です。</dd>
+      </dl>
+    </article>
+    <article class="combo" style="--c:var(--niku)">
+      <h4><span>🥩</span>肉祭り！！！</h4>
+      <span class="trig">都度発動 · ターンに1回</span>
+      <dl>
+        <dt>条件</dt><dd>同じターンに肉寿司アーキタイプを <strong>2枚</strong> 召喚</dd>
+        <dt>効果</dt><dd>そのターンの終盤強化ボーナス（お腹条件のボーナス）を <strong>×2</strong></dd>
+        <dt>対象カード</dt><dd><strong>8枚</strong> — 和牛にぎり · カルビ寿司 · ローストビーフ寿司 · 焼肉寿司 · 牛タン寿司 · えび天にぎり · イカ天 · アナゴ天</dd>
+        <dt>備考</dt><dd>相手のお腹が条件に達していないと効果はありません。牛タン寿司だけ終盤強化ボーナスを持たないため恩恵を受けません。</dd>
+      </dl>
+    </article>
     <article class="combo todo" style="--c:var(--general)">
       <h4><span>💴</span>高級三昧</h4>
       <span class="trig todo">未実装 · MVP対象外と決定済み</span>
       <dl>
         <dt>条件</dt><dd>500円皿を累計 <strong>3枚</strong> 召喚</dd>
         <dt>効果</dt><dd>全ステータス <strong>+1</strong></dd>
-        <dt>対象カード</dt><dd>大トロ（¥500）のみ ─ 現在の最高額カード</dd>
-        <dt>実装の障壁</dt><dd>¥500以上のカードが1種しかなく、大トロを3枚買う以外に成立しません。¥3,000の軍資金では現実的ではない条件です</dd>
-        <dt>備考</dt><dd>implementation_flow.md で「MVPには含めない（v1.1）」と決定済み。card_pool.md のアーキタイプ5種にも「高級」は含まれていません</dd>
+        <dt>¥500以上のカード</dt><dd><strong>1枚</strong> — 大トロ</dd>
+        <dt>備考</dt><dd>implementation_flow.md で「MVPには含めない（v1.1）」と決定済みです。</dd>
       </dl>
-    </article>
-
-  </div>
-</section>
-
-<section id="notes">
-  <h2><span class="n">05</span>バランス上の注意点</h2>
-  <p class="lede">表とコードを突き合わせて気づいた、仕様として意図的か確認したい箇所です。</p>
-  <ul class="notes">
-    <li><strong>巻物コンプの発動条件が資料と違います。</strong>card_pool.md は「机に<em>同時に</em>5枚」の同時型ですが、実装は累計5枚召喚の累積型です（implementation_flow.md で「累積5枚」と確定済みなので、資料側の更新漏れと思われます）。</li>
-    <li><strong>肉祭りの説明文と実装がずれています。</strong>表示は「同ターン肉寿司攻撃ボーナス×2」ですが、<code>applyBuff</code> は何もせず <code>instantDmg: 12</code> だけが入ります。</li>
-    <li><strong>切れ味スタックは光り物カード全員に加算されます。</strong><code>calcFieldDmg</code> で hikari タグを持つ机の全カードに毎ターン +スタック数。持続型の光り物がいないため現状は召喚ターン限定ですが、追加すると急激に伸びます。</li>
-    <li><strong>コハダは攻撃力0です。</strong>切れ味スタック×2のみが火力源。スタック0で使うと完全に無駄撃ちになります。</li>
-    <li><strong>持続型の残ターンは <code>max(満腹度, 2)</code>。</strong>全持続カードの満腹度が3〜4なので現状は満腹度そのままですが、満腹度1のカードを追加すると2ターン残る点に注意。</li>
-    <li><strong>海鮮連鎖のトリガーは base「いか・たこ・えび」に固定です。</strong>アーキタイプ kaisen ではなく base 名で判定しているため、えびアボカド・えび軍艦・えび天も連鎖を起動します。</li>
-    <li><strong>太巻きの <code>multi_base</code> は未実装です。</strong>効果テキストは存在しますが <code>applySummon</code> の switch に分岐がなく、実際には何も起きません。</li>
-    <li><strong>AP効率の突出。</strong>ボタンエビ（15/4AP=3.75）とえび（11/3AP=3.67）が汎用レーンにあり、ビルドレーンの中トロ（16/4AP=4.0）大トロ（22/5AP=4.4）と近い水準です。汎用レーンだけで組んでも十分戦えてしまう可能性があります。</li>
-  </ul>
+    </article></div>
 </section>
 
 <footer>
-  すしバトル 内部リファレンス — カード54枚・コンボ4種・キーワード12種。コードを変更したらこのシートも更新してください。
+  すしバトル 内部リファレンス — <code>node scripts/gen-datasheet.mjs</code> で再生成できます。カードやルールを変えたら実行し直してください。
 </footer>
 
 </div>
 
 <script>
-const CARDS = [{"id":"tamago","name":"たまご","base":"たまご","topping":null,"type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"salmon","name":"サーモン","base":"サーモン","topping":null,"type":"instant","cost":2,"price":200,"attack":8,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"ebi","name":"えび","base":"えび","topping":null,"type":"instant","cost":3,"price":200,"attack":11,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"botan_ebi","name":"ボタンエビ","base":"えび","topping":null,"type":"instant","cost":4,"price":300,"attack":15,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"inari","name":"いなり","base":"いなり","topping":null,"type":"instant","cost":1,"price":100,"attack":2,"fullness":0,"effect":"ap_next_1","archetype":["general"],"lane":"general"},{"id":"onion_salmon","name":"オニオンサーモン","base":"サーモン","topping":"オニオン","type":"instant","cost":2,"price":150,"attack":4,"fullness":0,"effect":"ap_next_1","archetype":["general"],"lane":"general"},{"id":"ebi_avocado","name":"えびアボカド","base":"えび","topping":"アボカド","type":"instant","cost":2,"price":150,"attack":5,"fullness":0,"effect":"draw_1","archetype":["general","kaisen"],"lane":"general"},{"id":"mentaiko","name":"明太子","base":"明太子","topping":null,"type":"instant","cost":2,"price":200,"attack":7,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"cheese","name":"チーズ","base":"チーズ","topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":null,"archetype":["general"],"lane":"general"},{"id":"tuna_salad_gunkan","name":"ツナサラダ軍艦","base":"ツナサラダ","topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":"draw_1","archetype":["makimono"],"lane":"general"},{"id":"corn_gunkan","name":"コーン軍艦","base":"コーン","topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"general"},{"id":"seafood_gunkan","name":"シーフード軍艦","base":"シーフード","topping":null,"type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"general"},{"id":"tuna_gunkan","name":"ツナ軍艦","base":"マグロ","topping":null,"type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":null,"archetype":["makimono","akami"],"lane":"general"},{"id":"maguro","name":"マグロ","base":"マグロ","topping":null,"type":"instant","cost":3,"price":200,"attack":12,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build"},{"id":"chutoro","name":"中トロ","base":"マグロ","topping":null,"type":"instant","cost":4,"price":300,"attack":16,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build"},{"id":"otoro","name":"大トロ","base":"マグロ","topping":null,"type":"instant","cost":5,"price":500,"attack":22,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build"},{"id":"bintoro","name":"ビントロ","base":"マグロ","topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build"},{"id":"duke_maguro","name":"づけマグロ","base":"マグロ","topping":null,"type":"instant","cost":3,"price":200,"attack":9,"fullness":0,"effect":"digest_stop_1t","archetype":["akami"],"lane":"build"},{"id":"kappa_maki","name":"かっぱ巻き","base":"きゅうり","topping":null,"type":"persist","cost":1,"price":100,"attack":2,"fullness":3,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"kanpyo_maki","name":"かんぴょう巻き","base":"かんぴょう","topping":null,"type":"persist","cost":2,"price":100,"attack":3,"fullness":3,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"natto_maki","name":"納豆巻き","base":"納豆","topping":null,"type":"persist","cost":2,"price":150,"attack":3,"fullness":4,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"ume_shiso_maki","name":"梅しそ巻き","base":"うめ","topping":"しそ","type":"instant","cost":2,"price":150,"attack":5,"fullness":0,"effect":"self_digest_3","archetype":["makimono"],"lane":"build"},{"id":"tekka_maki","name":"鉄火巻き","base":"マグロ","topping":null,"type":"persist","cost":3,"price":300,"attack":4,"fullness":4,"effect":null,"archetype":["akami","makimono"],"lane":"build"},{"id":"negitoro_maki","name":"ネギトロ巻き","base":"マグロ","topping":"ネギ","type":"persist","cost":3,"price":250,"attack":3,"fullness":3,"effect":null,"archetype":["akami","makimono"],"lane":"build"},{"id":"salmon_maki","name":"サーモン巻き","base":"サーモン","topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"avocado_maki","name":"アボカド巻き","base":"アボカド","topping":null,"type":"persist","cost":1,"price":150,"attack":2,"fullness":4,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"futomaki","name":"太巻き","base":"太巻き","topping":null,"type":"persist","cost":4,"price":300,"attack":5,"fullness":3,"effect":"multi_base","archetype":["makimono"],"lane":"build"},{"id":"uni_gunkan","name":"うに軍艦","base":"うに","topping":null,"type":"instant","cost":5,"price":400,"attack":20,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"ikura_gunkan","name":"いくら軍艦","base":"いくら","topping":null,"type":"instant","cost":3,"price":250,"attack":11,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"negitoro_gunkan","name":"ネギトロ軍艦","base":"マグロ","topping":"ネギ","type":"instant","cost":4,"price":300,"attack":15,"fullness":0,"effect":null,"archetype":["akami","makimono"],"lane":"build"},{"id":"tobiko_gunkan","name":"とびこ軍艦","base":"とびこ","topping":null,"type":"instant","cost":3,"price":200,"attack":10,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"ebi_gunkan","name":"えび軍艦","base":"えび","topping":null,"type":"instant","cost":3,"price":250,"attack":12,"fullness":0,"effect":null,"archetype":["makimono","kaisen"],"lane":"build"},{"id":"kani_gunkan","name":"カニ軍艦","base":"かに","topping":null,"type":"instant","cost":5,"price":400,"attack":19,"fullness":0,"effect":null,"archetype":["makimono"],"lane":"build"},{"id":"saba","name":"サバ","base":"サバ","topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"shime_saba","name":"シメサバ","base":"サバ","topping":null,"type":"instant","cost":3,"price":200,"attack":10,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"saba_ohba","name":"サバ大葉","base":"サバ","topping":"大葉","type":"instant","cost":3,"price":250,"attack":9,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"aji","name":"アジ","base":"アジ","topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"aji_tataki","name":"アジたたき","base":"アジ","topping":null,"type":"instant","cost":3,"price":200,"attack":11,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"aji_ohba","name":"アジ大葉","base":"アジ","topping":"大葉","type":"instant","cost":3,"price":250,"attack":9,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"iwashi","name":"イワシ","base":"イワシ","topping":null,"type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"iwashi_shoga","name":"イワシ生姜","base":"イワシ","topping":"生姜","type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build"},{"id":"kohada","name":"コハダ","base":"コハダ","topping":null,"type":"instant","cost":4,"price":300,"attack":0,"fullness":0,"effect":"kireta_consume_x2","archetype":["hikari"],"lane":"build"},{"id":"ika_instant","name":"いかにぎり","base":"いか","topping":null,"type":"instant","cost":2,"price":200,"attack":7,"fullness":0,"effect":null,"archetype":["general","kaisen"],"lane":"general"},{"id":"ika","name":"いか","base":"いか","topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":"chain_on_kaisen_summon","archetype":["kaisen"],"lane":"build"},{"id":"tako","name":"たこ","base":"たこ","topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":"chain_on_kaisen_summon","archetype":["kaisen"],"lane":"build"},{"id":"takowasa","name":"たこわさ","base":"たこ","topping":"わさび","type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":null,"archetype":["kaisen"],"lane":"build"},{"id":"wagyu","name":"和牛にぎり","base":"和牛","topping":null,"type":"instant","cost":4,"price":400,"attack":12,"fullness":0,"effect":"belly_boost_70","archetype":["niku"],"lane":"build"},{"id":"karubi","name":"カルビ寿司","base":"カルビ","topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku"],"lane":"build"},{"id":"roast_beef","name":"ローストビーフ寿司","base":"ローストビーフ","topping":null,"type":"instant","cost":4,"price":400,"attack":12,"fullness":0,"effect":"belly_boost_70","archetype":["niku"],"lane":"build"},{"id":"yakiniku","name":"焼肉寿司","base":"焼肉","topping":null,"type":"persist","cost":3,"price":300,"attack":4,"fullness":3,"effect":"belly_boost_persist_50","archetype":["niku"],"lane":"build"},{"id":"gyutan","name":"牛タン寿司","base":"牛タン","topping":null,"type":"instant","cost":3,"price":250,"attack":10,"fullness":0,"effect":null,"archetype":["niku"],"lane":"build"},{"id":"ebi_ten","name":"えび天にぎり","base":"えび","topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku","kaisen"],"lane":"build"},{"id":"ika_ten","name":"イカ天","base":"いか","topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku","kaisen"],"lane":"build"},{"id":"anago_ten","name":"アナゴ天","base":"あなご","topping":null,"type":"instant","cost":4,"price":350,"attack":12,"fullness":0,"effect":"belly_boost_65","archetype":["niku"],"lane":"build"}];
-
-const ARCH = {
-  akami:'赤身', makimono:'巻物', hikari:'光り物',
-  kaisen:'海鮮', niku:'肉寿司', general:'汎用'
-};
+const CARDS = [{"id":"tamago","name":"たまご","base":"たまご","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":null,"archetype":["general"],"lane":"general","turns":1,"total":4,"apEff":4,"yenEff":4},{"id":"salmon","name":"サーモン","base":"サーモン","subBases":[],"topping":null,"type":"instant","cost":2,"price":200,"attack":8,"fullness":0,"effect":null,"archetype":["general"],"lane":"general","turns":1,"total":8,"apEff":4,"yenEff":4},{"id":"ebi","name":"えび","base":"えび","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":11,"fullness":0,"effect":null,"archetype":["general"],"lane":"general","turns":1,"total":11,"apEff":3.67,"yenEff":5.5},{"id":"botan_ebi","name":"ボタンエビ","base":"えび","subBases":[],"topping":null,"type":"instant","cost":4,"price":300,"attack":15,"fullness":0,"effect":null,"archetype":["general"],"lane":"general","turns":1,"total":15,"apEff":3.75,"yenEff":5},{"id":"inari","name":"いなり","base":"いなり","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":2,"fullness":0,"effect":"ap_next_1","archetype":["general"],"lane":"general","turns":1,"total":2,"apEff":2,"yenEff":2},{"id":"onion_salmon","name":"オニオンサーモン","base":"サーモン","subBases":[],"topping":"オニオン","type":"instant","cost":2,"price":150,"attack":4,"fullness":0,"effect":"ap_next_1","archetype":["general"],"lane":"general","turns":1,"total":4,"apEff":2,"yenEff":2.67},{"id":"ebi_avocado","name":"えびアボカド","base":"えび","subBases":[],"topping":"アボカド","type":"instant","cost":2,"price":150,"attack":5,"fullness":0,"effect":"draw_1","archetype":["general","kaisen"],"lane":"general","turns":1,"total":5,"apEff":2.5,"yenEff":3.33},{"id":"mentaiko","name":"明太子","base":"明太子","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":7,"fullness":0,"effect":"draw_2","archetype":["general"],"lane":"general","turns":1,"total":7,"apEff":2.33,"yenEff":3.5},{"id":"cheese","name":"チーズ","base":"チーズ","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":null,"archetype":["general"],"lane":"general","turns":1,"total":3,"apEff":3,"yenEff":3},{"id":"tuna_salad_gunkan","name":"ツナサラダ軍艦","base":"ツナサラダ","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":"draw_1","archetype":["makimono","gunkan"],"lane":"general","turns":1,"total":3,"apEff":3,"yenEff":3},{"id":"corn_gunkan","name":"コーン軍艦","base":"コーン","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":3,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"general","turns":1,"total":3,"apEff":3,"yenEff":3},{"id":"seafood_gunkan","name":"シーフード軍艦","base":"シーフード","subBases":[],"topping":null,"type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"general","turns":1,"total":6,"apEff":3,"yenEff":4},{"id":"tuna_gunkan","name":"ツナ軍艦","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":null,"archetype":["makimono","akami","gunkan"],"lane":"general","turns":1,"total":6,"apEff":3,"yenEff":4},{"id":"maguro","name":"マグロ","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":12,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build","turns":1,"total":12,"apEff":4,"yenEff":6},{"id":"chutoro","name":"中トロ","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":4,"price":300,"attack":16,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build","turns":1,"total":16,"apEff":4,"yenEff":5.33},{"id":"otoro","name":"大トロ","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":5,"price":500,"attack":22,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build","turns":1,"total":22,"apEff":4.4,"yenEff":4.4},{"id":"bintoro","name":"ビントロ","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":null,"archetype":["akami"],"lane":"build","turns":1,"total":7,"apEff":3.5,"yenEff":4.67},{"id":"duke_maguro","name":"づけマグロ","base":"マグロ","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":9,"fullness":0,"effect":"digest_stop_1t","archetype":["akami"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":4.5},{"id":"kappa_maki","name":"かっぱ巻き","base":"きゅうり","subBases":[],"topping":null,"type":"persist","cost":1,"price":100,"attack":1,"fullness":3,"effect":"digest_boost_2","archetype":["makimono"],"lane":"build","turns":3,"total":3,"apEff":3,"yenEff":3},{"id":"kanpyo_maki","name":"かんぴょう巻き","base":"かんぴょう","subBases":[],"topping":null,"type":"persist","cost":2,"price":100,"attack":3,"fullness":3,"effect":null,"archetype":["makimono"],"lane":"build","turns":3,"total":9,"apEff":4.5,"yenEff":9},{"id":"natto_maki","name":"納豆巻き","base":"納豆","subBases":[],"topping":null,"type":"persist","cost":2,"price":150,"attack":3,"fullness":4,"effect":null,"archetype":["makimono"],"lane":"build","turns":4,"total":12,"apEff":6,"yenEff":8},{"id":"ume_shiso_maki","name":"梅しそ巻き","base":"うめ","subBases":[],"topping":"しそ","type":"instant","cost":2,"price":150,"attack":5,"fullness":0,"effect":"self_digest_5","archetype":["makimono"],"lane":"build","turns":1,"total":5,"apEff":2.5,"yenEff":3.33},{"id":"tekka_maki","name":"鉄火巻き","base":"マグロ","subBases":[],"topping":null,"type":"persist","cost":3,"price":300,"attack":4,"fullness":4,"effect":null,"archetype":["akami","makimono"],"lane":"build","turns":4,"total":16,"apEff":5.33,"yenEff":5.33},{"id":"negitoro_maki","name":"ネギトロ巻き","base":"マグロ","subBases":[],"topping":"ネギ","type":"persist","cost":3,"price":250,"attack":3,"fullness":3,"effect":null,"archetype":["akami","makimono"],"lane":"build","turns":3,"total":9,"apEff":3,"yenEff":3.6},{"id":"salmon_maki","name":"サーモン巻き","base":"サーモン","subBases":[],"topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":null,"archetype":["makimono"],"lane":"build","turns":3,"total":9,"apEff":4.5,"yenEff":4.5},{"id":"avocado_maki","name":"アボカド巻き","base":"アボカド","subBases":[],"topping":null,"type":"persist","cost":1,"price":150,"attack":2,"fullness":4,"effect":null,"archetype":["makimono"],"lane":"build","turns":4,"total":8,"apEff":8,"yenEff":5.33},{"id":"futomaki","name":"太巻き","base":"太巻き","subBases":["マグロ","えび"],"topping":null,"type":"persist","cost":4,"price":300,"attack":5,"fullness":3,"effect":"multi_base","archetype":["makimono"],"lane":"build","turns":3,"total":15,"apEff":3.75,"yenEff":5},{"id":"uni_gunkan","name":"うに軍艦","base":"うに","subBases":[],"topping":null,"type":"instant","cost":5,"price":400,"attack":20,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"build","turns":1,"total":20,"apEff":4,"yenEff":5},{"id":"ikura_gunkan","name":"いくら軍艦","base":"いくら","subBases":[],"topping":null,"type":"instant","cost":3,"price":250,"attack":11,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"build","turns":1,"total":11,"apEff":3.67,"yenEff":4.4},{"id":"negitoro_gunkan","name":"ネギトロ軍艦","base":"マグロ","subBases":[],"topping":"ネギ","type":"instant","cost":4,"price":300,"attack":15,"fullness":0,"effect":null,"archetype":["akami","makimono","gunkan"],"lane":"build","turns":1,"total":15,"apEff":3.75,"yenEff":5},{"id":"tobiko_gunkan","name":"とびこ軍艦","base":"とびこ","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":10,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"build","turns":1,"total":10,"apEff":3.33,"yenEff":5},{"id":"ebi_gunkan","name":"えび軍艦","base":"えび","subBases":[],"topping":null,"type":"instant","cost":3,"price":250,"attack":12,"fullness":0,"effect":null,"archetype":["makimono","kaisen","gunkan"],"lane":"build","turns":1,"total":12,"apEff":4,"yenEff":4.8},{"id":"kani_gunkan","name":"カニ軍艦","base":"かに","subBases":[],"topping":null,"type":"instant","cost":5,"price":400,"attack":19,"fullness":0,"effect":null,"archetype":["makimono","gunkan"],"lane":"build","turns":1,"total":19,"apEff":3.8,"yenEff":4.75},{"id":"saba","name":"サバ","base":"サバ","subBases":[],"topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":7,"apEff":3.5,"yenEff":4.67},{"id":"shime_saba","name":"シメサバ","base":"サバ","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":10,"fullness":0,"effect":"kireta_consume_2_draw_2","archetype":["hikari"],"lane":"build","turns":1,"total":10,"apEff":3.33,"yenEff":5},{"id":"saba_ohba","name":"サバ大葉","base":"サバ","subBases":[],"topping":"大葉","type":"instant","cost":3,"price":250,"attack":9,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":3.6},{"id":"aji","name":"アジ","base":"アジ","subBases":[],"topping":null,"type":"instant","cost":2,"price":150,"attack":7,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":7,"apEff":3.5,"yenEff":4.67},{"id":"aji_tataki","name":"アジたたき","base":"アジ","subBases":[],"topping":null,"type":"instant","cost":3,"price":200,"attack":11,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":11,"apEff":3.67,"yenEff":5.5},{"id":"aji_ohba","name":"アジ大葉","base":"アジ","subBases":[],"topping":"大葉","type":"instant","cost":3,"price":250,"attack":9,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":3.6},{"id":"iwashi","name":"イワシ","base":"イワシ","subBases":[],"topping":null,"type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":4,"apEff":4,"yenEff":4},{"id":"iwashi_shoga","name":"イワシ生姜","base":"イワシ","subBases":[],"topping":"生姜","type":"instant","cost":2,"price":150,"attack":6,"fullness":0,"effect":"kireta_stack","archetype":["hikari"],"lane":"build","turns":1,"total":6,"apEff":3,"yenEff":4},{"id":"kohada","name":"コハダ","base":"コハダ","subBases":[],"topping":null,"type":"instant","cost":4,"price":300,"attack":0,"fullness":0,"effect":"kireta_consume_x3","archetype":["hikari"],"lane":"build","turns":1,"total":0,"apEff":0,"yenEff":0},{"id":"ika_instant","name":"いかにぎり","base":"いか","subBases":[],"topping":null,"type":"instant","cost":2,"price":200,"attack":7,"fullness":0,"effect":null,"archetype":["general","kaisen"],"lane":"general","turns":1,"total":7,"apEff":3.5,"yenEff":3.5},{"id":"ika","name":"いか","base":"いか","subBases":[],"topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":"chain_on_kaisen_summon","archetype":["kaisen"],"lane":"build","turns":3,"total":9,"apEff":4.5,"yenEff":4.5},{"id":"tako","name":"たこ","base":"たこ","subBases":[],"topping":null,"type":"persist","cost":2,"price":200,"attack":3,"fullness":3,"effect":"chain_on_kaisen_summon","archetype":["kaisen"],"lane":"build","turns":3,"total":9,"apEff":4.5,"yenEff":4.5},{"id":"takowasa","name":"たこわさ","base":"たこ","subBases":[],"topping":"わさび","type":"instant","cost":1,"price":100,"attack":4,"fullness":0,"effect":null,"archetype":["kaisen"],"lane":"build","turns":1,"total":4,"apEff":4,"yenEff":4},{"id":"wagyu","name":"和牛にぎり","base":"和牛","subBases":[],"topping":null,"type":"instant","cost":4,"price":400,"attack":12,"fullness":0,"effect":"belly_boost_70","archetype":["niku"],"lane":"build","turns":1,"total":12,"apEff":3,"yenEff":3},{"id":"karubi","name":"カルビ寿司","base":"カルビ","subBases":[],"topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":3},{"id":"roast_beef","name":"ローストビーフ寿司","base":"ローストビーフ","subBases":[],"topping":null,"type":"instant","cost":4,"price":400,"attack":12,"fullness":0,"effect":"belly_boost_70","archetype":["niku"],"lane":"build","turns":1,"total":12,"apEff":3,"yenEff":3},{"id":"yakiniku","name":"焼肉寿司","base":"焼肉","subBases":[],"topping":null,"type":"persist","cost":3,"price":300,"attack":4,"fullness":3,"effect":"belly_boost_persist_50","archetype":["niku"],"lane":"build","turns":3,"total":12,"apEff":4,"yenEff":4},{"id":"gyutan","name":"牛タン寿司","base":"牛タン","subBases":[],"topping":null,"type":"instant","cost":3,"price":250,"attack":10,"fullness":0,"effect":null,"archetype":["niku"],"lane":"build","turns":1,"total":10,"apEff":3.33,"yenEff":4},{"id":"ebi_ten","name":"えび天にぎり","base":"えび","subBases":[],"topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku","kaisen"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":3},{"id":"ika_ten","name":"イカ天","base":"いか","subBases":[],"topping":null,"type":"instant","cost":3,"price":300,"attack":9,"fullness":0,"effect":"belly_boost_60","archetype":["niku","kaisen"],"lane":"build","turns":1,"total":9,"apEff":3,"yenEff":3},{"id":"anago_ten","name":"アナゴ天","base":"あなご","subBases":[],"topping":null,"type":"instant","cost":4,"price":350,"attack":12,"fullness":0,"effect":"belly_boost_65","archetype":["niku"],"lane":"build","turns":1,"total":12,"apEff":3,"yenEff":3.43}];
+const ARCH = {"akami":"赤身","makimono":"巻物","gunkan":"軍艦","hikari":"光り物","kaisen":"海鮮","niku":"肉寿司","general":"汎用"};
 const LANE = { general:'一般', build:'ビルド', shinkansen:'特急' };
-const EFFECTS = {
-  'self_digest_3':'召喚時、自分のお腹 −3（消化促進）',
-  'digest_stop_1t':'召喚時、相手の消化を1ターン止める',
-  'kireta_stack':'召喚時、切れ味スタック +1',
-  'kireta_consume_x2':'切れ味スタックを全消費し、スタック数×2のダメージ',
-  'belly_boost_60':'相手のお腹が60以上のとき 攻撃 +5',
-  'belly_boost_65':'相手のお腹が65以上のとき 攻撃 +6',
-  'belly_boost_70':'相手のお腹が70以上のとき 攻撃 +8',
-  'belly_boost_persist_50':'机にいる間、相手のお腹50以上で 攻撃 +2',
-  'chain_on_kaisen_summon':'base「いか・たこ・えび」を召喚するたび +3 の連鎖攻撃',
-  'draw_1':'召喚時、カードを1枚引く',
-  'ap_next_1':'次のターンだけ AP +1',
-  'multi_base':'複数のbaseコンボ条件を同時に満たす（未実装）'
-};
+const EFFECTS = {"self_digest_5":"召喚時、自分のお腹 −5（消化促進）","digest_boost_2":"机にいる間、毎ターンの消化量 +2","digest_stop_1t":"召喚時、相手の消化を1ターン止める","kireta_stack":"召喚時、切れ味スタック +1","kireta_consume_x3":"切れ味スタックを全消費し、スタック数×3のダメージ","kireta_consume_2_draw_2":"切れ味スタックを2消費して2枚ドロー（2未満なら不発・消費もしない）","belly_boost_60":"相手のお腹が60以上のとき 攻撃 +5","belly_boost_65":"相手のお腹が65以上のとき 攻撃 +6","belly_boost_70":"相手のお腹が70以上のとき 攻撃 +8","belly_boost_persist_50":"机にいる間、相手のお腹50以上で 攻撃 +2","chain_on_kaisen_summon":"base「いか・たこ・えび」を召喚するたび +3 の連鎖攻撃","draw_1":"召喚時、カードを1枚引く","draw_2":"召喚時、カードを2枚引く","ap_next_1":"次のターンだけ AP +1","multi_base":"base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）"};
 
-// ── keyword list ──
-const kwHost = document.getElementById('kwList');
-for (const [k, v] of Object.entries(EFFECTS)) {
-  const users = CARDS.filter(c => c.effect === k).map(c => c.name);
-  const div = document.createElement('div');
-  const left = document.createElement('div');
-  left.style.gridColumn = '';
-  div.innerHTML = '<code>' + k + '</code><p>' + v +
-    '<br><span style="color:var(--muted);font-size:12px">' +
-    (users.length ? users.join(' · ') : '該当なし') + '</span></p>';
-  kwHost.appendChild(div);
-}
-
-// ── table ──
-const rows = CARDS.map(c => ({
-  ...c,
-  apEff: +(c.attack / c.cost).toFixed(2),
-  yenEff: +(c.attack / c.price * 100).toFixed(2)
-}));
-const maxAtk = Math.max(...rows.map(r => r.attack));
-
+const maxTotal = Math.max(...CARDS.map(r => r.total));
 let sortKey = 'cost', sortDir = 1;
 const filters = { arch:'all', lane:'all', q:'' };
 const tbody = document.querySelector('#cardTable tbody');
 const countEl = document.getElementById('count');
-
-function esc(s){ return String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+const esc = s => String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 
 function render(){
   const q = filters.q.trim().toLowerCase();
-  let list = rows.filter(r =>
+  const list = CARDS.filter(r =>
     (filters.arch === 'all' || r.archetype.includes(filters.arch)) &&
     (filters.lane === 'all' || r.lane === filters.lane) &&
     (!q || r.name.toLowerCase().includes(q) || r.base.toLowerCase().includes(q) ||
+      (r.subBases || []).some(b => b.toLowerCase().includes(q)) ||
       (r.effect && (r.effect.includes(q) || (EFFECTS[r.effect]||'').toLowerCase().includes(q))))
   );
   list.sort((a, b) => {
@@ -520,26 +372,25 @@ function render(){
     const cmp = (typeof x === 'string') ? x.localeCompare(y, 'ja') : x - y;
     return cmp * sortDir || a.cost - b.cost;
   });
-  countEl.textContent = list.length + ' / ' + rows.length + ' 枚';
+  countEl.textContent = list.length + ' / ' + CARDS.length + ' 枚';
   tbody.innerHTML = list.map(r => {
-    const w = Math.max(2, Math.round(r.attack / maxAtk * 42));
+    const w = Math.max(2, Math.round(r.total / maxTotal * 40));
+    const sub = r.subBases && r.subBases.length ? ' ＋ base ' + r.subBases.map(esc).join('・') : '';
+    const top = r.topping ? ' ＋ ' + esc(r.topping) : '';
     return '<tr>' +
-      '<td class="name">' + esc(r.name) +
-        (r.topping ? '<small>base ' + esc(r.base) + ' ＋ ' + esc(r.topping) + '</small>'
-                   : '<small>base ' + esc(r.base) + '</small>') + '</td>' +
-      '<td><div class="tags">' + r.archetype.map(a =>
-        '<span class="tag ' + a + '">' + ARCH[a] + '</span>').join('') + '</div></td>' +
+      '<td class="name">' + esc(r.name) + '<small>base ' + esc(r.base) + top + sub + '</small></td>' +
+      '<td><div class="tags">' + r.archetype.map(a => '<span class="tag ' + a + '">' + ARCH[a] + '</span>').join('') + '</div></td>' +
       '<td>' + LANE[r.lane] + '</td>' +
-      '<td><span class="type-pill type-' + r.type + '">' +
-        (r.type === 'instant' ? '即時' : '持続') + '</span></td>' +
+      '<td><span class="type-pill type-' + r.type + '">' + (r.type === 'instant' ? '即時' : '持続') + '</span></td>' +
       '<td class="num">' + r.cost + '</td>' +
       '<td class="num">' + r.price.toLocaleString() + '</td>' +
-      '<td class="num"><span class="bar"><i style="width:' + w + 'px"></i>' + r.attack + '</span></td>' +
-      '<td class="num">' + (r.fullness ? r.fullness + 'T' : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num">' + r.attack + '</td>' +
+      '<td class="num">' + (r.type === 'persist' ? r.turns + 'T' : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num"><span class="bar"><i style="width:' + w + 'px"></i>' + r.total + '</span></td>' +
       '<td class="num">' + r.apEff.toFixed(2) + '</td>' +
       '<td class="num">' + r.yenEff.toFixed(2) + '</td>' +
       '<td class="eff">' + (r.effect
-        ? '<span class="k">' + r.effect + '</span>' + EFFECTS[r.effect]
+        ? '<span class="k">' + esc(r.effect) + '</span>' + esc(EFFECTS[r.effect] || '')
         : '<span class="dash">—</span>') + '</td>' +
     '</tr>';
   }).join('');
@@ -554,9 +405,7 @@ document.querySelectorAll('button.chip').forEach(btn => {
     render();
   });
 });
-document.getElementById('q').addEventListener('input', e => {
-  filters.q = e.target.value; render();
-});
+document.getElementById('q').addEventListener('input', e => { filters.q = e.target.value; render(); });
 document.querySelectorAll('th.sortable').forEach(th => {
   th.addEventListener('click', () => {
     const k = th.dataset.key;
@@ -566,7 +415,7 @@ document.querySelectorAll('th.sortable').forEach(th => {
     render();
   });
 });
-
 render();
 </script>
-</body></html>
+</body>
+</html>

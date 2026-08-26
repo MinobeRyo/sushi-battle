@@ -6,6 +6,7 @@ export type Archetype =
   | 'hikari'     // 光り物
   | 'kaisen'     // 海鮮
   | 'niku'       // 肉寿司
+  | 'gunkan'     // 軍艦（巻物コンプ5枚で攻撃1.5倍を受ける）
   | 'general'    // 汎用
 
 export type Lane = 'general' | 'build' | 'shinkansen'

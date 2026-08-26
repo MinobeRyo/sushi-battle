@@ -33,6 +33,7 @@ const NETA_MAT: Record<string, { color: string; roughness: number; metalness: nu
   hikari:   { color: '#c8d4dc', roughness: 0.3, metalness: 0.1 },
   kaisen:   { color: '#e8733a', roughness: 0.55, metalness: 0.0 },
   niku:     { color: '#7c3014', roughness: 0.75, metalness: 0.0 },
+  gunkan:   { color: '#2f4f2f', roughness: 0.70, metalness: 0.0 },
   makimono: { color: '#2d5a1b', roughness: 0.80, metalness: 0.0 },
   general:  { color: '#f5c518', roughness: 0.50, metalness: 0.0 },
 }
@@ -55,6 +56,7 @@ const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string 
   hikari:   { bg: '#1e3a5f', text: '#93c5fd', label: '光り物' },
   kaisen:   { bg: '#164e63', text: '#67e8f9', label: '海鮮' },
   niku:     { bg: '#7c2d12', text: '#fdba74', label: '肉寿司' },
+  gunkan:   { bg: '#78350f', text: '#fcd34d', label: '軍艦' },
   general:  { bg: '#292524', text: '#d6d3d1', label: '汎用' },
 }
 
