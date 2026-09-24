@@ -165,19 +165,19 @@ Phase 5 — v2
 - [x] 軍艦アーキタイプの新設と、巻物コンプの2段階化
 - [x] カード調整（かっぱ巻き・梅しそ巻き・明太子・シメサバ・コハダ）
 - [x] バトル画面のコンボ進捗UI
-- [x] `scripts/test-battle-logic.mjs`（68件の回帰テスト）と `scripts/gen-datasheet.mjs`（データシート生成）
+- [x] `scripts/test-battle-logic.mjs`（74件の回帰テスト）と `scripts/gen-datasheet.mjs`（データシート生成）
 
 ---
 
 ## 変更したら流すもの
 
 ```bash
-node scripts/test-battle-logic.mjs        # 68件の回帰テスト
+node scripts/test-battle-logic.mjs        # 74件の回帰テスト
 node scripts/gen-datasheet.mjs            # docs/すしバトル_データシート.html を再生成
 npx tsc --noEmit -p tsconfig.app.json     # 型チェック
 ```
 
-回帰テストは分離した `battleEngine.ts` と実際の依存モジュールを読み込んで実行します。画面ソースの切り出しやロジックの写経は行いません。
+回帰テストは分離した `battleEngine.ts` と実際の依存モジュールを読み込んで実行します。`useBattleGame.ts` の実際の召喚処理も、重複操作と手札消費の回帰テストで実行します。画面ソースの切り出しやロジックの写経は行いません。
 データシートの生成スクリプトは、効果キーの説明漏れやカードの読み取り漏れがあるとエラーで止まります。
 
 ---

@@ -1,6 +1,6 @@
 import type { Inspect, FieldCard } from './types'
 import { EFFECT_FULL, R, C, ARCH_LABEL } from './battlePresentation'
-import { motion } from 'framer-motion'
+import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 
@@ -14,6 +14,7 @@ export function CardDetailSheet({
   onPlay: () => void
   onClose: () => void
 }) {
+  const isPresent = useIsPresent()
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = attackBuff[card.base] ?? 0
@@ -146,7 +147,8 @@ export function CardDetailSheet({
               キャンセル
             </button>
             <motion.button
-              onClick={canPlay ? onPlay : undefined}
+              onClick={canPlay && isPresent ? onPlay : undefined}
+              disabled={!canPlay || !isPresent}
               whileTap={canPlay ? { scale: 0.95 } : {}}
               whileHover={canPlay ? { scale: 1.02 } : {}}
               style={{

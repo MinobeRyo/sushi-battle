@@ -1,6 +1,6 @@
 import { CARDS, getCardsByLane } from '../../data/cards'
 import type { Card } from '../../types'
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Scene } from './scene/DraftScene'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -65,20 +65,38 @@ export function DraftScreenThree({
   const [showHelp, setShowHelp] = useState(false)
 
   const deckRef = useRef<Card[]>([])
+  const completedRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
   const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => { deckRef.current = deck }, [deck])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(id); onCompleteRef.current(deckRef.current); return 0 }
-        return t - 1
-      })
-    }, 1000)
-    return () => clearInterval(id)
+  const completeDraft = useCallback(() => {
+    // 時間切れと手動終了が重なっても、次のプレイヤーへ二重に進めない。
+    if (completedRef.current) return
+    completedRef.current = true
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current)
+    onCompleteRef.current(deckRef.current)
   }, [])
+
+  useEffect(() => {
+    if (timeLeft === 0) {
+      // 親画面の更新は描画完了後に行う。state更新関数の中では呼ばない。
+      completeDraft()
+      return
+    }
+    const id = setTimeout(() => setTimeLeft(t => Math.max(0, t - 1)), 1000)
+    return () => clearTimeout(id)
+  }, [timeLeft, completeDraft])
+
+  useEffect(() => () => {
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current)
+  }, [])
+
+  const addPurchasedCard = (card: Card) => {
+    // 終了ボタンが直後に押されても、最新の購入を引き継げるよう同期する。
+    deckRef.current = [...deckRef.current, card]
+    setDeck(deckRef.current)
+  }
 
   const clearAutoClose = () => {
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
@@ -92,9 +110,9 @@ export function DraftScreenThree({
 
   const handlePurchase = (card: Card) => {
     clearAutoClose()
-    if (!selected || budget < selected.price || deck.length >= 20) return
+    if (completedRef.current || !selected || budget < selected.price || deckRef.current.length >= 20) return
     setBudget(b => b - selected.price)
-    setDeck(d => [...d, card])
+    addPurchasedCard(card)
     selected.markSold?.()  // 買った皿だけをベルトから消す
     setSelected(null)
   }
@@ -102,16 +120,17 @@ export function DraftScreenThree({
   const handleModalClose = () => { clearAutoClose(); setSelected(null) }
 
   const handleShinkansenOrder = (card: Card, premiumPrice: number) => {
-    if (budget < premiumPrice || deck.length >= 20) return
+    if (completedRef.current || shinkansenLeft <= 0 || shinkansenPlate || budget < premiumPrice || deckRef.current.length >= 20) return
     setBudget(b => b - premiumPrice)
+    // 支払い時点で購入を確定する。未受領で終了してもカードは失われない。
+    addPurchasedCard(card)
     setShinkansenLeft(n => n - 1)
     setShowShinkansenModal(false)
     setShinkansenPlate({ card })
   }
 
   const handleShinkansenPickup = () => {
-    if (!shinkansenPlate) return
-    setDeck(d => [...d, shinkansenPlate.card])
+    if (completedRef.current || !shinkansenPlate) return
     setShinkansenPlate(null)
   }
 
@@ -261,14 +280,14 @@ export function DraftScreenThree({
                       <span style={{ color: '#facc15', fontSize: 9, fontWeight: 800 }}>¥{budget.toLocaleString()}</span>
                     </div>
                   </div>
-                  <div onClick={() => onComplete(deck)} style={{ background: 'linear-gradient(180deg, #f97316, #ea580c)', borderRadius: 5, padding: '4px 0', textAlign: 'center' as const, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
+                  <div onClick={completeDraft} style={{ background: 'linear-gradient(180deg, #f97316, #ea580c)', borderRadius: 5, padding: '4px 0', textAlign: 'center' as const, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
                     <span style={{ color: 'white', fontSize: 8.5, fontWeight: 800 }}>お会計する ▶</span>
                   </div>
                 </div>
                 {/* 特急終了時：カテゴリ側のみ暗くする */}
                 {!canOrder && (
                   <div style={{ position: 'absolute' as const, left: 0, top: 0, bottom: 0, right: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(20,20,20,0.55)' }}>
-                    <span style={{ color: 'white', fontSize: 10, fontWeight: 800, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '4px 10px' }}>特急注文は本日終了</span>
+                    <span style={{ color: 'white', fontSize: 10, fontWeight: 800, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '4px 10px' }}>{shinkansenPlate ? '特急をお届け中（購入済み）' : '特急注文は本日終了'}</span>
                   </div>
                 )}
                 {/* 画面のテカリ */}
@@ -339,7 +358,7 @@ export function DraftScreenThree({
 
       {/* バトルへ進むボタン */}
       <button
-        onClick={() => onComplete(deck)}
+        onClick={completeDraft}
         style={{
           position: 'absolute', bottom: 52, right: 12, zIndex: 50,
           padding: '8px 18px', borderRadius: 20, fontSize: 13, fontWeight: 800,

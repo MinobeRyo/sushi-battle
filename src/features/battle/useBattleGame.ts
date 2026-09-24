@@ -51,7 +51,9 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
 
   const playCard = (card: Card) => {
     const st = ref.current
-    if (st.phase !== 'player' || st.pAP < card.cost || st.pField.length >= FIELD_MAX) return
+    const handIdx = st.pHand.indexOf(card)
+    // 詳細シートの退場中などに同じ操作が届いても、消費済みの手札は召喚しない。
+    if (handIdx < 0 || st.phase !== 'player' || st.pAP < card.cost || st.pField.length >= FIELD_MAX) return
 
     setInspect(null)
     addLog(`あなた ▶ ${cardEmoji(card)} ${card.name} 召喚`)
@@ -79,7 +81,6 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
     if (r.extraDmg > 0) addFloat(r.extraDmg, 'cpu')
 
     // 同一カードを複数枚持っている場合でも1枚だけ取り除く
-    const handIdx = st.pHand.indexOf(card)
     const handAfterPlay = st.pHand.filter((_, i) => i !== handIdx)
     // draw_1 効果：即時ドロー
     const [handDrawn, deckAfter] = drawCards(handAfterPlay, st.pDeck, r.drawNow)

@@ -13,7 +13,7 @@ const ts = require_(path.join(ROOT, 'node_modules/typescript'))
 const modules = new Map()
 
 // TypeScript をメモリ内で変換する。Nodeのバージョン固有のTS機能や一時ファイルは不要。
-function loadTs(relativePath) {
+function loadTs(relativePath, overrides = {}) {
   const filename = path.resolve(ROOT, relativePath)
   if (modules.has(filename)) return modules.get(filename).exports
   const module = { exports: {} }
@@ -22,9 +22,10 @@ function loadTs(relativePath) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   })
   const localRequire = specifier => {
+    if (Object.hasOwn(overrides, specifier)) return overrides[specifier]
     if (!specifier.startsWith('.')) return require_(specifier)
     const dependency = path.resolve(path.dirname(filename), specifier)
-    return loadTs(dependency.endsWith('.ts') ? dependency : dependency + '.ts')
+    return loadTs(dependency.endsWith('.ts') ? dependency : dependency + '.ts', overrides)
   }
   new Function('require', 'module', 'exports', outputText)(localRequire, module, module.exports)
   return module.exports
@@ -210,6 +211,45 @@ console.log('\n[9] 消化量')
 eq('ラウンド1の消化 = 2', digestionAmount(1), 2)
 eq('ラウンド4以降は上限5', digestionAmount(9), 5)
 eq('かっぱ巻き込みで 2+2 = 4', digestionAmount(1) + digestBonus([toField(byId('kappa_maki'))]), 4)
+
+console.log('\n[10] 召喚操作の重複・手札の消費')
+{
+  // 描画は実ブラウザで確認する。ここでは実際の召喚ハンドラーを実行し、
+  // Reactの描画通知だけを置き換えて、同じ操作が再度届いた場合を検証する。
+  const { useBattleGame: createGameWithMockedHooks } = loadTs('src/features/battle/useBattleGame.ts', {
+    react: {
+      useRef: value => ({ current: value }),
+      useReducer: () => [0, () => {}],
+      useState: value => [value, () => {}],
+    },
+  })
+  const tamago = byId('tamago')
+  const game = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
+  game.playCard(tamago)
+  game.playCard(tamago)
+  eq('手札1枚で二重に召喚操作しても、机1枚・AP消費1のみ',
+    [game.s.pHand.length, game.s.pField.length, game.s.pAP], [0, 1, 1])
+  eq('重複操作で召喚履歴は増えない', game.s.pSummonedIds, ['tamago'])
+
+  const notInHand = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
+  notInHand.playCard(byId('cheese'))
+  eq('手札にないカードは出せない',
+    [notInHand.s.pHand.length, notInHand.s.pField.length, notInHand.s.pAP], [1, 0, 2])
+
+  const duplicates = createGameWithMockedHooks({ deck: [tamago, tamago], mode: 'cpu' })
+  duplicates.playCard(tamago)
+  eq('同じカードを2枚所持していても1回の操作では1枚消費',
+    [duplicates.s.pHand.length, duplicates.s.pField.length, duplicates.s.pAP], [1, 1, 1])
+  duplicates.playCard(tamago)
+  eq('残りの同名カードは別の召喚操作で使用できる',
+    [duplicates.s.pHand.length, duplicates.s.pField.length, duplicates.s.pAP], [0, 2, 0])
+
+  const noAP = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
+  noAP.s.pAP = 0
+  noAP.playCard(tamago)
+  eq('AP不足の操作では手札を消費しない',
+    [noAP.s.pHand.length, noAP.s.pField.length, noAP.s.pAP], [1, 0, 0])
+}
 
 console.log(`\n===== ${pass} 件成功 / ${fail} 件失敗 =====`)
 process.exit(fail > 0 ? 1 : 0)

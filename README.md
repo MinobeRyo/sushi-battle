@@ -109,7 +109,7 @@ src/
         └── types.ts                 # バトルの状態・画面用の型
 
 scripts/
-├── test-battle-logic.mjs            # バトルロジックの回帰テスト（68件）
+├── test-battle-logic.mjs            # バトルロジックの回帰テスト（74件）
 └── gen-datasheet.mjs                # カード一覧HTMLの生成
 
 docs/
@@ -128,7 +128,7 @@ docs/
 - 寿司の造形を変える: `draft/models/`、皿の動かし方を変える: `draft/scene/`
 - 店員の説明を更新する: `StaffHelpModal.tsx`
 
-回帰テストは画面ソースの切り出しをせず、`battleEngine.ts` と実際の依存モジュールをメモリ内で読み込みます。`npm test` でも実行できます。
+回帰テストは画面ソースの切り出しをせず、`battleEngine.ts` と実際の依存モジュールをメモリ内で読み込みます。`useBattleGame.ts` の召喚処理についても、重複操作・手札の消費を検証します。`npm test` でも実行できます。
 
 ---
 
