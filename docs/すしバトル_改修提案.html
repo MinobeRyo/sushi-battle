@@ -121,9 +121,9 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
 </head><body><header class="masthead">
   <div class="wrap">
-    <p class="kicker">すしバトル / 改修提案 · 2026-08-22</p>
+    <p class="kicker">すしバトル / 改修提案 · 2026-08-26 更新</p>
     <h1>すしバトル 改修提案</h1>
-    <p class="sub">コードと企画資料を突き合わせて洗い出した24件です。各項目は「現状 → 問題 → 修正案」の順にまとめ、優先度と作業量の目安を付けています。<strong>対応済み2件 / 未着手22件。</strong>カードの数値は<a href="https://claude.ai/code/artifact/9340ca97-be54-4358-be65-14f07fead131">データシート</a>を参照してください。</p>
+    <p class="sub">コードと企画資料を突き合わせて洗い出した24件です。各項目は「現状 → 問題 → 修正案」の順にまとめ、優先度と作業量の目安を付けています。<strong>対応済み7件 / 未着手17件。</strong>カードの数値は<a href="https://claude.ai/code/artifact/9340ca97-be54-4358-be65-14f07fead131">データシート</a>を参照してください。</p>
   </div>
 </header>
 
@@ -148,21 +148,21 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
     <table class="sum">
       <thead><tr><th>ID</th><th>内容</th><th>優先度</th><th>作業量</th></tr></thead>
       <tbody>
-        <tr><td class="id"><a href="#A1">A1</a></td><td>肉祭りコンボのバフが実装されていない</td><td><span class="pri hi">高</span></td><td class="cost">S</td></tr>
+        <tr class="done"><td class="id"><a href="#A1">A1</a></td><td>肉祭りコンボのバフが実装されていない</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr class="done"><td class="id"><a href="#A2">A2</a></td><td>太巻きの <code>multi_base</code> が完全に無効</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr class="done"><td class="id"><a href="#A3">A3</a></td><td>二人対戦だけ持続カードが2回攻撃・2回消耗・2回ドローする</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr><td class="id"><a href="#A4">A4</a></td><td>デッキ0枚でもバトルに進めてしまう</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
         <tr><td class="id"><a href="#A5">A5</a></td><td>CPUが同名カードを持つと手札が余分に消える（潜在）</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
         <tr><td class="id"><a href="#A6">A6</a></td><td>追加注文タイムのCPUだけ8枚上限・全レーン購入可</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
         <tr><td class="id"><a href="#A7">A7</a></td><td>ドラフトのタイマーが state 更新関数の中で <code>onComplete</code> を呼ぶ</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
-        <tr><td class="id"><a href="#B1">B1</a></td><td>巻物コンプ：累積5枚 vs 机に同時5枚</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr class="done"><td class="id"><a href="#B1">B1</a></td><td>巻物コンプ：累積5枚 vs 机に同時5枚</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr><td class="id"><a href="#B2">B2</a></td><td>いか2種（即時 / 持続）の共存は意図的か</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
         <tr><td class="id"><a href="#B3">B3</a></td><td>高級ビルドをアーキタイプとして残すか</td><td><span class="pri lo">低</span></td><td class="cost">S</td></tr>
-        <tr><td class="id"><a href="#C1">C1</a></td><td>光り物三昧 — 大葉カードが2種しかなく成立不能</td><td><span class="pri mid">中</span></td><td class="cost">M</td></tr>
+        <tr class="done"><td class="id"><a href="#C1">C1</a></td><td>光り物三昧 — 大葉カードが2種しかなく成立不能</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr><td class="id"><a href="#C2">C2</a></td><td>高級三昧 — ¥500皿が大トロ1種しかなく成立不能</td><td><span class="pri lo">低</span></td><td class="cost">M</td></tr>
         <tr><td class="id"><a href="#D1">D1</a></td><td>持続型が即時型より約1.5倍効率が良く、上位8枚が全部巻物</td><td><span class="pri hi">高</span></td><td class="cost">M</td></tr>
-        <tr><td class="id"><a href="#D2">D2</a></td><td>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
-        <tr><td class="id"><a href="#D3">D3</a></td><td>コハダが使うと損をする罠カードになっている</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
+        <tr class="done"><td class="id"><a href="#D2">D2</a></td><td>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
+        <tr class="done"><td class="id"><a href="#D3">D3</a></td><td>コハダが使うと損をする罠カードになっている</td><td><span class="pri done">対応済</span></td><td class="cost">—</td></tr>
         <tr><td class="id"><a href="#D4">D4</a></td><td>汎用レーンのえび系がビルドレーン級の効率</td><td><span class="pri mid">中</span></td><td class="cost">S</td></tr>
         <tr><td class="id"><a href="#D5">D5</a></td><td>CPUが汎用デッキ固定でコンボをほぼ踏めない</td><td><span class="pri mid">中</span></td><td class="cost">M</td></tr>
         <tr><td class="id"><a href="#E1">E1</a></td><td>薬味スロット（あがり / ガリ / サビ）</td><td><span class="pri lo">低</span></td><td class="cost">L</td></tr>
@@ -181,8 +181,8 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
   <h2><span class="n">A</span>バグ・実装漏れ</h2>
   <p class="lede">コードが仕様どおりに動いていない、または動作が壊れている項目です。</p>
 
-  <article class="item" id="A1">
-    <div class="head"><span class="id">A1</span><h3>肉祭りコンボのバフが実装されていない</h3><span class="pri hi">高</span><span class="cost">S · 30分</span></div>
+  <article class="item done" id="A1">
+    <div class="head"><span class="id">A1</span><h3>肉祭りコンボのバフが実装されていない</h3><span class="pri done">対応済</span><span class="cost">2026-08-26 実装</span></div>
     <div class="body"><dl>
       <dt>現状</dt><dd><code>BattleScreen.tsx</code> の <code>COMBOS</code> で、肉祭りの <code>applyBuff</code> は <code>(buff, draw) =&gt; ({ buff, draw })</code> ＝ 何もしない関数です。実際に効くのは <code>instantDmg: 12</code> だけ。</dd>
       <dt>問題</dt><dd>画面には「同ターン肉寿司攻撃ボーナス×2」と表示されるのに何も起きません。企画書の意図は「そのターンの肉寿司カードの終盤強化ボーナスを×2」です。</dd>
@@ -273,8 +273,8 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
   <h2><span class="n">B</span>仕様書と実装の食い違い</h2>
   <p class="lede">コードは動いているものの、どの資料を正とするかの判断が要る項目です。企画書16章で「確認が必要」として残されているものと重なります。</p>
 
-  <article class="item" id="B1">
-    <div class="head"><span class="id">B1</span><h3>巻物コンプ：累積5枚 vs 机に同時5枚</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+  <article class="item done" id="B1">
+    <div class="head"><span class="id">B1</span><h3>巻物コンプ：累積5枚 vs 机に同時5枚</h3><span class="pri done">対応済</span><span class="cost">2026-08-26 実装</span></div>
     <div class="body"><dl>
       <dt>現状</dt><dd>実装は「巻物アーキタイプを累計5枚召喚」。<code>implementation_flow.md</code> の確定済み仕様表にも「累積5枚」とあります。一方 <code>card_pool.md</code> と企画書16-7節は「巻物＋軍艦を机に<em>同時に</em>5枚」の同時型と書いています。</dd>
       <dt>問題</dt><dd>難易度が桁違いです。巻物タグ持ちは54枚中19枚あるので累計5枚はほぼ確実に達成できますが、机に同時5枚（机上限は8）は持続型を並べ続ける必要があり、専用デッキが要ります。</dd>
@@ -308,8 +308,8 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
   <h2><span class="n">C</span>未実装のコンボ</h2>
   <p class="lede">企画書にあり、<code>implementation_flow.md</code> の Phase 4-1 に積まれている2種です。どちらも<strong>今のカードプールでは条件を満たせません</strong>ので、カード追加とセットになります。</p>
 
-  <article class="item" id="C1">
-    <div class="head"><span class="id">C1</span><h3>光り物三昧 — 大葉カードが2種しかなく成立不能</h3><span class="pri mid">中</span><span class="cost">M · 半日</span></div>
+  <article class="item done" id="C1">
+    <div class="head"><span class="id">C1</span><h3>光り物三昧 — 大葉カードが2種しかなく成立不能</h3><span class="pri done">対応済</span><span class="cost">2026-08-26 実装</span></div>
     <div class="body"><dl>
       <dt>条件と効果</dt><dd>大葉トッピングのカードを累計3枚召喚 → 切れ味スタック +3（<code>card_pool.md</code> 版）。design.md 版は「切れ味 ×1.5倍」ですが、切れ味が加算スタックとして実装されている以上、<strong>+3 のほうを採る</strong>のが整合的です。</dd>
       <dt>問題</dt><dd>大葉カードは「サバ大葉」「アジ大葉」の2種のみ。同名カードを重複購入しない限り3枚に届きません。</dd>
@@ -362,8 +362,8 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
     </dl></div>
   </article>
 
-  <article class="item" id="D2">
-    <div class="head"><span class="id">D2</span><h3>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+  <article class="item done" id="D2">
+    <div class="head"><span class="id">D2</span><h3>巻物アーキタイプが19枚と突出、巻物コンプが簡単すぎる</h3><span class="pri done">対応済</span><span class="cost">2026-08-26 実装</span></div>
     <div class="body"><dl>
       <dt>現状</dt><dd>アーキタイプ別の枚数は 巻物19 / 汎用10 / 赤身9 / 光り物9 / 海鮮8 / 肉寿司8。巻物だけが倍近くあります。巻物コンプの条件は「累計5枚召喚」。</dd>
       <dt>問題</dt><dd>軍艦カードの多くが巻物タグを持つため、巻物を意識していないデッキでも自然に5枚に到達します。「以降ずっとドロー+1」という強力な効果が実質タダで付いてきます。</dd>
@@ -372,8 +372,8 @@ footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-si
     </dl></div>
   </article>
 
-  <article class="item" id="D3">
-    <div class="head"><span class="id">D3</span><h3>コハダが使うと損をする罠カードになっている</h3><span class="pri mid">中</span><span class="cost">S · 1時間</span></div>
+  <article class="item done" id="D3">
+    <div class="head"><span class="id">D3</span><h3>コハダが使うと損をする罠カードになっている</h3><span class="pri done">対応済</span><span class="cost">2026-08-26 実装</span></div>
     <div class="body"><dl>
       <dt>現状</dt><dd>コハダは攻撃力0・4AP。効果は「切れ味スタックを全消費してスタック数×2のダメージ」。一方、切れ味スタックは <code>calcFieldDmg</code> で<strong>その時点で机にいる光り物カード全員に加算</strong>されます。</dd>
       <dt>問題</dt><dd>スタック6でコハダを撃つと12ダメージ（3.0/AP）ですが、同じ4APでアジたたき（11ダメージ）＋イワシ（4ダメージ）を出せば、スタックを保ったまま15ダメージ＋スタック+2が入ります。さらにコハダはスタックを0にするため、<strong>同じターンに出した他の光り物のボーナスまで消えます</strong>。どの状況でも使わないほうが強いカードになっています。</dd>

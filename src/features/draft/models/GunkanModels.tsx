@@ -1,0 +1,384 @@
+import { mulberry32 } from './modelRandom'
+import { useMemo } from 'react'
+import { BASE_NETA_COLOR } from './sushiMaterials'
+import * as THREE from 'three'
+
+// ネギトロ：そぼろ状のミンチ＋ネギの緑（軍艦・握り共通パーツ）
+const NEGITORO_LUMPS: Array<[number, number, number, number]> = [
+  [0, 0.52, 0, 1.2], [0.14, 0.5, 0.06, 1], [-0.14, 0.5, 0.05, 1.05], [0.05, 0.53, -0.1, 0.9],
+  [-0.07, 0.52, -0.09, 0.95], [0.18, 0.47, -0.05, 0.8], [-0.18, 0.48, 0.08, 0.85], [0.02, 0.5, 0.12, 0.9],
+  [0.09, 0.57, -0.03, 0.85], [-0.09, 0.57, 0.03, 0.9], [0.23, 0.46, 0.06, 0.7], [-0.23, 0.46, -0.05, 0.7],
+  [0.01, 0.585, 0.05, 0.8], [-0.03, 0.47, -0.15, 0.75], [0.05, 0.47, 0.16, 0.75],
+]
+
+const NEGI_FLECKS: Array<[number, number, number]> = [
+  [0.08, 0.6, 0.02], [-0.1, 0.59, -0.05], [0, 0.615, -0.08],
+  [0.15, 0.57, 0.09], [-0.16, 0.565, 0.04], [-0.02, 0.615, 0.1],
+  [0.05, 0.62, -0.02], [-0.06, 0.605, 0.08], [0.12, 0.585, -0.09],
+]
+
+function NegitoroTopping() {
+  return (
+    <>
+      {NEGITORO_LUMPS.map(([x, y, z, s], i) => (
+        <mesh key={i} position={[x, y, z]} scale={[1.15 * s, 0.7 * s, s]}>
+          <sphereGeometry args={[0.085, 12, 10]} />
+          <meshPhysicalMaterial color="#d6404e" roughness={0.7} metalness={0} clearcoat={0.15} clearcoatRoughness={0.5} />
+        </mesh>
+      ))}
+      {NEGI_FLECKS.map(([x, y, z], i) => (
+        <mesh key={`n${i}`} position={[x, y, z]} scale={[1, 0.5, 1]}>
+          <sphereGeometry args={[0.028, 8, 6]} />
+          <meshStandardMaterial color="#54b435" roughness={0.6} metalness={0} />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+export function NegitoroGunkan() {
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {/* ネギトロ色の盛り（シャリが見えないように） */}
+      <mesh position={[0, 0.42, 0]} scale={[1, 0.38, 1]}>
+        <sphereGeometry args={[0.28, 18, 12]} />
+        <meshPhysicalMaterial color="#cf4552" roughness={0.65} metalness={0} clearcoat={0.15} clearcoatRoughness={0.5} />
+      </mesh>
+      <NegitoroTopping />
+    </group>
+  )
+}
+
+// ぶつ切り系軍艦の共通配置
+const CHUNK_LAYOUT: Array<{ p: [number, number, number]; ry: number; s: number }> = [
+  { p: [0, 0.5, 0], ry: 0.4, s: 1.05 }, { p: [0.14, 0.48, 0.06], ry: -0.7, s: 0.9 },
+  { p: [-0.14, 0.49, 0.04], ry: 1.1, s: 0.95 }, { p: [0.05, 0.5, -0.11], ry: 0.2, s: 0.85 },
+  { p: [-0.07, 0.48, -0.1], ry: -0.4, s: 0.9 }, { p: [0.19, 0.46, -0.04], ry: 0.9, s: 0.8 },
+  { p: [-0.19, 0.46, 0.08], ry: -1, s: 0.8 }, { p: [0.02, 0.55, 0.05], ry: 0.6, s: 0.8 },
+  { p: [-0.06, 0.55, -0.04], ry: -0.2, s: 0.75 }, { p: [0.1, 0.54, 0.12], ry: 1.4, s: 0.7 },
+]
+
+export function TakowasaGunkan() {
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {/* たこ色の盛り（シャリが見えないように） */}
+      <mesh position={[0, 0.42, 0]} scale={[1, 0.38, 1]}>
+        <sphereGeometry args={[0.28, 18, 12]} />
+        <meshPhysicalMaterial color="#dcc0ca" roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+      </mesh>
+      {CHUNK_LAYOUT.map(({ p, ry, s }, i) => (
+        <group key={i} position={p} rotation={[0, ry, 0]}>
+          {/* 白い身 */}
+          <mesh scale={[1.15 * s, 0.7 * s, 0.9 * s]}>
+            <sphereGeometry args={[0.085, 12, 10]} />
+            <meshPhysicalMaterial color="#eee0e2" roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+          </mesh>
+          {/* 皮（上にかぶさる赤紫の薄い層） */}
+          <mesh position={[0.02 * s, 0.038 * s, 0]} scale={[0.95 * s, 0.4 * s, 0.78 * s]}>
+            <sphereGeometry args={[0.085, 12, 10]} />
+            <meshPhysicalMaterial color="#94446b" roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+          </mesh>
+        </group>
+      ))}
+      {/* わさび（小さめ・深緑） */}
+      {([[-0.03, 0.585, 0.02], [0.12, 0.56, -0.07], [-0.13, 0.555, 0.09]] as Array<[number, number, number]>).map(([x, y, z], i) => (
+        <mesh key={`w${i}`} position={[x, y, z]} scale={[1.2, 0.6, 1]}>
+          <sphereGeometry args={[0.032, 8, 6]} />
+          <meshStandardMaterial color="#5d8a28" roughness={0.6} metalness={0} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// えび軍艦：丸まった小えびを敷き詰める
+const EBI_GUNKAN_SHRIMP: Array<{ p: [number, number, number]; ry: number; s: number; c: string }> = [
+  { p: [0, 0.51, 0], ry: 0.3, s: 1, c: '#ef8464' },
+  { p: [0.13, 0.5, 0.06], ry: -1.1, s: 0.9, c: '#f5a98d' },
+  { p: [-0.13, 0.5, 0.04], ry: 1.8, s: 0.95, c: '#ef8464' },
+  { p: [0.05, 0.5, -0.11], ry: 0.7, s: 0.85, c: '#f5a98d' },
+  { p: [-0.07, 0.5, -0.1], ry: -0.5, s: 0.9, c: '#ef8464' },
+  { p: [0.18, 0.48, -0.04], ry: 2.4, s: 0.8, c: '#ef8464' },
+  { p: [-0.18, 0.48, 0.08], ry: -1.7, s: 0.8, c: '#f5a98d' },
+  { p: [0.02, 0.555, 0.06], ry: 1.3, s: 0.85, c: '#ef8464' },
+  { p: [-0.05, 0.555, -0.05], ry: -0.9, s: 0.8, c: '#f5a98d' },
+]
+
+export function EbiGunkan() {
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {/* えび色の盛り（シャリが見えないように） */}
+      <mesh position={[0, 0.42, 0]} scale={[1, 0.38, 1]}>
+        <sphereGeometry args={[0.28, 18, 12]} />
+        <meshPhysicalMaterial color="#eb8f72" roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+      </mesh>
+      {EBI_GUNKAN_SHRIMP.map(({ p, ry, s, c }, i) => (
+        <mesh key={i} position={p} rotation={[-Math.PI / 2, 0, ry]} scale={[s, s, 0.9 * s]}>
+          {/* 途切れたトーラス＝丸まったえびの形 */}
+          <torusGeometry args={[0.07, 0.032, 8, 12, Math.PI * 1.25]} />
+          <meshPhysicalMaterial color={c} roughness={0.45} metalness={0} clearcoat={0.3} clearcoatRoughness={0.4} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// カニ軍艦：ほぐし身（曲線チューブの繊維を重ねる）
+function KaniFibers() {
+  const fibers = useMemo(() => {
+    const rand = mulberry32(7)
+    const list: { curve: THREE.CatmullRomCurve3; r: number; color: string }[] = []
+    for (let i = 0; i < 30; i++) {
+      const isRed = i >= 23
+      const a = rand() * Math.PI * 2
+      const cx = (rand() - 0.5) * 0.34
+      const cz = (rand() - 0.5) * 0.26
+      const len = 0.12 + rand() * 0.1
+      const y0 = (isRed ? 0.56 : 0.52) + rand() * 0.04
+      const dx = Math.cos(a), dz = Math.sin(a)
+      const p0 = new THREE.Vector3(cx - (dx * len) / 2, y0, cz - (dz * len) / 2)
+      const mid = new THREE.Vector3(cx + (rand() - 0.5) * 0.04, y0 + 0.015 + rand() * 0.02, cz + (rand() - 0.5) * 0.04)
+      const p1 = new THREE.Vector3(cx + (dx * len) / 2, y0 + (rand() - 0.5) * 0.02, cz + (dz * len) / 2)
+      list.push({
+        curve: new THREE.CatmullRomCurve3([p0, mid, p1]),
+        r: isRed ? 0.013 : 0.02 + rand() * 0.013,
+        color: isRed ? '#e05548' : rand() > 0.5 ? '#f8efe8' : '#f3dcd4',
+      })
+    }
+    return list
+  }, [])
+  return (
+    <>
+      {fibers.map((f, i) => (
+        <mesh key={i}>
+          <tubeGeometry args={[f.curve, 8, f.r, 6, false]} />
+          <meshPhysicalMaterial color={f.color} roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+export function KaniGunkan() {
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {/* かに色の盛り（シャリが見えないように） */}
+      <mesh position={[0, 0.42, 0]} scale={[1, 0.42, 1]}>
+        <sphereGeometry args={[0.28, 18, 12]} />
+        <meshPhysicalMaterial color="#f4e4da" roughness={0.5} metalness={0} clearcoat={0.2} clearcoatRoughness={0.4} />
+      </mesh>
+      <KaniFibers />
+    </group>
+  )
+}
+
+// シーフード軍艦：マヨで和えたクリーム色のベースに淡い具材が埋まるサラダ風
+const SEAFOOD_PIECES: Array<{ p: [number, number, number]; ry: number; s: number; c: string }> = [
+  { p: [-0.13, 0.54, -0.05], ry: 0.5, s: 0.85, c: '#e59a70' },  // サーモン
+  { p: [0.1, 0.55, 0.06], ry: -0.8, s: 0.8, c: '#e5988a' },     // えび
+  { p: [0.16, 0.51, -0.08], ry: 0.3, s: 0.75, c: '#f3ece2' },   // いか
+  { p: [-0.04, 0.56, 0.1], ry: 1.2, s: 0.75, c: '#e59a70' },
+  { p: [0.01, 0.56, -0.11], ry: -0.3, s: 0.7, c: '#f3ece2' },
+  { p: [-0.18, 0.5, 0.08], ry: 0.9, s: 0.7, c: '#e5988a' },
+  { p: [0.21, 0.49, 0.05], ry: -1.1, s: 0.65, c: '#e59a70' },
+  { p: [-0.08, 0.55, -0.13], ry: 0.1, s: 0.65, c: '#e5988a' },
+]
+
+export function SeafoodGunkan() {
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {/* マヨで和えたベース（クリーム色の盛り） */}
+      <mesh position={[0, 0.47, 0]} scale={[1, 0.5, 1]}>
+        <sphereGeometry args={[0.28, 20, 14]} />
+        <meshPhysicalMaterial color="#f1e8d8" roughness={0.45} metalness={0} clearcoat={0.3} clearcoatRoughness={0.4} />
+      </mesh>
+      {/* 具材（淡い色でベースに半分埋まる） */}
+      {SEAFOOD_PIECES.map(({ p, ry, s, c }, i) => (
+        <mesh key={i} position={p} rotation={[0, ry, 0]} scale={[1.2 * s, 0.6 * s, 0.9 * s]}>
+          <sphereGeometry args={[0.085, 12, 10]} />
+          <meshPhysicalMaterial color={c} roughness={0.5} metalness={0} clearcoat={0.15} clearcoatRoughness={0.4} />
+        </mesh>
+      ))}
+      {/* 小ねぎ */}
+      {([[0.05, 0.6, 0.01], [-0.09, 0.585, 0.06]] as Array<[number, number, number]>).map(([x, y, z], i) => (
+        <mesh key={`g${i}`} position={[x, y, z]} scale={[1, 0.4, 1]}>
+          <sphereGeometry args={[0.025, 8, 6]} />
+          <meshStandardMaterial color="#54b435" roughness={0.6} metalness={0} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// 粒もの軍艦の粒配置（決め打ちで自然なばらつき）
+// いくら用：大粒12個
+const GUNKAN_DOTS_LARGE: Array<[number, number, number]> = [
+  [0, 0.60, 0], [0.13, 0.58, 0.07], [-0.13, 0.58, 0.05], [0.06, 0.59, -0.11],
+  [-0.08, 0.58, -0.10], [0.19, 0.55, -0.04], [-0.19, 0.55, -0.02], [0.01, 0.59, 0.13],
+  [0.11, 0.56, 0.14], [-0.12, 0.56, 0.13], [0.20, 0.54, 0.09], [-0.21, 0.54, 0.08],
+  // 縁と2段目を追加してぎっしり感を出す
+  [0.24, 0.52, 0.02], [-0.24, 0.52, 0.03], [0.16, 0.53, -0.13], [-0.15, 0.53, -0.12],
+  [0.05, 0.655, 0.04], [-0.05, 0.65, -0.04], [0.08, 0.645, -0.08], [-0.09, 0.64, 0.09],
+]
+
+// コーン・とびこ・納豆用：小粒を密に（中心+3重リング+2段目）
+const GUNKAN_DOTS_SMALL: Array<[number, number, number]> = (() => {
+  const pts: Array<[number, number, number]> = [[0, 0.60, 0]]
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2
+    pts.push([Math.cos(a) * 0.11, 0.585, Math.sin(a) * 0.10])
+  }
+  for (let i = 0; i < 13; i++) {
+    const a = (i / 13) * Math.PI * 2 + 0.26
+    pts.push([Math.cos(a) * 0.21, 0.555, Math.sin(a) * 0.17])
+  }
+  for (let i = 0; i < 15; i++) {
+    const a = (i / 15) * Math.PI * 2 + 0.13
+    pts.push([Math.cos(a) * 0.26, 0.53, Math.sin(a) * 0.21])
+  }
+  // 2段目（中央を盛り上げる）
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.5
+    pts.push([Math.cos(a) * 0.07, 0.645, Math.sin(a) * 0.06])
+  }
+  return pts
+})()
+
+// 粒もの軍艦の見た目設定
+const GUNKAN_DOT_CONF: Record<string, {
+  r: number; color: string; roughness: number; clearcoat: number
+  squash: number; large: boolean; emissive?: string
+}> = {
+  'いくら': { r: 0.095, color: '#f8420a', roughness: 0.05, clearcoat: 1, squash: 1, large: true, emissive: '#7a1400' },
+  'とびこ': { r: 0.056, color: '#f06010', roughness: 0.08, clearcoat: 1, squash: 1, large: false },
+  'コーン': { r: 0.058, color: '#fbd23c', roughness: 0.5, clearcoat: 0.15, squash: 0.78, large: false },
+  '納豆': { r: 0.058, color: '#a8823c', roughness: 0.28, clearcoat: 0.7, squash: 0.85, large: false },
+}
+
+// うにの房：頂点を波打たせた粒々の表面を持つ舌状ジオメトリ
+function UniLobe({ position, rotationY, scale, variant }: {
+  position: [number, number, number]; rotationY: number; scale: [number, number, number]; variant: number
+}) {
+  const geometry = useMemo(() => {
+    const geo = new THREE.SphereGeometry(0.105, 20, 16)
+    const pos = geo.attributes.position as THREE.BufferAttribute
+    const v = new THREE.Vector3()
+    for (let i = 0; i < pos.count; i++) {
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i))
+      // 位置ベースのノイズで表面に細かい粒々を作る（継ぎ目も連続）
+      const n = 1
+        + 0.06 * Math.sin(v.x * 58 + variant * 2.1) * Math.cos(v.y * 52 - variant * 1.3)
+        + 0.045 * Math.sin((v.x + v.z) * 72 + variant * 3.7)
+      pos.setXYZ(i, v.x * n, v.y * n, v.z * n)
+    }
+    geo.computeVertexNormals()
+    return geo
+  }, [variant])
+  return (
+    <mesh geometry={geometry} position={position} rotation={[0, rotationY, 0]} scale={scale}>
+      <meshPhysicalMaterial color="#ef9b12" roughness={0.55} metalness={0} clearcoat={0.25} clearcoatRoughness={0.5} />
+    </mesh>
+  )
+}
+
+// うに用：舌状の房の配置
+const UNI_LOBES: Array<{ p: [number, number, number]; ry: number; s: number }> = [
+  { p: [-0.15, 0.53, -0.08], ry: 0.3, s: 1 },
+  { p: [0.02, 0.545, -0.09], ry: -0.2, s: 1.05 },
+  { p: [0.18, 0.52, -0.07], ry: 0.4, s: 0.9 },
+  { p: [-0.08, 0.545, 0.06], ry: -0.35, s: 1 },
+  { p: [0.09, 0.54, 0.07], ry: 0.25, s: 0.95 },
+  { p: [-0.2, 0.51, 0.05], ry: 0.1, s: 0.85 },
+  { p: [-0.02, 0.5, -0.14], ry: 0.15, s: 0.8 },
+  { p: [0.18, 0.5, 0.08], ry: -0.3, s: 0.75 },
+  { p: [-0.19, 0.5, -0.03], ry: 0.2, s: 0.75 },
+  { p: [0.03, 0.5, 0.14], ry: -0.1, s: 0.8 },
+]
+
+// 軍艦の共通カップ（海苔＋シャリ）
+function GunkanCup() {
+  return (
+    <>
+      {/* 海苔 - 高い筒状カップ */}
+      <mesh position={[0, 0.32, 0]}>
+        <cylinderGeometry args={[0.33, 0.33, 0.42, 26, 1, true]} />
+        <meshStandardMaterial color="#1a2410" roughness={0.85} metalness={0} side={THREE.DoubleSide} />
+      </mesh>
+      {/* 海苔底面 */}
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.33, 0.33, 0.04, 26]} />
+        <meshStandardMaterial color="#1a2410" roughness={0.85} metalness={0} />
+      </mesh>
+      {/* シャリ（海苔カップの中） */}
+      <mesh position={[0, 0.26, 0]}>
+        <cylinderGeometry args={[0.29, 0.29, 0.22, 22]} />
+        <meshStandardMaterial color="#f5f0e8" roughness={0.85} metalness={0} />
+      </mesh>
+    </>
+  )
+}
+
+export function GunkanSushi({ base }: { base: string }) {
+  const toppingColor = BASE_NETA_COLOR[base] ?? '#f0a830'
+  const dotConf = GUNKAN_DOT_CONF[base]
+  const isUni = base === 'うに'
+  return (
+    <group scale={[1.45, 1, 0.85]}>
+      <GunkanCup />
+      {isUni ? (
+        <>
+          {/* うに色の盛り（シャリが見えないように） */}
+          <mesh position={[0, 0.42, 0]} scale={[1.02, 0.45, 1.02]}>
+            <sphereGeometry args={[0.27, 18, 12]} />
+            <meshPhysicalMaterial color="#dd8c0e" roughness={0.55} metalness={0} clearcoat={0.25} clearcoatRoughness={0.5} />
+          </mesh>
+          {/* うにの舌状の房（粒々の表面） */}
+          {UNI_LOBES.map(({ p, ry, s }, i) => (
+            <UniLobe key={i} position={p} rotationY={ry} scale={[1.5 * s, 0.62 * s, 0.85 * s]} variant={i % 4} />
+          ))}
+        </>
+      ) : dotConf ? (
+        <>
+          {/* シャリの盛り（粒の土台・粒が埋まらないよう低め） */}
+          <mesh position={[0, 0.46, 0]} scale={[0.95, 0.42, 0.95]}>
+            <sphereGeometry args={[0.29, 18, 12]} />
+            <meshStandardMaterial color="#f5f0e8" roughness={0.85} metalness={0} />
+          </mesh>
+          {/* 粒 */}
+          {(dotConf.large ? GUNKAN_DOTS_LARGE : GUNKAN_DOTS_SMALL).map(([x, y, z], i) => (
+            <mesh key={i} position={[x, y, z]} scale={[1, dotConf.squash, 1]}>
+              <sphereGeometry args={[dotConf.r, 12, 10]} />
+              <meshPhysicalMaterial
+                color={dotConf.color}
+                roughness={dotConf.roughness}
+                metalness={0}
+                clearcoat={dotConf.clearcoat}
+                clearcoatRoughness={0.12}
+                emissive={dotConf.emissive ?? '#000000'}
+                emissiveIntensity={dotConf.emissive ? 0.25 : 0}
+              />
+            </mesh>
+          ))}
+        </>
+      ) : (
+        <>
+          {/* 具材メイン（海苔からはみ出す） */}
+          <mesh position={[0, 0.56, 0]} scale={[1.05, 0.62, 1.05]}>
+            <sphereGeometry args={[0.34, 20, 14]} />
+            <meshPhysicalMaterial color={toppingColor} roughness={0.4} metalness={0} clearcoat={0.5} clearcoatRoughness={0.4} />
+          </mesh>
+          {/* 具材サブ（でこぼこ感） */}
+          <mesh position={[-0.09, 0.60, 0.07]} scale={[0.72, 0.52, 0.72]}>
+            <sphereGeometry args={[0.26, 16, 12]} />
+            <meshPhysicalMaterial color={toppingColor} roughness={0.45} metalness={0} clearcoat={0.5} clearcoatRoughness={0.4} />
+          </mesh>
+        </>
+      )}
+    </group>
+  )
+}

@@ -37,15 +37,19 @@
 
 ## カードデータ
 
-**アーキタイプ 5種**
+**アーキタイプ 7種**（ビルド5種 ＋ 汎用 ＋ 軍艦）
 
-| アーキタイプ | 代表例 | 戦略 |
-|-------------|--------|------|
-| 赤身 (akami) | マグロ・大トロ | 高火力バースト |
-| 巻物 (makimono) | かんぴょう・きゅうり | 持続じわじわ型 |
-| 光り物 (hikari) | サバ・アジ・コハダ | 切れ味スタックビルド |
-| 海鮮 (kaisen) | たこ・いか・うに | 連鎖攻撃 |
-| 肉寿司 (niku) | 和牛・カルビ | お腹が多いほど強い |
+| アーキタイプ | 枚数 | 代表例 | 戦略 |
+|-------------|-----:|--------|------|
+| 赤身 (akami) | 9 | マグロ・大トロ | 高火力バースト |
+| 巻物 (makimono) | 19 | かっぱ巻き・納豆巻き | 机に並べて維持する |
+| 軍艦 (gunkan) | 10 | うに軍艦・カニ軍艦 | 巻物コンプ②で攻撃×1.5を受けるフィニッシャー |
+| 光り物 (hikari) | 9 | サバ・アジ・コハダ | 切れ味スタックビルド |
+| 海鮮 (kaisen) | 8 | たこ・いか・えび | 連鎖攻撃と再攻撃 |
+| 肉寿司 (niku) | 8 | 和牛・カルビ | 相手のお腹が多いほど強い |
+| 汎用 (general) | 10 | たまご・サーモン | どのビルドにも入る |
+
+複数タグを持つカードがあるので合計は54枚を超えます。うに軍艦は海鮮ではなく巻物・軍艦です。
 
 **カードタイプ 2種**
 
@@ -61,8 +65,8 @@ React 19 + TypeScript + Vite 8
 Tailwind CSS v4 (@tailwindcss/vite)
 Framer Motion 12
 Three.js 0.184 + @react-three/fiber 9 + @react-three/drei 10
-Pixi.js 7.4 (実験的、現在未使用)
-Zustand 5 (インストール済み、バトル実装時に使用予定)
+Pixi.js 7.4 (未使用。参照元の DraftScreenPixi ごと削除予定)
+Zustand 5 (未使用。バトル画面は useRef + useReducer で実装した)
 ```
 
 ---
@@ -71,45 +75,75 @@ Zustand 5 (インストール済み、バトル実装時に使用予定)
 
 ```
 src/
-├── App.tsx                          # フェーズ管理・CSS/3Dトグル
-├── types/index.ts                   # 全型定義（Card, Player, GameState等）
+├── App.tsx                          # フェーズ管理（タイトル→モード選択→ドラフト→バトル）
+├── types/index.ts                   # 型定義（Card, Archetype, Lane ほか）
+├── components/
+│   └── SushiArt.tsx                 # 皿の上の寿司の2D描画
 ├── data/
-│   └── cards.ts                     # カードマスターデータ
+│   └── cards.ts                     # カードマスターデータ（54枚）
 └── features/
     ├── title/
     │   ├── TitleScreen.tsx
     │   └── ModeSelectScreen.tsx
     ├── draft/
-    │   ├── DraftScreen.tsx          # CSS版ドラフト画面（メイン）
-    │   ├── DraftScreenThree.tsx     # Three.js版ドラフト画面（◈ 3D）
-    │   ├── ConveyorLane.tsx         # CSSアニメーションのベルトレーン
-    │   ├── SushiPlate.tsx           # 皿コンポーネント（Framer Motion）
-    │   ├── ShinkansenLane.tsx       # 新幹線レーン（ベルト部分）
+    │   ├── DraftScreenThree.tsx     # ドラフトの購入・タイマー・画面構成
+    │   ├── StaffHelpModal.tsx       # 店員さんの解説
+    │   ├── scene/                  # レーン・特急の移動と3Dシーン
+    │   ├── models/                 # 寿司の形状・素材・テクスチャ
     │   ├── PurchaseModal.tsx        # 皿購入モーダル
-    │   └── ShinkansenOrderModal.tsx # 新幹線注文UI（iPad風）
+    │   ├── ShinkansenOrderModal.tsx # 特急注文UI（iPad風）
+    │   ├── DraftScreen.tsx          # ※未使用（CSS版の旧実装）
+    │   ├── DraftScreen3D.tsx        # ※未使用
+    │   ├── DraftScreenPixi.tsx      # ※未使用
+    │   ├── ConveyorLane.tsx         # ※未使用（CSS版のベルト）
+    │   ├── SushiPlate.tsx           # ※未使用
+    │   ├── ShinkansenLane.tsx       # ※未使用
+    │   └── PixiConveyorBelt.tsx     # ※未使用
     └── battle/
-        └── BattleScreen.tsx         # バトル画面（未実装）
+        ├── BattleScreen.tsx         # バトル画面のレイアウトと演出
+        ├── useBattleGame.ts         # 召喚・ターン交代・追加注文の進行管理
+        ├── battleEngine.ts          # カード効果・ダメージ・コンボ・CPU・初期状態
+        ├── BattleCards.tsx          # 手札・机のカードと詳細表示
+        ├── BattleStatus.tsx         # お腹ゲージ・コンボ進捗
+        ├── battlePresentation.ts    # 色・サイズ・効果説明
+        └── types.ts                 # バトルの状態・画面用の型
+
+scripts/
+├── test-battle-logic.mjs            # バトルロジックの回帰テスト（68件）
+└── gen-datasheet.mjs                # カード一覧HTMLの生成
+
+docs/
+├── すしバトル_データシート.html      # 全カードとコンボの一覧（生成物）
+├── すしバトル_改修提案.html          # 改修提案と対応状況
+└── 資料と実装のズレ.html             # 資料同期の作業リスト
 ```
+
+※印のファイルはレーン画面を3D版に一本化した時点で参照されなくなりました。削除待ちです。
+
+### 変更箇所の目安
+
+- ルールやCPUのカード選択を変える: `battleEngine.ts`
+- 召喚から攻撃、次の手番への進み方を変える: `useBattleGame.ts`
+- バトルの見た目を変える: `BattleScreen.tsx` / `BattleCards.tsx` / `BattleStatus.tsx`
+- 寿司の造形を変える: `draft/models/`、皿の動かし方を変える: `draft/scene/`
+- 店員の説明を更新する: `StaffHelpModal.tsx`
+
+回帰テストは画面ソースの切り出しをせず、`battleEngine.ts` と実際の依存モジュールをメモリ内で読み込みます。`npm test` でも実行できます。
 
 ---
 
 ## ドラフト画面の実装詳細
 
-### CSS版（DraftScreen）
+レーン画面は Three.js 版に一本化しています。ドラフトも、バトル中の追加注文タイムも同じ画面です。
 
-- **ベルト**: `@keyframes conveyor` で `-50%` translateX ループ。カード配列を2倍にしてシームレス
-- **購入済み穴**: カードを消すのではなくダッシュ円に差し替え → アニメーションが途切れない
-- **自動クローズ**: `DOMMatrix.m41` でベルトの現在X位置を読み取り、皿が画面外に出るタイミングを計算してモーダルを閉じる
-- **新幹線皿**: 注文時に即課金 → 皿が右からspringアニメーションで飛んでくる → タップで受け取り
-
-### Three.js版（DraftScreenThree）
+### DraftScreenThree
 
 - **`useFrame` でベルト制御**: CSSアニメーションの代わりにrefで位置を管理して毎フレーム更新
 - **皿**: `CylinderGeometry` + `meshStandardMaterial`、ホバーで浮き上がり
 - **ライティング**: AmbientLight + DirectionalLight（シャドウ付き）+ PointLight×3（暖色・店内照明）
 - **フォグ**: `<fog>` で奥行き感を演出
 - **タブレットUI**: HTML overlayとしてCanvasの上に絶対配置
-- **切り替え**: 上部の `CSS / ◈ 3D` トグルで随時切り替え可能
+- **二人対戦**: `playerNum` でP1/P2バッジを出す。追加注文タイムでは `initialBudget` と `seconds` を差し替える
 
 ### タブレット端末（カウンター上）
 
@@ -120,11 +154,28 @@ src/
 
 ---
 
+## バトルフェーズ
+
+- **勝敗**: お腹ゲージが100に到達した側の負け
+- **AP（食欲ポイント）**: 初期2、上限10。CPU戦は毎ターン+1、二人対戦は2ターンで+1
+- **消化**: ターン終了時にお腹が減る。`min(5, 1+ラウンド)`
+- **机**: 最大8枚。持続型は `max(満腹度, 2)` ターン残って毎ターン攻撃する
+- **手札**: 上限7枚。引けない分は山札に残る
+- **追加注文タイム**: 両者の手札と山札が尽きたら発生。¥1,500 / 45秒で補充する
+- **コンボ**: 6役。発動の仕方は「永続効果（1試合1回）」「都度発動」「状態継続」の3種類
+
+詳しくは `docs/すしバトル_データシート.html`（`node scripts/gen-datasheet.mjs` で再生成）を参照。
+
+---
+
 ## 今後の実装予定
 
-- [ ] バトル画面（Zustandで状態管理）
-- [ ] コンボエンジン
-- [ ] CPU対戦ロジック
+- [x] バトル画面
+- [x] コンボエンジン
+- [x] CPU対戦ロジック（簡易。攻撃力の高い順に出すだけなので改善余地あり）
+- [ ] 未使用ファイルの削除と pixi.js の依存除去
+- [ ] 自動対戦シミュレーションによるバランス検証
+- [ ] 薬味スロット / サイドメニュー
 - [ ] 寿司3Dモデル（GLTFアセット）の読み込み
 - [ ] Supabaseによるオンライン対戦（v2）
 
@@ -136,4 +187,12 @@ src/
 npm install
 npm run dev
 # → http://localhost:5173/
+```
+
+## 開発中に流すもの
+
+```bash
+node scripts/test-battle-logic.mjs        # バトルロジックの回帰テスト
+node scripts/gen-datasheet.mjs            # カード一覧HTMLの再生成
+npx tsc --noEmit -p tsconfig.app.json     # 型チェック
 ```

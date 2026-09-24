@@ -204,7 +204,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     <div class="stat"><dt>肉寿司</dt><dd>8枚<span class="note">全54枚中 15%</span></dd></div>
   </dl>
 
-  <div class="subhead"><h3>ダメージ計算</h3><span>BattleScreen.tsx の calcFieldDmg</span></div>
+  <div class="subhead"><h3>ダメージ計算</h3><span>battleEngine.ts の calcFieldDmg</span></div>
   <div class="kw">
     <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス〈肉祭り中は×2〉）<br>机の巻物が5枚以上なら、軍艦タグのカードは最後に <strong>×1.5</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>

@@ -57,10 +57,10 @@ function parseCards(source) {
   return cards
 }
 
-// ─── 定数を BattleScreen / DraftScreenThree から読み取る ─────────────────────
+// ─── 定数を battleEngine / DraftScreenThree から読み取る ─────────────────────
 
 function parseConst(source, name) {
-  const m = source.match(new RegExp(`^const ${name} = (\\d+(?:\\.\\d+)?)`, 'm'))
+  const m = source.match(new RegExp(`^(?:export )?const ${name} = (\\d+(?:\\.\\d+)?)`, 'm'))
   if (!m) throw new Error(`定数 ${name} が見つかりません`)
   return Number(m[1])
 }
@@ -74,7 +74,7 @@ const round2 = n => Math.round(n * 100) / 100
 // ─── メイン ──────────────────────────────────────────────────────────────────
 
 const cardsSrc = read(path.join(SRC, 'data/cards.ts'))
-const battleSrc = read(path.join(SRC, 'features/battle/BattleScreen.tsx'))
+const battleSrc = read(path.join(SRC, 'features/battle/battleEngine.ts'))
 const draftSrc = read(path.join(SRC, 'features/draft/DraftScreenThree.tsx'))
 
 const cards = parseCards(cardsSrc)
@@ -447,7 +447,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     ${archCounts.map(a => stat(a.label, `${a.n}枚`, `全${cards.length}枚中 ${Math.round(a.n / cards.length * 100)}%`)).join('\n    ')}
   </dl>
 
-  <div class="subhead"><h3>ダメージ計算</h3><span>BattleScreen.tsx の calcFieldDmg</span></div>
+  <div class="subhead"><h3>ダメージ計算</h3><span>battleEngine.ts の calcFieldDmg</span></div>
   <div class="kw">
     <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス〈肉祭り中は×2〉）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>

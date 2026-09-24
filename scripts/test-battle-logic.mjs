@@ -1,15 +1,7 @@
 #!/usr/bin/env node
-// バトルロジックの回帰テスト
-//
-//   node scripts/test-battle-logic.mjs
-//
-// BattleScreen.tsx の純関数部分（定数・calcFieldDmg・applySummon など）を
-// そのまま切り出して実行する。テスト用にロジックを写経しないので、
-// 本体を変えたらこのテストも自動的に新しいコードを見る。
-// 追加の依存は不要（node_modules の typescript だけを使う）。
-
+// バトルロジックの回帰テスト: node scripts/test-battle-logic.mjs
+// 画面の文字列を切り出さず、実際の battleEngine.ts とその依存を読み込む。
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -18,37 +10,29 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = process.env.SUSHI_ROOT ?? path.resolve(HERE, '..')
 const require_ = createRequire(import.meta.url)
 const ts = require_(path.join(ROOT, 'node_modules/typescript'))
+const modules = new Map()
 
-const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8')
-const toJs = src => ts.transpileModule(src, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText
-
-// ─── BattleScreen.tsx から純関数部分だけを切り出す ───────────────────────────
-const battle = read('src/features/battle/BattleScreen.tsx')
-const START = '// ── Types'
-const END = '// ── CardDetailSheet'          // ここから先は React コンポーネント
-if (!battle.includes(START) || !battle.includes(END)) {
-  throw new Error('BattleScreen.tsx の切り出し位置が見つかりません（見出しコメントが変わった可能性）')
-}
-const slice = battle.slice(battle.indexOf(START), battle.indexOf(END))
-if (slice.includes('</')) throw new Error('切り出した範囲に JSX が混ざっています')
-
-const EXPORTS = ['applySummon', 'calcFieldDmg', 'toField', 'digestBonus',
-                 'makimonoCount', 'digestionAmount', 'COMBO_META']
-for (const name of EXPORTS) {
-  if (!slice.includes(name)) throw new Error(`切り出した範囲に ${name} がありません`)
+// TypeScript をメモリ内で変換する。Nodeのバージョン固有のTS機能や一時ファイルは不要。
+function loadTs(relativePath) {
+  const filename = path.resolve(ROOT, relativePath)
+  if (modules.has(filename)) return modules.get(filename).exports
+  const module = { exports: {} }
+  modules.set(filename, module)
+  const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  })
+  const localRequire = specifier => {
+    if (!specifier.startsWith('.')) return require_(specifier)
+    const dependency = path.resolve(path.dirname(filename), specifier)
+    return loadTs(dependency.endsWith('.ts') ? dependency : dependency + '.ts')
+  }
+  new Function('require', 'module', 'exports', outputText)(localRequire, module, module.exports)
+  return module.exports
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sushi-test-'))
-fs.writeFileSync(path.join(tmp, 'cards.cjs'), toJs(read('src/data/cards.ts')))
-fs.writeFileSync(path.join(tmp, 'engine.cjs'), toJs(
-  `const { CARDS } = require('./cards.cjs')\n` + slice +
-  `\nmodule.exports = { ${EXPORTS.join(', ')} }\n`
-))
-const { CARDS } = require_(path.join(tmp, 'cards.cjs'))
-const E = require_(path.join(tmp, 'engine.cjs'))
-const { applySummon, calcFieldDmg, toField, digestBonus, makimonoCount, digestionAmount } = E
+const { CARDS } = loadTs('src/data/cards.ts')
+const { applySummon, calcFieldDmg, toField, digestBonus, makimonoCount, digestionAmount } =
+  loadTs('src/features/battle/battleEngine.ts')
 
 // ─── テスト用ヘルパ ──────────────────────────────────────────────────────────
 const byId = id => {
@@ -59,7 +43,8 @@ const byId = id => {
 let pass = 0, fail = 0
 const eq = (label, got, want) => {
   const ok = JSON.stringify(got) === JSON.stringify(want)
-  ok ? pass++ : fail++
+  if (ok) pass++
+  else fail++
   console.log(`  ${ok ? '✓' : '✗'} ${label}` +
     (ok ? '' : `\n      期待=${JSON.stringify(want)} 実際=${JSON.stringify(got)}`))
 }
@@ -226,6 +211,5 @@ eq('ラウンド1の消化 = 2', digestionAmount(1), 2)
 eq('ラウンド4以降は上限5', digestionAmount(9), 5)
 eq('かっぱ巻き込みで 2+2 = 4', digestionAmount(1) + digestBonus([toField(byId('kappa_maki'))]), 4)
 
-fs.rmSync(tmp, { recursive: true, force: true })
 console.log(`\n===== ${pass} 件成功 / ${fail} 件失敗 =====`)
 process.exit(fail > 0 ? 1 : 0)
