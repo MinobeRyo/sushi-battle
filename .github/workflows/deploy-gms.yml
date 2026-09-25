@@ -1,0 +1,113 @@
+name: Build and deploy to GMS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install dependencies
+        run: npm ci
+      - name: Check game rules and online play
+        run: |
+          npm test
+          npm run typecheck:server
+          npm run test:online
+          npm run lint
+      - name: Test deployment and recovery locally
+        run: |
+          mkdir -p .cache/deploy-runtime
+          cp deploy/gms-server/package.json deploy/gms-server/package-lock.json .cache/deploy-runtime/
+          npm ci --omit=dev --prefix .cache/deploy-runtime \
+            --cache "$GITHUB_WORKSPACE/.cache/npm-server-package" --no-audit --no-fund
+          node deploy/gms/test-deploy.cjs
+      - name: Build upload package
+        run: |
+          npm run build -- --base=/~ryom13/sushi-battle/ --outDir=release/gms/sushi-battle
+          node scripts/package-server.mjs
+          cp deploy/gms/deploy.sh deploy/gms/deploy.cjs deploy/gms/ecosystem.config.cjs release/gms/
+          tar -czf "$RUNNER_TEMP/sushi-battle-release.tgz" -C release/gms \
+            sushi-battle sushi-battle-server deploy.sh deploy.cjs ecosystem.config.cjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gms-release
+          path: ${{ runner.temp }}/sushi-battle-release.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && vars.GMS_AUTO_DEPLOY == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: gms-production
+      cancel-in-progress: false
+    environment:
+      name: gms
+      url: https://gms.gdl.jp/~ryom13/sushi-battle/
+    steps:
+      - name: Skip an outdated main build
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          current_sha=$(curl --fail --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/ref/heads/main" | jq -er '.object.sha')
+          if [[ "$current_sha" == "$GITHUB_SHA" ]]; then
+            printf 'deploy=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'deploy=false\n' >> "$GITHUB_OUTPUT"
+            printf 'Skipped this build because main has a newer commit.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          name: gms-release
+          path: .cache/gms-artifact
+      - name: Upload and restart the game
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          GMS_SSH_KEY: ${{ secrets.GMS_SSH_KEY }}
+          GMS_KNOWN_HOSTS: ${{ secrets.GMS_KNOWN_HOSTS }}
+          GMS_DEPLOY_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash deploy/gms/upload.sh .cache/gms-artifact/sushi-battle-release.tgz
+      - name: Report public connection status
+        if: steps.current.outputs.deploy == 'true'
+        shell: bash
+        run: |
+          printf '### GMS deploy\n\nFile transfer and server startup completed.\n\n' >> "$GITHUB_STEP_SUMMARY"
+          status=$(curl --silent --show-error --max-time 15 --output "$RUNNER_TEMP/gms-socket-response" \
+            --write-out '%{http_code}' 'https://gms.gdl.jp/socket.io/?EIO=4&transport=polling') || status=000
+          if [[ "$status" == 200 && $(head -c 1 "$RUNNER_TEMP/gms-socket-response") == 0 ]]; then
+            printf 'The public Socket.IO endpoint responded successfully.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'The public Socket.IO endpoint is not ready (HTTP %s). Online multiplayer still needs a working public route.\n' "$status" >> "$GITHUB_STEP_SUMMARY"
+            printf '::warning::File transfer and startup succeeded, but public online play is not ready (HTTP %s).\n' "$status"
+          fi
