@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'check: 接続確認のみ / deploy: 転送と再起動'
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - deploy
 
 permissions:
   contents: read
@@ -53,11 +62,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  check:
+    needs: build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' && inputs.operation == 'check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: gms
+      url: https://gms.gdl.jp/~ryom13/sushi-battle/
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check SSH and the running game without changing it
+        env:
+          GMS_SSH_KEY: ${{ secrets.GMS_SSH_KEY }}
+          GMS_KNOWN_HOSTS: ${{ secrets.GMS_KNOWN_HOSTS }}
+        run: bash deploy/gms/check-connection.sh
+      - name: Check the public PHP route
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 15 \
+            'https://gms.gdl.jp/~ryom13/sushi-battle/api.php' \
+            | jq -e '.ok == true and .transport == "php-polling"'
+          printf '### GMS 接続確認\n\nSSH、Node.js、配置先の書き込み権限、対戦サーバー、公開PHPの接続確認が成功しました。\n\nファイルの転送・対戦サーバーの停止・再起動は行っていません。ゲームは起動したままです。\n\n初回の切り替え時だけ、手動起動したサーバーを Ctrl+C で止めてから、operation に deploy を選んで実行してください。\n' >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
     needs: build
     if: >-
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
+      ((github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy') ||
        (github.event_name == 'push' && vars.GMS_AUTO_DEPLOY == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
