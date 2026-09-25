@@ -1,0 +1,16 @@
+{
+  "name": "sushi-battle-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "server": "tsx server/index.ts"
+  },
+  "dependencies": {
+    "socket.io": "4.8.3",
+    "tsx": "4.23.15"
+  }
+}

@@ -1,0 +1,17 @@
+配置先: /home/h0/ryom13/sushi-battle-server（public_htmlの外）
+
+初回または更新後、サーバーのターミナルで:
+cd /home/h0/ryom13/sushi-battle-server
+npm ci --omit=dev
+HOST=127.0.0.1 PORT=3001 SUSHI_ALLOWED_ORIGINS=https://gms.gdl.jp npm run server
+
+Node.js 20以上を使用します。この配布物には対戦サーバーに必要な依存だけを含めています。
+package.jsonとpackage-lock.jsonは必ず同じ配布物のものを一緒にアップロードしてください。
+
+起動後の確認（別のサーバー端末）:
+curl -fsS http://127.0.0.1:3001/health
+正常時の応答: {"ok":true}
+
+公開ページから接続するには、本番Webサーバーの /socket.io/ から
+127.0.0.1:3001/socket.io/ へのHTTP/WebSocket中継設定が別途必要です。
+npm run serverは前面で実行します。常時運用の方法は管理者と調整してください。
