@@ -29,6 +29,10 @@ jobs:
           npm test
           npm run typecheck:server
           npm run test:online
+          node --import tsx scripts/test-http-online.mjs
+          node --import tsx scripts/test-room-transport.mjs
+          php -l deploy/gms/api.php
+          node --import tsx scripts/test-php-bridge.mjs
           npm run lint
       - name: Test deployment and recovery locally
         run: |
@@ -39,9 +43,7 @@ jobs:
           node deploy/gms/test-deploy.cjs
       - name: Build upload package
         run: |
-          npm run build -- --base=/~ryom13/sushi-battle/ --outDir=release/gms/sushi-battle
-          node scripts/package-server.mjs
-          cp deploy/gms/deploy.sh deploy/gms/deploy.cjs deploy/gms/ecosystem.config.cjs release/gms/
+          node scripts/package-gms.mjs
           tar -czf "$RUNNER_TEMP/sushi-battle-release.tgz" -C release/gms \
             sushi-battle sushi-battle-server deploy.sh deploy.cjs ecosystem.config.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -103,11 +105,11 @@ jobs:
         shell: bash
         run: |
           printf '### GMS deploy\n\nFile transfer and server startup completed.\n\n' >> "$GITHUB_STEP_SUMMARY"
-          status=$(curl --silent --show-error --max-time 15 --output "$RUNNER_TEMP/gms-socket-response" \
-            --write-out '%{http_code}' 'https://gms.gdl.jp/socket.io/?EIO=4&transport=polling') || status=000
-          if [[ "$status" == 200 && $(head -c 1 "$RUNNER_TEMP/gms-socket-response") == 0 ]]; then
-            printf 'The public Socket.IO endpoint responded successfully.\n' >> "$GITHUB_STEP_SUMMARY"
+          status=$(curl --silent --show-error --max-time 15 --output "$RUNNER_TEMP/gms-api-response" \
+            --write-out '%{http_code}' 'https://gms.gdl.jp/~ryom13/sushi-battle/api.php') || status=000
+          if [[ "$status" == 200 ]] && jq -e '.ok == true and .transport == "php-polling"' "$RUNNER_TEMP/gms-api-response" >/dev/null 2>&1; then
+            printf 'The public PHP endpoint reached the game server.\n' >> "$GITHUB_STEP_SUMMARY"
           else
-            printf 'The public Socket.IO endpoint is not ready (HTTP %s). Online multiplayer still needs a working public route.\n' "$status" >> "$GITHUB_STEP_SUMMARY"
-            printf '::warning::File transfer and startup succeeded, but public online play is not ready (HTTP %s).\n' "$status"
+            printf 'The public PHP endpoint is not ready (HTTP %s). Check api.php placement and the game server.\n' "$status" >> "$GITHUB_STEP_SUMMARY"
+            printf '::warning::File transfer and startup succeeded, but the public PHP endpoint is not ready (HTTP %s).\n' "$status"
           fi

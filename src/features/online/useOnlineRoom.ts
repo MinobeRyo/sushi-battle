@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { io } from 'socket.io-client'
-import type { Socket } from 'socket.io-client'
+import { createRoomTransport } from '../../network/roomTransport'
+import type { RoomTransport } from '../../network/roomTransportTypes'
 import type {
-  ClientToServerEvents, JoinReply, OnlineAction, Reply, RoomSession, RoomSnapshot, ServerToClientEvents,
+  JoinReply, OnlineAction, Reply, RoomSession, RoomSnapshot,
 } from '../../network/protocol'
 
-type RoomSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 const SESSION_KEY = 'sushi-battle:online-session'
-const ACK_TIMEOUT = 8000
 
 const ERROR_MESSAGES: Record<string, string> = {
   already_in_room: 'すでに部屋に参加しています。現在の部屋を退出してからお試しください。',
@@ -68,7 +66,7 @@ export function useOnlineRoom() {
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
-  const socketRef = useRef<RoomSocket | null>(null)
+  const transportRef = useRef<RoomTransport | null>(null)
   const sessionRef = useRef(session)
   const snapshotRef = useRef<RoomSnapshot | null>(null)
   const pendingRef = useRef(false)
@@ -96,13 +94,13 @@ export function useOnlineRoom() {
   }, [])
 
   const request = useCallback(async <T extends Reply | JoinReply>(
-    send: (socket: RoomSocket) => Promise<T>,
+    send: (transport: RoomTransport) => Promise<T>,
     timeoutMessage: string,
     clearError = true,
   ): Promise<T | null> => {
-    const socket = socketRef.current
+    const transport = transportRef.current
     if (pendingRef.current) return null
-    if (!socket?.connected) {
+    if (!transport?.connected) {
       setError('サーバーとの接続が切れています。接続が回復するまでお待ちください。')
       return null
     }
@@ -111,7 +109,7 @@ export function useOnlineRoom() {
     setPending(true)
     if (clearError) setError('')
     try {
-      const result = await send(socket)
+      const result = await send(transport)
       if (operation !== operationRef.current) return null
       if (!result.ok) setError(errorMessage(result.error))
       return result
@@ -136,7 +134,7 @@ export function useOnlineRoom() {
     const saved = sessionRef.current
     if (!saved || pendingRef.current) return
     const result = await request(
-      socket => socket.timeout(ACK_TIMEOUT).emitWithAck('room:resume', { code: saved.code, token: saved.token }),
+      transport => transport.request('room:resume', { code: saved.code, token: saved.token }),
       '部屋の状態を取得できませんでした。通信が回復すると再接続します。',
       !preserveError,
     )
@@ -149,60 +147,71 @@ export function useOnlineRoom() {
   }, [acceptJoin, request, showSnapshot, storeSession])
 
   useEffect(() => {
-    const socket: RoomSocket = io({ autoConnect: false })
+    let active = true
     let keepCloseNotice = false
-    socketRef.current = socket
-    socket.on('connect', () => {
-      setStatus('connected')
-      if (!keepCloseNotice) setError('')
-      keepCloseNotice = false
-      void resumeRoom()
-    })
-    socket.on('disconnect', reason => {
-      invalidateRequests()
-      setPending(false)
-      if (reason === 'io server disconnect') {
-        // 席の置換などによる明示切断はSocket.IOが自動復帰しない。
-        // 古い席を取り戻さず、新しく部屋を作成・参加できる接続へ戻す。
+    const transport = createRoomTransport({
+      onConnect: () => {
+        if (!active) return
+        setStatus('connected')
+        if (!keepCloseNotice) setError('')
+        keepCloseNotice = false
+        void resumeRoom()
+      },
+      onDisconnect: reason => {
+        if (!active) return
+        invalidateRequests()
+        setPending(false)
+        if (reason === 'io server disconnect') {
+          // 席の置換などによる明示切断はSocket.IOが自動復帰しない。
+          // 古い席を取り戻さず、新しく部屋を作成・参加できる接続へ戻す。
+          storeSession(null)
+          showSnapshot(null)
+          keepCloseNotice = true
+          setStatus('connecting')
+          setError(current => current || 'サーバーが参加中の接続を終了しました。改めて部屋を作成するか、参加してください。')
+          transport.connect()
+          return
+        }
+        setStatus('disconnected')
+        setError('接続が切れました。操作を止めて、自動で再接続しています。')
+      },
+      onConnectError: () => {
+        if (!active) return
+        setStatus('disconnected')
+        const message = 'サーバーに接続できません。起動状況と通信環境をご確認ください。自動で再試行します。'
+        setError(current => keepCloseNotice && current ? current : message)
+      },
+      onSnapshot: next => {
+        if (!active) return
+        if (sessionRef.current?.code === next.code && sessionRef.current.playerId === next.playerId) showSnapshot(next)
+      },
+      onClosed: reason => {
+        if (!active) return
+        invalidateRequests()
+        setPending(false)
         storeSession(null)
         showSnapshot(null)
         keepCloseNotice = true
-        setStatus('connecting')
-        setError(current => current || 'サーバーが参加中の接続を終了しました。改めて部屋を作成するか、参加してください。')
-        socket.connect()
-        return
-      }
-      setStatus('disconnected')
-      setError('接続が切れました。操作を止めて、自動で再接続しています。')
+        setError(errorMessage(reason))
+      },
+      onSessionMissing: () => {
+        if (active) void resumeRoom()
+      },
     })
-    socket.on('connect_error', () => {
-      setStatus('disconnected')
-      const message = 'サーバーに接続できません。起動状況と通信環境をご確認ください。自動で再試行します。'
-      setError(current => keepCloseNotice && current ? current : message)
-    })
-    socket.on('room:state', next => {
-      if (sessionRef.current?.code === next.code && sessionRef.current.playerId === next.playerId) showSnapshot(next)
-    })
-    socket.on('room:closed', reason => {
-      invalidateRequests()
-      setPending(false)
-      storeSession(null)
-      showSnapshot(null)
-      setError(errorMessage(reason))
-    })
-    socket.connect()
+    transportRef.current = transport
+    transport.connect()
     return () => {
+      active = false
       invalidateRequests()
-      socketRef.current = null
-      socket.removeAllListeners()
-      socket.disconnect()
+      transportRef.current = null
+      transport.disconnect()
     }
   }, [invalidateRequests, resumeRoom, showSnapshot, storeSession])
 
   const createRoom = useCallback(async () => {
     if (sessionRef.current || pendingRef.current) return
     acceptJoin(await request(
-      socket => socket.timeout(ACK_TIMEOUT).emitWithAck('room:create'),
+      transport => transport.request('room:create'),
       '部屋作成の応答を確認できませんでした。もう一度お試しください。',
     ))
   }, [acceptJoin, request])
@@ -215,7 +224,7 @@ export function useOnlineRoom() {
       return
     }
     acceptJoin(await request(
-      socket => socket.timeout(ACK_TIMEOUT).emitWithAck('room:join', { code: normalized }),
+      transport => transport.request('room:join', { code: normalized }),
       '参加の応答を確認できませんでした。もう一度お試しください。',
     ))
   }, [acceptJoin, request])
@@ -226,9 +235,9 @@ export function useOnlineRoom() {
     storeSession(null)
     showSnapshot(null)
     setError('')
-    const socket = socketRef.current
-    if (socket?.connected) {
-      try { await socket.timeout(ACK_TIMEOUT).emitWithAck('room:leave') } catch {
+    const transport = transportRef.current
+    if (transport?.connected) {
+      try { await transport.request('room:leave') } catch {
         // 退出後は再参加トークンを破棄し、自動復帰しない。
       }
     }
@@ -246,11 +255,11 @@ export function useOnlineRoom() {
       ...(cardInstanceId ? { cardInstanceId } : {}),
     }
     const result = await request(
-      socket => socket.timeout(ACK_TIMEOUT).emitWithAck('match:action', action),
+      transport => transport.request('match:action', action),
       '操作結果を確認できませんでした。最新の対戦状態を取得しています。',
     )
     // 結果不明の操作を新しいIDで再送せず、サーバーの確定状態に合わせる。
-    if (!result?.ok && socketRef.current?.connected) await resumeRoom(true)
+    if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
   const playCard = useCallback((instanceId: string) => sendAction('play_card', instanceId), [sendAction])
@@ -258,10 +267,10 @@ export function useOnlineRoom() {
   const rematch = useCallback(async () => {
     if (pendingRef.current) return
     const result = await request(
-      socket => socket.timeout(ACK_TIMEOUT).emitWithAck('match:rematch'),
+      transport => transport.request('match:rematch'),
       '再戦希望の応答を確認できませんでした。最新の部屋状態を取得しています。',
     )
-    if (!result?.ok && socketRef.current?.connected) await resumeRoom(true)
+    if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
   return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch }

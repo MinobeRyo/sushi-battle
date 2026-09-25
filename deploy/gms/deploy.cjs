@@ -171,7 +171,7 @@ async function main() {
     await fs.writeFile(nextState, JSON.stringify({ releaseId, serverDirectory, origin, port }, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
     await fs.rename(nextState, stateFile)
     console.log(`Deployed ${releaseId}. Backend health check passed; public files: ${publicDirectory}`)
-    console.log('PM2 keeps this app running after SSH logout. Server reboot startup is not configured. Browser-to-server routing is a separate setting.')
+    console.log('PM2 keeps this app running after SSH logout. Server reboot startup is not configured. Verify the public api.php endpoint separately.')
   } catch (error) {
     if (publicInstalled) await fs.rename(publicDirectory, publicStage)
     if (publicBackedUp) await fs.rename(publicBackup, publicDirectory)

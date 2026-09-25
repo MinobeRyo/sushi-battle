@@ -1,6 +1,6 @@
 # ゼミサーバーへの自動転送・再起動
 
-GitHubのmain更新をきっかけに、テスト、公開用ビルド、ゼミの自分のフォルダへの転送、対戦プログラムの再起動を実行します。OSやWebサーバーの全体設定は変更しません。管理者の設定が必要な公開通信経路とは別の作業です。
+GitHubのmain更新をきっかけに、テスト、公開用ビルド、ゼミの自分のフォルダへの転送、対戦プログラムの再起動を実行します。公開画面は同梱の`api.php`から対戦プログラムへ通信します。OSやWebサーバーの全体設定は変更しません。
 
 ## 最初に本人が行う設定
 
@@ -63,7 +63,7 @@ ssh-keygen -F gms.gdl.jp -f ~/.ssh/known_hosts | sed '/^#/d' | pbcopy
 
 この変更がGitHubのmainに反映された後、ゼミで手動起動している`npm run server`のターミナルで **Ctrl+C** を押します。初回の自動化がそのプログラムをPM2管理に切り替えます。管理外のプログラムが3001番ポートを使っている場合、自動化は勝手に止めず、エラーを表示して終了します。
 
-[Actions](https://github.com/MinobeRyo/sushi-battle/actions) → `Build and deploy to GMS` → `Run workflow` → `main`で実行します。転送と起動が成功しても、公開通信先が404ならオンライン対戦は未接続です。実行結果のSummaryにも別項目で表示します。
+[Actions](https://github.com/MinobeRyo/sushi-battle/actions) → `Build and deploy to GMS` → `Run workflow` → `main`で実行します。転送・起動に加え、公開された`api.php`から対戦サーバーへ接続できるかを確認し、Summaryへ表示します。接続確認が成功した後、2つのブラウザで実際の対戦も確認します。
 
 GitHubからゼミへのSSHがネットワーク制限で拒否される場合もあります。その場合は自動化を有効にせず、結果の接続エラーを確認してください。
 
@@ -84,14 +84,14 @@ PM2はこのアプリの依存として導入し、専用の管理ディレク�
 
 再起動するとメモリ上の部屋・進行中の対戦は失われます。遊んでいる人がいないタイミングで更新してください。
 
-## 中継設定を変更できない場合
+## PHPで公開URLと対戦サーバーをつなぐ
 
-ゼミサーバー経由の対戦が不可能と決まったわけではありません。PHPが動き、PHPから同じサーバー内のNode.jsへ通信できれば、PHPを公開用の窓口にできます。
+2026-09-25、公開した診断ページで`php_executed`、`curl_available`、`upstream_ok`がすべてtrueであることを確認しました。PHPを公開用の窓口にし、同じサーバー内のNode.jsへ短いHTTP要求を中継します。
 
-最初は`deploy/gms/check-route.php`だけを`public_html/sushi-battle/check-route.php`へ置き、公開URLを開いて確認します。対戦プログラムは3001番で起動したままにします。この診断は固定の`/health`へ最大2秒のGETを1回行い、実行可否だけを返します。任意URLの中継やコマンド実行、設定・秘密情報の表示は行いません。
+`node scripts/package-gms.mjs`がPHP通信を選択した画面と`api.php`をまとめて作成します。Actionsも同じスクリプトを使うため、以後の転送でPHPが配布物から抜けることはありません。通常のSocket.IO接続はローカル開発用に残しています。
 
-`php_executed`、`curl_available`、`upstream_ok`がすべてtrueなら、PHPからNode.jsへ届くことが確認できます。失敗しても直ちに全方式が不可能と判断せず、PHP拡張、Web実行環境からの接続制限、Node.jsの稼働状況を切り分けます。この診断ファイルは自動配布には含めません。
+`api.php`は転送先を`127.0.0.1:3001`の所定のパスに限定します。任意のURLやコマンドは受け付けず、POST元、本文サイズ、待機時間を制限します。ブラウザは対戦中おおむね1秒おきに状態を確認し、要求を重ねません。PHPは次の操作が来るまで接続を待ち続けることはありません。
 
-候補は、PHP経由で短いHTTP APIを呼び、ブラウザから一定間隔で状態を確認する方式です。既存ゲームルールを流用できますが、通信層の実装追加が必要です。Socket.IOのlong pollingをそのままPHP中継する方が変更は少ないものの、待機中にPHPの同時処理枠を占有するため、共用環境での利用人数に制約があります。
+手動アップロードの具体的な配置先は[PHP経由の配置手順](PHP経由の配置手順.md)を参照してください。多人数での負荷は別途測定が必要です。診断専用の`check-route.php`は自動配布には含めません。
 
 参考: [GitHubのSecrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)、[Socket.IOのHTTP通信](https://socket.io/docs/v4/engine-io-protocol/)、[PHP-FPMの同時処理数](https://www.php.net/manual/en/install.fpm.configuration.php)

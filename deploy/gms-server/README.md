@@ -6,7 +6,7 @@
 
 旧配布物の `npm ci` が `@emnapi/core` / `@emnapi/runtime` の不足で失敗する場合は、生成後の `package.json` と `package-lock.json` の2つを `/home/h0/ryom13/sushi-battle-server` に上書きし、`npm ci --omit=dev` を実行してください。既存のソースをアップロード済みなら、この修正のために画面やソースを再アップロードする必要はありません。
 
-起動手順は `起動方法.txt` を参照してください。起動確認と公開URLへの中継設定は別の確認項目です。
+起動手順は `起動方法.txt` を参照してください。`node scripts/package-gms.mjs`でPHP通信を使う画面とサーバーをまとめて準備できます。起動後は公開先の`api.php`でPHPからの接続を確認します。
 
 GitHub Actionsによる自動転送・再起動は `docs/GitHub Actions自動デプロイ.md` を参照してください。PM2は専用の管理ディレクトリを使い、他アプリのプロセスには触れません。OS再起動時の自動起動設定は含めていません。
 
