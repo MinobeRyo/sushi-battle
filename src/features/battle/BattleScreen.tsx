@@ -18,10 +18,23 @@ export function BattleScreen({
   mode?: 'cpu' | 'two_player'
   onBack?: () => void
 }) {
+  const game = useBattleGame({ deck, p2Deck, mode })
+  return <BattleBoard game={game} mode={mode} onBack={onBack} />
+}
+
+export type BattleController = ReturnType<typeof useBattleGame>
+
+export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: {
+  game: BattleController
+  mode: 'cpu' | 'two_player' | 'online'
+  onBack?: () => void
+  canRestart?: boolean
+  restartLabel?: string
+}) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
     playCard, endTurn, handlePassReady, handleReorderComplete, restart,
-  } = useBattleGame({ deck, p2Deck, mode })
+  } = game
 
   // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
@@ -31,15 +44,18 @@ export function BattleScreen({
     : s.phase === 'animating' ? '攻撃中…'
     : s.phase === 'pass' ? 'ターン終了'
     : s.phase === 'reorder' ? '追加注文中…'
+    : s.phase === 'waiting' ? '相手のターン'
+    : s.phase === 'syncing' ? '通信待ち…'
+    : s.phase === 'over' ? '対戦終了'
     : 'CPU思考中…'
 
-  const opponentLabel = mode === 'two_player'
+  const opponentLabel = mode !== 'cpu'
     ? `P${s.activePlayer === 1 ? 2 : 1}`
     : 'CPU'
-  const opponentEmoji = mode === 'two_player' ? '👤' : '💻'
-  const activeLabel = mode === 'two_player' ? `P${s.activePlayer}` : 'あなた'
+  const opponentEmoji = mode !== 'cpu' ? '👤' : '💻'
+  const activeLabel = mode !== 'cpu' ? `P${s.activePlayer}` : 'あなた'
 
-  const winnerLabel = mode === 'two_player'
+  const winnerLabel = mode !== 'cpu'
     ? (s.winner === 'player' ? `P${s.activePlayer}の勝利！` : `P${s.activePlayer === 1 ? 2 : 1}の勝利！`)
     : (s.winner === 'player' ? '勝利！' : '敗北…')
 
@@ -67,8 +83,8 @@ export function BattleScreen({
             }} />
           </div>
           <div style={{ flexShrink: 0, textAlign: 'right' }}>
-            <p style={{ fontSize: R.fxs, color: C.txtMut }}>手札 {s.cHand.length} 枚</p>
-            <p style={{ fontSize: R.fxs, color: C.txtMut }}>山札 {s.cDeck.length} 枚</p>
+            <p style={{ fontSize: R.fxs, color: C.txtMut }}>手札 {s.cHandCount} 枚</p>
+            <p style={{ fontSize: R.fxs, color: C.txtMut }}>山札 {s.cDeckCount} 枚</p>
           </div>
         </div>
         <div style={{
@@ -234,8 +250,8 @@ export function BattleScreen({
       }}>
         {s.pHand.length === 0
           ? <p style={{ fontSize: R.fmd, color: C.txtMut }}>手札がありません</p>
-          : s.pHand.map((card, i) => (
-            <HandSushi key={`${card.id}-${i}`} card={card}
+          : s.pHand.map((card) => (
+            <HandSushi key={card.instanceId} card={card}
               canPlay={isPlayerTurn && s.pAP >= card.cost && s.pField.length < FIELD_MAX}
               attackBuff={s.pAttackBuff}
               kiretaStack={s.pKiretaStack}
@@ -359,15 +375,16 @@ export function BattleScreen({
             color: '#fff', fontWeight: 800, fontSize: R.fsm,
           }}>
             🍽 追加注文タイム！ 軍資金 ¥{REORDER_BUDGET.toLocaleString()} で山札を補充
-            {mode === 'two_player' && `（P${reorderStep === 'p' ? s.activePlayer : s.activePlayer === 1 ? 2 : 1} の番）`}
+            {mode !== 'cpu' && `（P${reorderStep === 'p' ? s.activePlayer : s.activePlayer === 1 ? 2 : 1} の番）`}
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             <DraftScreenThree
               key={reorderStep}
+              mode="reorder"
               onComplete={handleReorderComplete}
               initialBudget={REORDER_BUDGET}
               seconds={REORDER_SECONDS}
-              playerNum={mode === 'two_player'
+              playerNum={mode !== 'cpu'
                 ? (reorderStep === 'p' ? s.activePlayer : (s.activePlayer === 1 ? 2 : 1))
                 : undefined}
             />
@@ -388,12 +405,13 @@ export function BattleScreen({
               <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', justifyContent: 'center' }}>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   onClick={restart}
+                  disabled={!canRestart}
                   style={{ padding: 'clamp(12px, 1.5vh, 20px) clamp(28px, 4vw, 56px)', borderRadius: 999, fontSize: R.fmd, fontWeight: 800, background: C.btnEnd, color: '#fff', border: `1.5px solid ${C.btnEndBorder}`, cursor: 'pointer', boxShadow: `0 0 24px ${C.btnEndGlow}` }}
-                >もう一回</motion.button>
+                >{restartLabel}</motion.button>
                 {onBack && (
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={onBack}
                     style={{ padding: 'clamp(12px, 1.5vh, 20px) clamp(28px, 4vw, 56px)', borderRadius: 999, fontSize: R.fmd, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#ccc', border: '1.5px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}
-                  >タイトルへ</motion.button>
+                  >{mode === 'online' ? '部屋を退出' : 'タイトルへ'}</motion.button>
                 )}
               </div>
             </motion.div>

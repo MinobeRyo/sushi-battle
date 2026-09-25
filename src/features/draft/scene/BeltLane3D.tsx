@@ -1,5 +1,5 @@
 import type { Card } from '../../../types'
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useId } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
 import { Text } from '@react-three/drei'
@@ -38,15 +38,18 @@ interface BeltPlate3DProps {
   initialX: number
   speed: number
   wrapWidth: number
-  onSelect: (card: Card, markSold: () => void) => void
+  onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
 function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const posX = useRef(initialX)
   const liftY = useRef(0)
+  const slotId = useId()
+  const generationRef = useRef(0)
+  const soldRef = useRef(false)
   const [hovered, setHovered] = useState(false)
-  const [card, setCard] = useState<Card>(() => drawCard())
+  const [{ card, generation }, setCard] = useState(() => ({ card: drawCard(), generation: 0 }))
   const [sold, setSold] = useState(false)
   const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
 
@@ -55,7 +58,9 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
     if (posX.current < LEFT_EDGE) {
       // 右端へ戻し、バッグから新しいカードを補充
       posX.current += wrapWidth
-      setCard(drawCard())
+      generationRef.current += 1
+      soldRef.current = false
+      setCard({ card: drawCard(), generation: generationRef.current })
       setSold(false)
     }
 
@@ -91,7 +96,16 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
       <mesh
         position={[0, 0.06, 0]}
         scale={hovered ? [1.12, 1, 1.12] : [1, 1, 1]}
-        onClick={(e) => { e.stopPropagation(); onSelect(card, () => setSold(true)) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (soldRef.current || generationRef.current !== generation) return
+          onSelect(card, () => {
+            if (soldRef.current || generationRef.current !== generation) return false
+            soldRef.current = true
+            setSold(true)
+            return true
+          }, `${slotId}:${generation}`)
+        }}
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
         onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto' }}
       >
@@ -133,7 +147,7 @@ interface BeltLane3DProps {
   duration: number
   laneZ: number
   isShinkansen?: boolean
-  onSelect: (card: Card, markSold: () => void) => void
+  onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
 export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSelect }: BeltLane3DProps) {

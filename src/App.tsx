@@ -4,19 +4,25 @@ import { TitleScreen } from './features/title/TitleScreen'
 import { ModeSelectScreen } from './features/title/ModeSelectScreen'
 import { DraftScreenThree } from './features/draft/DraftScreenThree'
 import { BattleScreen } from './features/battle/BattleScreen'
+import { OnlineScreen } from './features/online/OnlineScreen'
 import type { Phase, Card } from './types'
 
 type GameMode = 'cpu' | 'two_player'
 
 export default function App() {
-  const [phase, setPhase] = useState<Phase>('title')
+  const [phase, setPhase] = useState<Phase | 'online'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
   const [p2Deck, setP2Deck] = useState<Card[]>([])
   const [showHandoff, setShowHandoff] = useState(false)
 
-  const handleModeSelect = (mode: 'cpu' | '2p') => {
+  const handleModeSelect = (mode: 'cpu' | '2p' | 'online') => {
+    if (mode === 'online') {
+      window.history.replaceState(null, '', '#online')
+      setPhase('online')
+      return
+    }
     const gm: GameMode = mode === '2p' ? 'two_player' : 'cpu'
     setGameMode(gm)
     setDraftPlayer(1)
@@ -64,6 +70,10 @@ export default function App() {
           onBack={() => setPhase('title')}
         />
       )}
+      {phase === 'online' && <OnlineScreen onBack={() => {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        setPhase('mode_select')
+      }} />}
       {phase === 'draft' && !showHandoff && (
         <DraftScreenThree
           key={gameMode === 'two_player' ? `p${draftPlayer}` : 'p1'}

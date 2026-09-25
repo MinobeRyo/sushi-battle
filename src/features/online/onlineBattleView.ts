@@ -1,0 +1,24 @@
+import type { PublicMatch } from '../../network/protocol'
+import type { BattleView, ViewPhase } from '../battle/types'
+
+// サーバーから本人に公開された情報だけで対戦画面を作る。
+export function toOnlineBattleView(match: PublicMatch, phase: ViewPhase): BattleView {
+  const p = match.you
+  const c = match.opponent
+  return {
+    pHand: p.hand, pField: p.field, pDeckCount: p.deckCount, pBelly: p.belly,
+    pAP: p.ap, pMaxAP: p.maxAP, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
+    pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
+    pKiretaStack: p.kiretaStack, pThisTurnBases: p.thisTurnBases, pThisTurnArch: p.thisTurnArch,
+    pDigestStopTurns: p.digestStopTurns, pApNextBonus: p.apNextBonus,
+    pNikuMatsuri: p.nikuMatsuri, pKiretaSpent: p.kiretaSpent,
+    cHandCount: c.handCount, cField: c.field, cDeckCount: c.deckCount, cBelly: c.belly,
+    cSummonedIds: c.summonedIds, cSummonedArch: c.summonedArch,
+    cDrawBonus: c.drawBonus, cAttackBuff: c.attackBuff, cCombosFired: c.combosFired,
+    cKiretaStack: c.kiretaStack, cDigestStopTurns: c.digestStopTurns,
+    cApNextBonus: c.apNextBonus, cNikuMatsuri: c.nikuMatsuri, cKiretaSpent: c.kiretaSpent,
+    activePlayer: p.id, turn: match.turn, phase,
+    winner: match.winnerId === null ? null : match.winnerId === p.id ? 'player' : 'cpu',
+    log: match.log, flash: null,
+  }
+}

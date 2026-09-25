@@ -1,35 +1,7 @@
 #!/usr/bin/env node
 // バトルロジックの回帰テスト: node scripts/test-battle-logic.mjs
 // 画面の文字列を切り出さず、実際の battleEngine.ts とその依存を読み込む。
-import fs from 'node:fs'
-import path from 'node:path'
-import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
-
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.env.SUSHI_ROOT ?? path.resolve(HERE, '..')
-const require_ = createRequire(import.meta.url)
-const ts = require_(path.join(ROOT, 'node_modules/typescript'))
-const modules = new Map()
-
-// TypeScript をメモリ内で変換する。Nodeのバージョン固有のTS機能や一時ファイルは不要。
-function loadTs(relativePath, overrides = {}) {
-  const filename = path.resolve(ROOT, relativePath)
-  if (modules.has(filename)) return modules.get(filename).exports
-  const module = { exports: {} }
-  modules.set(filename, module)
-  const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  })
-  const localRequire = specifier => {
-    if (Object.hasOwn(overrides, specifier)) return overrides[specifier]
-    if (!specifier.startsWith('.')) return require_(specifier)
-    const dependency = path.resolve(path.dirname(filename), specifier)
-    return loadTs(dependency.endsWith('.ts') ? dependency : dependency + '.ts', overrides)
-  }
-  new Function('require', 'module', 'exports', outputText)(localRequire, module, module.exports)
-  return module.exports
-}
+import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
 const { applySummon, calcFieldDmg, toField, digestBonus, makimonoCount, digestionAmount } =
@@ -214,41 +186,37 @@ eq('かっぱ巻き込みで 2+2 = 4', digestionAmount(1) + digestBonus([toField
 
 console.log('\n[10] 召喚操作の重複・手札の消費')
 {
-  // 描画は実ブラウザで確認する。ここでは実際の召喚ハンドラーを実行し、
-  // Reactの描画通知だけを置き換えて、同じ操作が再度届いた場合を検証する。
-  const { useBattleGame: createGameWithMockedHooks } = loadTs('src/features/battle/useBattleGame.ts', {
-    react: {
-      useRef: value => ({ current: value }),
-      useReducer: () => [0, () => {}],
-      useState: value => [value, () => {}],
-    },
-  })
+  const { createMatch, transitionMatch } = loadTs('src/game/matchEngine.ts')
   const tamago = byId('tamago')
-  const game = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
-  game.playCard(tamago)
-  game.playCard(tamago)
+  const play = (state, cardInstanceId) => transitionMatch(state, {
+    type: 'play_card', playerId: 1, cardInstanceId,
+  }).state
+  let game = createMatch({ deck: [tamago], mode: 'cpu' })
+  const instanceId = game.players[1].hand[0].instanceId
+  game = play(game, instanceId)
+  game = play(game, instanceId)
+  const player = game.players[1]
   eq('手札1枚で二重に召喚操作しても、机1枚・AP消費1のみ',
-    [game.s.pHand.length, game.s.pField.length, game.s.pAP], [0, 1, 1])
-  eq('重複操作で召喚履歴は増えない', game.s.pSummonedIds, ['tamago'])
+    [player.hand.length, player.field.length, player.ap], [0, 1, 1])
+  eq('重複操作で召喚履歴は増えない', player.summonedIds, ['tamago'])
 
-  const notInHand = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
-  notInHand.playCard(byId('cheese'))
+  const notInHand = play(createMatch({ deck: [tamago], mode: 'cpu' }), 'absent-cheese')
   eq('手札にないカードは出せない',
-    [notInHand.s.pHand.length, notInHand.s.pField.length, notInHand.s.pAP], [1, 0, 2])
+    [notInHand.players[1].hand.length, notInHand.players[1].field.length, notInHand.players[1].ap], [1, 0, 2])
 
-  const duplicates = createGameWithMockedHooks({ deck: [tamago, tamago], mode: 'cpu' })
-  duplicates.playCard(tamago)
+  let duplicates = createMatch({ deck: [tamago, tamago], mode: 'cpu' })
+  duplicates = play(duplicates, duplicates.players[1].hand[0].instanceId)
   eq('同じカードを2枚所持していても1回の操作では1枚消費',
-    [duplicates.s.pHand.length, duplicates.s.pField.length, duplicates.s.pAP], [1, 1, 1])
-  duplicates.playCard(tamago)
+    [duplicates.players[1].hand.length, duplicates.players[1].field.length, duplicates.players[1].ap], [1, 1, 1])
+  duplicates = play(duplicates, duplicates.players[1].hand[0].instanceId)
   eq('残りの同名カードは別の召喚操作で使用できる',
-    [duplicates.s.pHand.length, duplicates.s.pField.length, duplicates.s.pAP], [0, 2, 0])
+    [duplicates.players[1].hand.length, duplicates.players[1].field.length, duplicates.players[1].ap], [0, 2, 0])
 
-  const noAP = createGameWithMockedHooks({ deck: [tamago], mode: 'cpu' })
-  noAP.s.pAP = 0
-  noAP.playCard(tamago)
+  const noAP = createMatch({ deck: [tamago], mode: 'cpu' })
+  noAP.players[1].ap = 0
+  const rejected = play(noAP, noAP.players[1].hand[0].instanceId)
   eq('AP不足の操作では手札を消費しない',
-    [noAP.s.pHand.length, noAP.s.pField.length, noAP.s.pAP], [1, 0, 0])
+    [rejected.players[1].hand.length, rejected.players[1].field.length, rejected.players[1].ap], [1, 0, 0])
 }
 
 console.log(`\n===== ${pass} 件成功 / ${fail} 件失敗 =====`)

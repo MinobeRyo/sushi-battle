@@ -26,7 +26,7 @@ interface SceneProps {
   generalCards: Card[]
   buildCards: Card[]
   shinkansenPlate: { card: Card } | null
-  onBeltSelect: (card: Card, markSold: () => void) => void
+  onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
   onShinkansenPickup: () => void
 }
 

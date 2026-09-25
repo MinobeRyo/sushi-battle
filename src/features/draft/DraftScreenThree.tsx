@@ -8,14 +8,17 @@ import { SushiArt } from '../../components/SushiArt'
 import { PurchaseModal } from './PurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import { StaffHelpModal } from './StaffHelpModal'
+import {
+  completeDraft as finishDraft, createDraftState, draftSecondsLeft, DRAFT_MAX_CARDS,
+  orderShinkansen, pickupShinkansen, purchaseBeltCard,
+} from './draftEngine'
+import type { DraftState } from './draftEngine'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const DRAFT_SECONDS = 90
 
 const INITIAL_BUDGET = 3000
-
-const SHINKANSEN_TOTAL = 3
 
 const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   akami:    { bg: '#7f1d1d', text: '#fca5a5', label: '赤身' },
@@ -44,94 +47,114 @@ type Props = {
   playerNum?: 1 | 2
   initialBudget?: number   // 追加注文タイムでは¥1500
   seconds?: number         // 追加注文タイムでは短め
+  mode?: 'initial' | 'reorder'
 }
 
-type SelectedItem = { card: Card; price: number; markSold?: () => void }
+type SelectedItem = { card: Card; offerId: string; markSold: () => boolean }
 
 export function DraftScreenThree({
   onComplete,
   playerNum,
   initialBudget = INITIAL_BUDGET,
   seconds = DRAFT_SECONDS,
+  mode = 'initial',
 }: Props) {
-  const [budget, setBudget] = useState(initialBudget)
+  const [draft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now()))
+  const { budget, deck, shinkansenLeft, shinkansenPlate } = draft
   const [timeLeft, setTimeLeft] = useState(seconds)
-  const [deck, setDeck] = useState<Card[]>([])
   const [selected, setSelected] = useState<SelectedItem | null>(null)
-  const [shinkansenLeft, setShinkansenLeft] = useState(SHINKANSEN_TOTAL)
   const [showShinkansenModal, setShowShinkansenModal] = useState(false)
-  const [shinkansenPlate, setShinkansenPlate] = useState<{ card: Card } | null>(null)
   const [handOpen, setHandOpen] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [purchaseNotice, setPurchaseNotice] = useState('')
 
-  const deckRef = useRef<Card[]>([])
-  const completedRef = useRef(false)
+  const draftRef = useRef(draft)
+  const selectedRef = useRef<SelectedItem | null>(null)
+  const orderIdRef = useRef(0)
   const onCompleteRef = useRef(onComplete)
   const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   const completeDraft = useCallback(() => {
     // 時間切れと手動終了が重なっても、次のプレイヤーへ二重に進めない。
-    if (completedRef.current) return
-    completedRef.current = true
+    const result = finishDraft(draftRef.current)
+    if (!result.accepted) return
+    draftRef.current = result.state
+    setDraft(result.state)
     if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current)
-    onCompleteRef.current(deckRef.current)
+    onCompleteRef.current(result.state.deck.slice())
   }, [])
 
   useEffect(() => {
-    if (timeLeft === 0) {
-      // 親画面の更新は描画完了後に行う。state更新関数の中では呼ばない。
-      completeDraft()
-      return
+    const tick = () => {
+      const remaining = draftSecondsLeft(draftRef.current, Date.now())
+      setTimeLeft(remaining)
+      // 親画面の更新はstate更新関数の外で行う。
+      if (remaining === 0) completeDraft()
     }
-    const id = setTimeout(() => setTimeLeft(t => Math.max(0, t - 1)), 1000)
-    return () => clearTimeout(id)
-  }, [timeLeft, completeDraft])
+    tick()
+    const id = setInterval(tick, 250)
+    return () => clearInterval(id)
+  }, [completeDraft])
 
   useEffect(() => () => {
     if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current)
   }, [])
 
-  const addPurchasedCard = (card: Card) => {
-    // 終了ボタンが直後に押されても、最新の購入を引き継げるよう同期する。
-    deckRef.current = [...deckRef.current, card]
-    setDeck(deckRef.current)
+  const updateDraft = (next: DraftState) => {
+    // 連続イベントでも、残高・枚数・注文状況をまとめて最新状態で検証する。
+    draftRef.current = next
+    setDraft(next)
   }
 
   const clearAutoClose = () => {
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }
 
-  const handleBeltSelect = (card: Card, markSold: () => void) => {
+  const handleBeltSelect = (card: Card, markSold: () => boolean, offerId: string) => {
+    if (draftRef.current.completed || draftSecondsLeft(draftRef.current, Date.now()) === 0) return
     clearAutoClose()
-    setSelected({ card, price: card.price, markSold })
-    autoCloseTimer.current = setTimeout(() => setSelected(null), 10000)
+    setPurchaseNotice('')
+    selectedRef.current = { card, offerId, markSold }
+    setSelected(selectedRef.current)
+    autoCloseTimer.current = setTimeout(() => {
+      selectedRef.current = null
+      setSelected(null)
+    }, 10000)
   }
 
   const handlePurchase = (card: Card) => {
+    const item = selectedRef.current
+    if (!item || item.card.id !== card.id) return
+    const result = purchaseBeltCard(draftRef.current, item.offerId, item.card, Date.now())
+    if (!result.accepted) {
+      if (result.reason === 'expired') completeDraft()
+      return
+    }
+    // レーンが一周して別の皿に替わっていたら、古い選択からは購入しない。
+    if (item.markSold()) updateDraft(result.state)
+    else setPurchaseNotice('このお皿は流れていきました。別のお皿を選んでください。')
     clearAutoClose()
-    if (completedRef.current || !selected || budget < selected.price || deckRef.current.length >= 20) return
-    setBudget(b => b - selected.price)
-    addPurchasedCard(card)
-    selected.markSold?.()  // 買った皿だけをベルトから消す
+    selectedRef.current = null
     setSelected(null)
   }
 
-  const handleModalClose = () => { clearAutoClose(); setSelected(null) }
+  const handleModalClose = () => { clearAutoClose(); selectedRef.current = null; setSelected(null) }
 
-  const handleShinkansenOrder = (card: Card, premiumPrice: number) => {
-    if (completedRef.current || shinkansenLeft <= 0 || shinkansenPlate || budget < premiumPrice || deckRef.current.length >= 20) return
-    setBudget(b => b - premiumPrice)
-    // 支払い時点で購入を確定する。未受領で終了してもカードは失われない。
-    addPurchasedCard(card)
-    setShinkansenLeft(n => n - 1)
+  const handleShinkansenOrder = (card: Card) => {
+    const result = orderShinkansen(draftRef.current, String(orderIdRef.current), card, Date.now())
+    if (!result.accepted) {
+      if (result.reason === 'expired') completeDraft()
+      return
+    }
+    orderIdRef.current += 1
+    updateDraft(result.state)
     setShowShinkansenModal(false)
-    setShinkansenPlate({ card })
   }
 
   const handleShinkansenPickup = () => {
-    if (completedRef.current || !shinkansenPlate) return
-    setShinkansenPlate(null)
+    const result = pickupShinkansen(draftRef.current)
+    if (result.accepted) updateDraft(result.state)
   }
 
   const generalCards = getCardsByLane('general')
@@ -141,7 +164,10 @@ export function DraftScreenThree({
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
   const urgent = timeLeft <= 20
-  const canOrder = shinkansenLeft > 0 && !shinkansenPlate
+  const canOrder = !draft.completed && timeLeft > 0 && deck.length < DRAFT_MAX_CARDS && shinkansenLeft > 0 && !shinkansenPlate
+  const emptyDeckHint = mode === 'reorder'
+    ? '0枚で終了すると、補充なしでバトルを再開します。'
+    : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
 
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
@@ -161,10 +187,20 @@ export function DraftScreenThree({
         <div className="flex items-center gap-2">
           <span className="text-amber-600">デッキ </span>
           <span className="text-amber-200 font-bold">{deck.length}</span>
-          <span className="text-amber-600">/20</span>
+          <span className="text-amber-600">/{DRAFT_MAX_CARDS}</span>
         </div>
         <div className="text-yellow-400 font-bold text-lg tabular-nums">¥{budget.toLocaleString()}</div>
       </div>
+      {deck.length === 0 && (
+        <p className="flex-shrink-0 px-4 py-1.5 text-center text-xs text-amber-200" style={{ background: '#3d1a0a' }}>
+          {emptyDeckHint}
+        </p>
+      )}
+      {purchaseNotice && (
+        <p role="status" className="flex-shrink-0 px-4 py-1.5 text-center text-xs text-amber-200" style={{ background: '#3d1a0a' }}>
+          {purchaseNotice}
+        </p>
+      )}
 
       {/* 3D Canvas + HTML オーバーレイ */}
       <div className="flex-1 relative overflow-hidden">
@@ -287,7 +323,7 @@ export function DraftScreenThree({
                 {/* 特急終了時：カテゴリ側のみ暗くする */}
                 {!canOrder && (
                   <div style={{ position: 'absolute' as const, left: 0, top: 0, bottom: 0, right: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(20,20,20,0.55)' }}>
-                    <span style={{ color: 'white', fontSize: 10, fontWeight: 800, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '4px 10px' }}>{shinkansenPlate ? '特急をお届け中（購入済み）' : '特急注文は本日終了'}</span>
+                    <span style={{ color: 'white', fontSize: 10, fontWeight: 800, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '4px 10px' }}>{shinkansenPlate ? '特急をお届け中（購入済み）' : deck.length >= DRAFT_MAX_CARDS ? 'デッキ満杯（20枚）' : '特急注文は本日終了'}</span>
                   </div>
                 )}
                 {/* 画面のテカリ */}
@@ -306,7 +342,7 @@ export function DraftScreenThree({
 
         {/* Modals */}
         {selected && (
-          <PurchaseModal card={selected.card} displayPrice={selected.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
+          <PurchaseModal card={selected.card} displayPrice={selected.card.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
         )}
         {showShinkansenModal && (
           <ShinkansenOrderModal budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)} />

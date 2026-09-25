@@ -5,7 +5,7 @@
 //   → docs/すしバトル_データシート.html を書き出す
 //
 // カードの数値・枚数・コンボの対象カードはすべて src/ から読み取って計算する。
-// 手書きの数値はこのファイルに存在しない。カードやルールを変えたら再実行すること。
+// 効果・コンボの説明文はこのファイルで管理する。カードやルールを変えたら再実行すること。
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -57,7 +57,7 @@ function parseCards(source) {
   return cards
 }
 
-// ─── 定数を battleEngine / DraftScreenThree から読み取る ─────────────────────
+// ─── 定数を game/battleRules とドラフト実装から読み取る ─────────────────────
 
 function parseConst(source, name) {
   const m = source.match(new RegExp(`^(?:export )?const ${name} = (\\d+(?:\\.\\d+)?)`, 'm'))
@@ -74,8 +74,9 @@ const round2 = n => Math.round(n * 100) / 100
 // ─── メイン ──────────────────────────────────────────────────────────────────
 
 const cardsSrc = read(path.join(SRC, 'data/cards.ts'))
-const battleSrc = read(path.join(SRC, 'features/battle/battleEngine.ts'))
+const battleSrc = read(path.join(SRC, 'game/battleRules.ts'))
 const draftSrc = read(path.join(SRC, 'features/draft/DraftScreenThree.tsx'))
+const draftEngineSrc = read(path.join(SRC, 'features/draft/draftEngine.ts'))
 
 const cards = parseCards(cardsSrc)
 
@@ -96,7 +97,8 @@ const K = {
   REORDER_SECONDS: parseConst(battleSrc, 'REORDER_SECONDS'),
   DRAFT_SECONDS: parseConst(draftSrc, 'DRAFT_SECONDS'),
   INITIAL_BUDGET: parseConst(draftSrc, 'INITIAL_BUDGET'),
-  SHINKANSEN_TOTAL: parseConst(draftSrc, 'SHINKANSEN_TOTAL'),
+  SHINKANSEN_TOTAL: parseConst(draftEngineSrc, 'SHINKANSEN_TOTAL'),
+  DRAFT_MAX_CARDS: parseConst(draftEngineSrc, 'DRAFT_MAX_CARDS'),
   GUNKAN_BOOST: parseConst(battleSrc, 'GUNKAN_BOOST'),
   KAISEN_REATTACK: parseConst(battleSrc, 'KAISEN_REATTACK'),
 }
@@ -402,7 +404,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
   <div class="wrap">
     <p class="kicker">すしバトル / 現状仕様</p>
     <h1>すしバトル データシート</h1>
-    <p class="sub">カード全${cards.length}枚の性能と、実装済み・未実装のコンボ一覧です。数値・枚数・対象カードはすべて <code>src/</code> から読み取って生成しています。手入力の数字はありません。</p>
+    <p class="sub">カード全${cards.length}枚の性能と、実装済み・未実装のコンボ一覧です。カード性能・基本ルールの定数・対象カードは <code>src/</code> から読み取って生成し、効果とコンボの説明文は生成スクリプトで管理しています。</p>
     <div class="meta">
       <code>scripts/gen-datasheet.mjs で生成</code>
       <code>${cards.length} cards</code>
@@ -425,11 +427,11 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
 <section id="rules">
   <h2><span class="n">01</span>基本ルール</h2>
-  <p class="lede">バトル画面とドラフト画面の定数です。すべてソースから読み取っています。</p>
+  <p class="lede">共通ゲーム処理とドラフト画面の定数です。ドラフト付きのローカル対戦を基準にしています。オンライン試遊では固定デッキを使い、追加注文は固定デッキの自動補充に置き換えています。</p>
   <dl class="stats">
     ${stat('敗北ライン', String(K.MAX_BELLY), 'お腹ゲージがこの値に到達した側の負け')}
     ${stat('初期AP / 上限', `${K.INIT_AP} → 10`, 'CPU戦は毎ターン+1、二人対戦は2ターンで+1')}
-    ${stat('消化量', `2 → ${K.DIGESTION_MAX}`, `min(${K.DIGESTION_MAX}, 1+ラウンド)`)}
+    ${stat('消化量', `2 → ${K.DIGESTION_MAX}`, `本人の手番開始時に min(${K.DIGESTION_MAX}, 1+ラウンド)`)}
     ${stat('手札上限', String(K.HAND_LIMIT), '超過分は山札に残る')}
     ${stat('机の上限', String(K.FIELD_MAX), '満杯だと召喚不可')}
     ${stat('連鎖ボーナス', `+${K.CHAIN_BONUS}`, `連鎖カード1枚につき（base ${chainBases.join('・')} の召喚時）`)}
@@ -437,7 +439,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     ${stat('巻物コンプ②', `机に${K.MAKI_COMP_5}枚`, `維持している間 軍艦の攻撃 ×${K.GUNKAN_BOOST}`)}
     ${stat('海鮮の再攻撃', `×${K.KAISEN_REATTACK}`, 'いか＋たこのペア成立時')}
     ${stat('消化ボーナス', `+${K.DIGEST_BOOST}`, 'digest_boost_2 のカード1枚につき')}
-    ${stat('ドラフト', `¥${K.INITIAL_BUDGET.toLocaleString()} / ${K.DRAFT_SECONDS}秒`, 'デッキ上限20枚')}
+    ${stat('ドラフト', `¥${K.INITIAL_BUDGET.toLocaleString()} / ${K.DRAFT_SECONDS}秒`, `デッキ上限${K.DRAFT_MAX_CARDS}枚`)}
     ${stat('追加注文タイム', `¥${K.REORDER_BUDGET.toLocaleString()} / ${K.REORDER_SECONDS}秒`, '両者の手札・山札が尽きたら発生')}
     ${stat('特急レーン', `×1.5 / ${K.SHINKANSEN_TOTAL}回`, '定価×1.5を50円単位で切り上げ')}
   </dl>
@@ -447,7 +449,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     ${archCounts.map(a => stat(a.label, `${a.n}枚`, `全${cards.length}枚中 ${Math.round(a.n / cards.length * 100)}%`)).join('\n    ')}
   </dl>
 
-  <div class="subhead"><h3>ダメージ計算</h3><span>battleEngine.ts の calcFieldDmg</span></div>
+  <div class="subhead"><h3>ダメージ計算</h3><span>game/battleRules.ts の calcFieldDmg</span></div>
   <div class="kw">
     <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス〈肉祭り中は×2〉）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
