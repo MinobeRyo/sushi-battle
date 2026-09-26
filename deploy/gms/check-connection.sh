@@ -34,7 +34,7 @@ ssh_options=(
 
 # This remote command reads prerequisites only. It never installs, uploads,
 # creates a deployment directory, or stops/restarts a process.
-ssh "${ssh_options[@]}" -T "$user@$host" 'bash -l -s' <<'REMOTE'
+ssh "${ssh_options[@]}" -T "$user@$host" 'bash -l -s' <<'REMOTE' | tee "$ssh_dir/check.log"
 set -euo pipefail
 cd /home/h0/ryom13
 command -v node > /dev/null || { printf 'Node.js is not available in the login PATH.\n' >&2; exit 1; }
@@ -62,13 +62,22 @@ try {
   if (!response.ok || health.ok !== true || health.roomTransport !== 'http-polling-v1') {
     throw new Error('The server did not return the expected PHP-polling health response.')
   }
-  console.log('SSH, Node.js, writable deployment locations, and the running game server are ready.')
+  console.log('SUSHI_GAME_HEALTH=ready')
+  console.log('The current game server responded correctly.')
 } catch (error) {
-  console.error(`The running game server could not be verified: ${error.message}`)
-  console.error('Keep the manually started server running while performing this connection check.')
-  process.exit(1)
+  console.log('SUSHI_GAME_HEALTH=unavailable')
+  console.error(`Current game status could not be verified: ${error.message}`)
+  console.error('This does not prevent deployment preparation. The deploy operation will start and verify the new server.')
 }
 NODE
 REMOTE
 
-printf 'Connection check passed. No files were transferred and no game processes were stopped or restarted.\n'
+backend_ok=false
+if grep -Fxq 'SUSHI_GAME_HEALTH=ready' "$ssh_dir/check.log"; then
+  backend_ok=true
+fi
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  printf 'backend_ok=%s\n' "$backend_ok" >> "$GITHUB_OUTPUT"
+fi
+printf 'Deployment prerequisites passed: SSH, Node.js, npm, and writable deployment locations.\n'
+printf 'No files were transferred and no game processes were stopped or restarted.\n'

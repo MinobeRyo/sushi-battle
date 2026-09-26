@@ -76,18 +76,38 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check SSH and the running game without changing it
+      - name: Check deployment prerequisites and diagnose the current game
+        id: prerequisites
         env:
           GMS_SSH_KEY: ${{ secrets.GMS_SSH_KEY }}
           GMS_KNOWN_HOSTS: ${{ secrets.GMS_KNOWN_HOSTS }}
         run: bash deploy/gms/check-connection.sh
-      - name: Check the public PHP route
+      - name: Report preparation and current public PHP status separately
+        env:
+          BACKEND_OK: ${{ steps.prerequisites.outputs.backend_ok }}
         shell: bash
         run: |
-          curl --fail --silent --show-error --max-time 15 \
-            'https://gms.gdl.jp/~ryom13/sushi-battle/api.php' \
-            | jq -e '.ok == true and .transport == "php-polling"'
-          printf '### GMS 接続確認\n\nSSH、Node.js、配置先の書き込み権限、対戦サーバー、公開PHPの接続確認が成功しました。\n\nファイルの転送・対戦サーバーの停止・再起動は行っていません。ゲームは起動したままです。\n\n初回の切り替え時だけ、手動起動したサーバーを Ctrl+C で止めてから、operation に deploy を選んで実行してください。\n' >> "$GITHUB_STEP_SUMMARY"
+          status=$(curl --silent --show-error --max-time 15 --output "$RUNNER_TEMP/gms-check-api-response" \
+            --write-out '%{http_code}' 'https://gms.gdl.jp/~ryom13/sushi-battle/api.php') || status=000
+          api_ok=false
+          if [[ "$status" == 200 ]] && jq -e '.ok == true and .transport == "php-polling"' "$RUNNER_TEMP/gms-check-api-response" >/dev/null 2>&1; then
+            api_ok=true
+          fi
+          printf '### GMS 配布準備の確認\n\n**配布準備の確認は成功しました。** SSH、Node.js、npm、配置先の書き込み権限を確認しました。\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BACKEND_OK" == true ]]; then
+            printf -- '- 現在の対戦サーバー: 正常な応答を確認しました。\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf -- '- 現在の対戦サーバー: 稼働確認未完了です。停止中、または期待する応答がありません。\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$api_ok" == true ]]; then
+            printf -- '- 現在の公開PHP: 対戦サーバーへの接続を確認しました。\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf -- '- 現在の公開PHP: 接続確認未完了です（HTTP %s、または期待する応答がありません）。\n' "$status" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$BACKEND_OK" != true || "$api_ok" != true ]]; then
+            printf '\n**ゲームの稼働確認は未完了です。** 手動サーバーを停止済みでも配布準備の失敗にはなりません。deploy は新版を起動し、起動結果を検証します。\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          printf '\nファイルの転送・サーバーの停止・再起動は行っていません。この確認では実際の2人対戦を検証していません。\n\n初回の切り替えでは、手動サーバーがまだ動いていれば Ctrl+C で止めてから、operation に deploy を選んで実行してください。停止済みなら、そのまま deploy に進めます。\n' >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     needs: build
