@@ -3,6 +3,9 @@ import { BeltLane3D } from './BeltLane3D'
 import { ShinkansenPlate3D } from './ShinkansenPlate3D'
 import { DraftCamera } from './DraftCamera'
 
+// 選択中やホバー中は停止できるので、通常時は従来より20%速く流す。
+const BELT_SPEED_MULTIPLIER = 1.2
+
 // ─── Counter surface ──────────────────────────────────────────────────────────
 
 function Counter() {
@@ -66,7 +69,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
       <BeltLane3D
         label="汎用・サイドメニュー"
         cards={generalCards}
-        duration={32}
+        duration={32 / BELT_SPEED_MULTIPLIER}
         laneZ={LANE_GENERAL}
         paused={paused}
         onSelect={onBeltSelect}
@@ -76,7 +79,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
       <BeltLane3D
         label="ビルド系雑多"
         cards={buildCards}
-        duration={16}
+        duration={16 / BELT_SPEED_MULTIPLIER}
         laneZ={LANE_BUILD}
         paused={paused}
         onSelect={onBeltSelect}
