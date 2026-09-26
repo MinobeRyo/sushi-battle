@@ -55,7 +55,13 @@ async function createPhpRunner(code) {
   await new Promise(resolveListen => reservation.listen(0, '127.0.0.1', resolveListen))
   const port = reservation.address().port
   await new Promise(resolveClose => reservation.close(resolveClose))
-  const child = spawn(process.env.PHP_BIN ?? 'php', ['-S', `127.0.0.1:${port}`, '-t', directory], {
+  // This fixture rewrites api.php when switching from the mock to the real backend.
+  // Disable opcode caching only in the test server so that rewrite is immediate,
+  // independently of the host php.ini and OPcache's timestamp recheck interval.
+  const child = spawn(process.env.PHP_BIN ?? 'php', [
+    '-d', 'opcache.enable=0', '-d', 'opcache.enable_cli=0',
+    '-S', `127.0.0.1:${port}`, '-t', directory,
+  ], {
     cwd: process.cwd(), stdio: ['ignore', 'ignore', 'pipe'],
   })
   let startupOutput = ''
