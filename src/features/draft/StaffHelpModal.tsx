@@ -103,11 +103,6 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <div style={{ borderRadius: 8, background: '#fff3c4', border: '1px solid #f0e0b0', padding: '7px 10px' }}>
-          <span style={{ fontSize: 9.5, color: '#78350f', fontWeight: 700, lineHeight: 1.6 }}>
-            💡 店員のおすすめ：「鉄火巻き」は赤身かつ巻物です。巻物の枚数に数えられ、赤身三種盛りの発動後は攻撃も強化されます。ただし、赤身三種盛りの条件の「マグロ」の代わりにはなりません。
-          </span>
-        </div>
       </motion.div>
     </motion.div>
   )
