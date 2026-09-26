@@ -60,7 +60,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
         onClick={onClose}
       >
         <motion.div
-          className="rounded-2xl p-5 w-72 shadow-2xl"
+          className="rounded-2xl p-5 w-72 shadow-2xl max-h-[calc(100%_-_24px)] overflow-y-auto"
           initial={{ scale: 0.85, y: 20 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.85, y: 20 }}

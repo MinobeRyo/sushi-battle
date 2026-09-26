@@ -1,6 +1,7 @@
 import type { Card } from '../../../types'
 import { BeltLane3D } from './BeltLane3D'
 import { ShinkansenPlate3D } from './ShinkansenPlate3D'
+import { DraftCamera } from './DraftCamera'
 
 // ─── Counter surface ──────────────────────────────────────────────────────────
 
@@ -28,15 +29,17 @@ interface SceneProps {
   shinkansenPlate: { card: Card } | null
   onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
   onShinkansenPickup: () => void
+  paused?: boolean
 }
 
-export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup }: SceneProps) {
+export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false }: SceneProps) {
   const LANE_SHINKANSEN = -2.6
   const LANE_GENERAL = 0
   const LANE_BUILD = 2.6
 
   return (
     <>
+      <DraftCamera />
       <color attach="background" args={['#3d1a08']} />
       <fog attach="fog" args={['#1c0a04', 14, 28]} />
 
@@ -65,6 +68,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
         cards={generalCards}
         duration={32}
         laneZ={LANE_GENERAL}
+        paused={paused}
         onSelect={onBeltSelect}
       />
 
@@ -74,6 +78,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
         cards={buildCards}
         duration={16}
         laneZ={LANE_BUILD}
+        paused={paused}
         onSelect={onBeltSelect}
       />
     </>

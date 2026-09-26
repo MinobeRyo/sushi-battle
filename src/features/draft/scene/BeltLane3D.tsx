@@ -1,9 +1,10 @@
 import type { Card } from '../../../types'
-import { useRef, useState, useMemo, useId } from 'react'
+import { useRef, useState, useMemo, useId, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
-import { Text } from '@react-three/drei'
+import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
+import { PLATE_HIT_POSITION, PLATE_HIT_SIZE } from './plateHitArea'
 
 const SPACING = 2.3 // world-unit spacing between plates
 
@@ -38,13 +39,14 @@ interface BeltPlate3DProps {
   initialX: number
   speed: number
   wrapWidth: number
+  isPaused: () => boolean
+  hoveredSlots: Set<string>
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: BeltPlate3DProps) {
+function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, isPaused, hoveredSlots }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const posX = useRef(initialX)
-  const liftY = useRef(0)
   const slotId = useId()
   const generationRef = useRef(0)
   const soldRef = useRef(false)
@@ -53,8 +55,19 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
   const [sold, setSold] = useState(false)
   const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
 
+  const clearHover = () => {
+    hoveredSlots.delete(slotId)
+    setHovered(false)
+    document.body.style.cursor = 'auto'
+  }
+
+  useEffect(() => () => {
+    hoveredSlots.delete(slotId)
+    document.body.style.cursor = 'auto'
+  }, [hoveredSlots, slotId])
+
   useFrame((_, delta) => {
-    posX.current -= speed * delta
+    if (!isPaused()) posX.current -= speed * Math.min(delta, 0.1)
     if (posX.current < LEFT_EDGE) {
       // 右端へ戻し、バッグから新しいカードを補充
       posX.current += wrapWidth
@@ -64,12 +77,8 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
       setSold(false)
     }
 
-    const targetY = hovered && !sold ? 0.28 : 0
-    liftY.current += (targetY - liftY.current) * 10 * delta
-
     if (groupRef.current) {
       groupRef.current.position.x = posX.current
-      groupRef.current.position.y = liftY.current
     }
   })
 
@@ -96,21 +105,36 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
       <mesh
         position={[0, 0.06, 0]}
         scale={hovered ? [1.12, 1, 1.12] : [1, 1, 1]}
+      >
+        <cylinderGeometry args={[0.72, 0.72, 0.12, 32]} />
+        <meshStandardMaterial color={colors.plate} roughness={0.25} metalness={0.05} />
+      </mesh>
+      {/* 寿司の高さと皿の周りを含む、見た目より少し広いクリック領域。 */}
+      <mesh
+        position={PLATE_HIT_POSITION}
         onClick={(e) => {
           e.stopPropagation()
           if (soldRef.current || generationRef.current !== generation) return
+          clearHover()
           onSelect(card, () => {
             if (soldRef.current || generationRef.current !== generation) return false
             soldRef.current = true
+            clearHover()
             setSold(true)
             return true
           }, `${slotId}:${generation}`)
         }}
-        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
-        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto' }}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          if (e.pointerType === 'touch') return
+          hoveredSlots.add(slotId)
+          setHovered(true)
+          document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={clearHover}
       >
-        <cylinderGeometry args={[0.72, 0.72, 0.12, 32]} />
-        <meshStandardMaterial color={colors.plate} roughness={0.25} metalness={0.05} />
+        <boxGeometry args={PLATE_HIT_SIZE} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
       </mesh>
       {/* Rim ring */}
       <mesh position={[0, 0.06, 0]}>
@@ -123,6 +147,19 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect }: 
         <meshBasicMaterial color="white" transparent opacity={0.35} />
       </mesh>
       <SushiGeometry card={card} />
+      {hovered && (
+        <>
+          <mesh position={[0, 0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.84, 0.9, 40]} />
+            <meshBasicMaterial color="#fbbf24" />
+          </mesh>
+          <Html center position={[0, 1.2, 0]} zIndexRange={[8, 0]} style={{ pointerEvents: 'none' }}>
+            <div style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #d9a55e', background: '#2c1006ee', color: '#fff2d9', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              {card.name} <span style={{ color: '#fcd34d' }}>¥{card.price}</span>
+            </div>
+          </Html>
+        </>
+      )}
       {/* Card name */}
       <Text
         position={[0, 0.14, 0.58]}
@@ -147,10 +184,12 @@ interface BeltLane3DProps {
   duration: number
   laneZ: number
   isShinkansen?: boolean
+  paused?: boolean
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSelect }: BeltLane3DProps) {
+export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSelect, paused = false }: BeltLane3DProps) {
+  const hoveredSlots = useRef(new Set<string>())
   // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
   const slotCount = Math.min(cards.length, 12)
   const wrapWidth = slotCount * SPACING
@@ -205,6 +244,8 @@ export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSele
           initialX={x}
           speed={speed}
           wrapWidth={wrapWidth}
+          isPaused={() => paused || hoveredSlots.current.size > 0}
+          hoveredSlots={hoveredSlots.current}
           onSelect={onSelect}
         />
       ))}

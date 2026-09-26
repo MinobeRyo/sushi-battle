@@ -7,7 +7,7 @@ export type ViewPhase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reor
 
 export type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 
-export type ComboAnim = { name: string; emoji: string; desc: string }
+export type ComboAnim = { key: number; name: string; desc: string; playerLabel: string }
 
 export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number }
 

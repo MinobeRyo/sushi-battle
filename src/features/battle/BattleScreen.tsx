@@ -6,6 +6,7 @@ import { BellyGauge, ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FieldSushi, HandSushi, CardDetailSheet } from './BattleCards'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
+import { ComboCutIn } from './ComboCutIn'
 
 export function BattleScreen({
   deck,
@@ -303,22 +304,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       </AnimatePresence>
 
       {/* ══ コンボ演出 ══ */}
-      <AnimatePresence>
-        {comboAnim && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
-          >
-            <motion.div
-              initial={{ scale: 0.2, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 1.4, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 16 }}
-              style={{ background: 'linear-gradient(135deg,#fef3c7,#fde68a)', border: '3px solid #d97706', borderRadius: 'clamp(16px, 2vw, 28px)', padding: 'clamp(20px, 3vh, 40px) clamp(36px, 5vw, 72px)', textAlign: 'center', boxShadow: '0 8px 60px rgba(217,119,6,0.6)' }}
-            >
-              <motion.p animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 0.4, repeat: 2 }} style={{ fontSize: 'clamp(48px, 8vw, 96px)', marginBottom: 12 }}>{comboAnim.emoji}</motion.p>
-              <p style={{ fontSize: 'clamp(18px, 3vw, 36px)', fontWeight: 900, color: '#78350f', letterSpacing: 2, marginBottom: 10 }}>{comboAnim.name}</p>
-              <p style={{ fontSize: R.fmd, color: '#92400e' }}>{comboAnim.desc}</p>
-            </motion.div>
-          </motion.div>
-        )}
+      <AnimatePresence mode="wait">
+        {comboAnim && <ComboCutIn key={comboAnim.key} combo={comboAnim} />}
       </AnimatePresence>
 
       {/* ══ パス画面（二人対戦） ══ */}

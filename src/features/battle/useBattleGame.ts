@@ -3,8 +3,9 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { createMatch, getCpuActions, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
 import { COMBO_META } from './battleEngine'
-import type { ComboAnim, FloatNum, Inspect, ViewPhase } from './types'
+import type { FloatNum, Inspect, ViewPhase } from './types'
 import { toBattleView } from './battleView'
+import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
 export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: Card[]; mode: MatchMode }) {
@@ -14,7 +15,7 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
   const view = useRef<{ viewer: PlayerId; phase: ViewPhase; busy: boolean }>({ viewer: 1, phase: 'player', busy: false })
   const [, tick] = useReducer(n => n + 1, 0)
   const [showLog, setShowLog] = useState(false)
-  const [comboAnim, setComboAnim] = useState<ComboAnim | null>(null)
+  const { comboAnim, announceCombo, clearCombos } = useComboAnnouncements()
   const [floats, setFloats] = useState<FloatNum[]>([])
   const [inspect, setInspect] = useState<Inspect | null>(null)
   const [flash, setFlash] = useState<'player' | 'cpu' | null>(null)
@@ -56,8 +57,10 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
         later(() => setFlash(null), 500)
       } else if (event.type === 'combo') {
         const combo = COMBO_META[event.comboId]
-        setComboAnim({ name: combo.name, emoji: combo.emoji, desc: combo.desc })
-        later(() => setComboAnim(null), 2800)
+        announceCombo({
+          name: combo.name, desc: combo.desc,
+          playerLabel: mode === 'two_player' ? `PLAYER ${event.playerId}` : event.playerId === 1 ? 'YOU' : 'CPU',
+        })
       }
     }
   }
@@ -128,6 +131,7 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
     setFloats([])
     setFlash(null)
     setInspect(null)
+    clearCombos()
     syncPhase()
   }
 
@@ -144,7 +148,7 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
     matchRef.current = createMatch({ deck, p2Deck, mode, matchId: `local-${matchNumber.current}` })
     view.current = { viewer: 1, phase: 'player', busy: false }
     setShowLog(false)
-    setComboAnim(null)
+    clearCombos()
     setFloats([])
     setInspect(null)
     setFlash(null)

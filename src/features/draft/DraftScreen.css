@@ -1,0 +1,81 @@
+.draft-restaurant {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  color: #fff7e5;
+  background: #3d1a08;
+}
+
+.draft-restaurant button { cursor: pointer; }
+.draft-restaurant button:disabled { cursor: default; }
+.draft-restaurant button:focus-visible { outline: 3px solid #fbbf24; outline-offset: 2px; }
+.draft-restaurant-main { flex: 1; min-height: 0; display: flex; flex-direction: column; container-type: size; }
+.draft-tablet-station {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 10px 12px 4px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 33px, #a5713312 34px, transparent 35px),
+    linear-gradient(180deg, #46240f, #3d1a08);
+}
+.draft-tablet-mount { display: flex; flex-direction: column; align-items: center; }
+.draft-tablet-display { height: clamp(92px, 24cqh, 126px); }
+.draft-conveyor-area { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.draft-restaurant-lanes { display: flex; gap: 20px; justify-content: center; padding: 4px 12px; color: #e0bc86; font-size: 10px; }
+.draft-restaurant-lanes > span:first-child { color: #f5cf6a; }
+.draft-restaurant-lanes > span + span::before { content: '／'; margin-right: 20px; color: #916438; }
+.draft-stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.draft-restaurant-hint { flex-shrink: 0; padding: 5px 12px; font-size: 10px; text-align: center; color: #d8b98e; background: #351908; }
+@media (hover: none) { .draft-hover-hint { display: none; } }
+.draft-restaurant-footer { flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom); background: #2c1006; border-top: 1px solid #78350f; }
+.draft-restaurant-actions { display: flex; align-items: center; gap: 16px; padding: 8px 18px; }
+.draft-restaurant-deck-toggle { display: flex; align-items: center; gap: 24px; flex: 1; min-width: 0; text-align: left; color: #f2ca83; font-size: 12px; }
+.draft-restaurant-deck-toggle strong { font-size: 16px; color: #fde6ae; }
+.draft-restaurant-deck-toggle > span:last-child { color: #bd9563; font-size: 10px; }
+.draft-restaurant-battle { flex-shrink: 0; padding: 8px 22px; border-radius: 20px; border: 1px solid #fb923c; background: #ce5a16; color: #fff8ec; font-size: 12px; font-weight: 800; box-shadow: 0 2px 8px #1b090866; }
+.draft-restaurant-battle:hover { background: #ea6c20; }
+.draft-restaurant-deck { display: flex; gap: 10px; height: clamp(76px, 14dvh, 112px); padding: 4px 18px 10px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #9e622e #2c1006; }
+.draft-restaurant-deck > p { width: 100%; align-self: center; text-align: center; font-size: 12px; color: #ba916a; }
+.draft-restaurant-card { width: 80px; padding: 3px 5px; display: flex; flex-shrink: 0; flex-direction: column; border: 1px solid; border-radius: 7px; }
+.draft-restaurant-card > svg { flex: 1; min-height: 0; width: 100%; }
+.draft-restaurant-card > strong { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-restaurant-card > span { display: flex; justify-content: space-between; margin-top: 2px; font-size: 8px; }
+
+/* 手札を開いた低い画面でも、奥の端末と手前のレーンを両方残す。 */
+@container (max-height: 320px) {
+  .draft-tablet-station { height: 100px; }
+  .draft-tablet-mount { transform: scale(.65); transform-origin: top center; }
+}
+
+@container (max-height: 260px) {
+  .draft-tablet-station { height: 82px; }
+  .draft-tablet-mount { transform: scale(.52); }
+}
+
+/* 高さが少ない場合も奥の中央を維持し、上下の余白を詰める。 */
+@media (max-height: 560px) {
+  .draft-restaurant-header { padding-block: 4px; }
+  .draft-empty-hint { padding-block: 3px; font-size: 10px; }
+  .draft-tablet-station { padding-block: 3px 0; }
+  .draft-restaurant-lanes { padding-block: 3px; gap: 10px; font-size: 9px; }
+  .draft-restaurant-lanes > span + span::before { margin-right: 10px; }
+  .draft-restaurant-actions { padding-block: 5px; }
+  .draft-restaurant-hint { padding-block: 3px; }
+  .draft-restaurant-deck { height: 58px; padding-block: 4px; }
+  .draft-restaurant-deck.is-empty { height: 32px; }
+  .draft-restaurant-card { width: 150px; display: grid; grid-template-columns: 46px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 5px; align-items: center; }
+  .draft-restaurant-card > svg { grid-row: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+  .draft-tablet-station { padding-top: 8px; }
+  .draft-restaurant-lanes { gap: 12px; font-size: 9px; }
+  .draft-restaurant-lanes > span + span::before { margin-right: 12px; }
+  .draft-restaurant-actions { padding-inline: 12px; gap: 10px; }
+  .draft-restaurant-deck-toggle { gap: 10px; font-size: 11px; }
+  .draft-restaurant-battle { padding-inline: 16px; }
+}
