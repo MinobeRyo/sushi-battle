@@ -5,11 +5,10 @@ import { Canvas } from '@react-three/fiber'
 import { PCFShadowMap } from 'three'
 import { Scene } from './scene/DraftScene'
 import { AnimatePresence } from 'framer-motion'
-import { SushiArt } from '../../components/SushiArt'
 import { PurchaseModal } from './PurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import type { OrderCategory } from './ShinkansenOrderModal'
-import { OrderTablet } from './OrderTablet'
+import { DraftDeckSheet, DraftRestaurantLayout } from './DraftRestaurantLayout'
 import { StaffHelpModal } from './StaffHelpModal'
 import {
   completeDraft as finishDraft, createDraftState, draftSecondsLeft, DRAFT_MAX_CARDS,
@@ -17,23 +16,12 @@ import {
 } from './draftEngine'
 import type { DraftState } from './draftEngine'
 import type { DraftCommand, PublicDraft } from '../../network/protocol'
-import './DraftScreen.css'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const DRAFT_SECONDS = 90
 
 const INITIAL_BUDGET = 3000
-
-const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  akami:    { bg: '#7f1d1d', text: '#fca5a5', label: '赤身' },
-  makimono: { bg: '#14532d', text: '#86efac', label: '巻物' },
-  hikari:   { bg: '#1e3a5f', text: '#93c5fd', label: '光り物' },
-  kaisen:   { bg: '#164e63', text: '#67e8f9', label: '海鮮' },
-  niku:     { bg: '#7c2d12', text: '#fdba74', label: '肉寿司' },
-  gunkan:   { bg: '#78350f', text: '#fcd34d', label: '軍艦' },
-  general:  { bg: '#292524', text: '#d6d3d1', label: '汎用' },
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -188,116 +176,49 @@ export function DraftScreenThree({
   // 全ビルドカードが対象（レーン側のシャッフルバッグで満遍なく流れる）
   const buildCards = useMemo(() => getCardsByLane('build'), [])
 
-  const mins = Math.floor(timeLeft / 60)
-  const secs = timeLeft % 60
-  const urgent = timeLeft <= 20
   const canOrder = !online?.disabled && !draft.completed && timeLeft > 0 && deck.length < DRAFT_MAX_CARDS && shinkansenLeft > 0 && !shinkansenPlate
   const emptyDeckHint = mode === 'reorder'
     ? '0枚で終了すると、補充なしでバトルを再開します。'
     : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
 
   return (
-    <div className="draft-restaurant" onClickCapture={event => {
-      if (online?.disabled) { event.preventDefault(); event.stopPropagation() }
-    }}>
-      {/* ヘッダー */}
-      <div className="draft-restaurant-header flex items-center justify-between px-5 py-2.5 flex-shrink-0 z-10"
-        style={{ background: '#2c1006', borderBottom: '1px solid #78350f' }}>
-        <div className="flex items-center gap-2">
-          <div className={`font-mono text-lg font-bold tabular-nums tracking-wider ${urgent ? 'text-red-400 animate-pulse' : 'text-amber-300'}`}>
-            ⏱ {mins}:{String(secs).padStart(2, '0')}
-          </div>
-          {playerNum && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#78350f', color: '#fde68a' }}>
-              P{playerNum}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-amber-600">デッキ </span>
-          <span className="text-amber-200 font-bold">{deck.length}</span>
-          <span className="text-amber-600">/{DRAFT_MAX_CARDS}</span>
-        </div>
-        <div className="text-yellow-400 font-bold text-lg tabular-nums">¥{budget.toLocaleString()}</div>
-      </div>
-      {deck.length === 0 && (
-        <p className="draft-empty-hint flex-shrink-0 px-4 py-1.5 text-center text-xs text-amber-200" style={{ background: '#3d1a0a' }}>
-          {emptyDeckHint}
-        </p>
-      )}
-      {purchaseNotice && (
-        <p role="status" className="flex-shrink-0 px-4 py-1.5 text-center text-xs text-amber-200" style={{ background: '#3d1a0a' }}>
-          {purchaseNotice}
-        </p>
-      )}
-
-      <div className="draft-restaurant-main">
-        {/* 注文タブレットは常にレーンの奥・中央。下にレーンの表示領域を確保する。 */}
-        <OrderTablet
-          canOrder={canOrder} delivering={Boolean(shinkansenPlate)} budget={budget}
-          spent={initialBudget - budget} deckCount={deck.length} remaining={shinkansenLeft}
-          playerNum={playerNum}
-          onOpenCategory={category => { setOrderCategory(category); setShowShinkansenModal(true) }}
-          onHelp={() => setShowHelp(true)} onFinish={completeDraft}
-        />
-
-        <div className="draft-conveyor-area">
-          <div className="draft-restaurant-lanes" aria-label="奥から特急、汎用、ビルド系の順">
-            <span>特急レーン</span><span>汎用・サイド</span><span>ビルド系</span>
-          </div>
-          <div className="draft-stage" aria-label="寿司を選ぶ3Dレーン">
-            <Canvas orthographic camera={{ position: [0, 8, 9], zoom: 60 }} shadows={{ type: PCFShadowMap }} dpr={[1, 2]} gl={{ antialias: true }}>
-              <Suspense fallback={null}>
-                <Scene
-                  onlineSupply={online && { offers: online.draft.offers, elapsed: () => online.now() - online.draft.startedAt }}
-                  generalCards={generalCards}
-                  buildCards={buildCards}
-                  shinkansenPlate={shinkansenPlate}
-                  onBeltSelect={handleBeltSelect}
-                  onShinkansenPickup={handleShinkansenPickup}
-                  paused={Boolean(selected || showShinkansenModal || showHelp)}
-                />
-              </Suspense>
-            </Canvas>
-          </div>
-          <p className="draft-restaurant-hint" role="status">{shinkansenPlate ? '特急が到着。奥の金色のお皿か寿司をタップして受け取ってください。' : '寿司もお皿もタップで選べます。'}<span className={online ? undefined : 'draft-hover-hint'}>{online ? ' オンラインでは選択中もレーンと制限時間が進みます。' : ' カーソルを合わせるとレーンが止まります。'}</span></p>
-        </div>
-      </div>
-
-      <footer className="draft-restaurant-footer">
-        <div className="draft-restaurant-actions">
-          <button onClick={() => setHandOpen(o => !o)} className="draft-restaurant-deck-toggle" aria-expanded={handOpen} aria-controls="draft-deck">
-            <span>手札 <strong>{deck.length}</strong> / {DRAFT_MAX_CARDS}枚</span>
-            <span>{handOpen ? '閉じる ▾' : '確認する ▴'}</span>
-          </button>
-          <button disabled={online?.disabled} onClick={completeDraft} className="draft-restaurant-battle">{online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : 'バトルへ'} →</button>
-        </div>
-        {handOpen && (
-          <div id="draft-deck" className={`draft-restaurant-deck${deck.length === 0 ? ' is-empty' : ''}`} aria-label="購入した寿司">
-            {deck.length === 0 ? <p>まだ購入していません</p> : deck.map((card, i) => {
-              const style = ARCHETYPE_STYLE[card.archetype[0]] ?? ARCHETYPE_STYLE.general
-              return (
-                <div key={`hand-${i}`} className="draft-restaurant-card" style={{ borderColor: style.text + '66', background: style.bg }}>
-                  <SushiArt card={card} size="100%" />
-                  <strong>{card.name}</strong>
-                  <span style={{ color: style.text }}>{card.cost} AP <span>攻撃 {card.attack}</span></span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </footer>
-
-      {/* モーダルは画面全体に配置する。 */}
-      {selected && (
-        <PurchaseModal card={selected.card} displayPrice={selected.card.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
-      )}
-      {showShinkansenModal && (
-        <ShinkansenOrderModal initialCategory={orderCategory} budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)} />
-      )}
-      <AnimatePresence>
-        {showHelp && <StaffHelpModal onClose={() => setShowHelp(false)} />}
-      </AnimatePresence>
-    </div>
+    <DraftRestaurantLayout
+      timeLeft={timeLeft} budget={budget} deckCount={deck.length} maxCards={DRAFT_MAX_CARDS}
+      playerNum={playerNum} canOrder={canOrder} delivering={Boolean(shinkansenPlate)} remaining={shinkansenLeft}
+      disabled={online?.disabled}
+      overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
+      onOrder={() => { setOrderCategory('all'); setShowShinkansenModal(true) }}
+      onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
+      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : 'お会計・バトルへ'}
+      hint={shinkansenPlate ? '奥の金色のお皿をタップしてお受け取りください。' : online ? 'オンラインでは選択中もレーンと制限時間が進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
+      notice={purchaseNotice}
+      overlays={<>
+        {handOpen && <DraftDeckSheet deck={deck} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}
+        {selected && <div role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') handleModalClose() }}>
+          <PurchaseModal card={selected.card} displayPrice={selected.card.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
+        </div>}
+        {showShinkansenModal && <ShinkansenOrderModal initialCategory={orderCategory} budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)} />}
+        <AnimatePresence>
+          {showHelp && <div role="dialog" aria-modal="true" aria-label="店員さんの解説" onKeyDown={event => { if (event.key === 'Escape') setShowHelp(false) }}>
+            <StaffHelpModal onClose={() => setShowHelp(false)} />
+          </div>}
+        </AnimatePresence>
+      </>}
+    >
+      <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+        <Suspense fallback={null}>
+          <Scene
+            onlineSupply={online && { offers: online.draft.offers, elapsed: () => online.now() - online.draft.startedAt }}
+            generalCards={generalCards}
+            buildCards={buildCards}
+            shinkansenPlate={shinkansenPlate}
+            onBeltSelect={handleBeltSelect}
+            onShinkansenPickup={handleShinkansenPickup}
+            paused={Boolean(selected || showShinkansenModal || showHelp)}
+            sevenPlates
+          />
+        </Suspense>
+      </Canvas>
+    </DraftRestaurantLayout>
   )
 }

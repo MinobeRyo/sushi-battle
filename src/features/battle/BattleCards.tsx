@@ -35,6 +35,7 @@ export function CardDetailSheet({
       }}
     >
       <motion.div
+        className="battle-card-detail"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -190,6 +191,7 @@ export function FieldSushi({ card, isEnemy = false, onSelect }: {
   const maxT = isPersist ? Math.max(card.fullness, 2) : 1
   return (
     <motion.div
+      className="battle-field-card"
       layout
       initial={{ scale: 0, y: isEnemy ? -24 : 24, opacity: 0 }}
       animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -200,7 +202,7 @@ export function FieldSushi({ card, isEnemy = false, onSelect }: {
       whileTap={{ scale: 0.96 }}
       style={{
         flexShrink: 0, cursor: 'pointer',
-        width: R.fw, height: R.fh,
+        width: `var(--battle-field-width, ${R.fw})`, height: `var(--battle-field-height, ${R.fh})`,
         borderRadius: 'clamp(10px, 1vw, 16px)',
         background: isPersist ? C.persBg : C.instBg,
         border: `2px solid ${isPersist ? C.persBorder : C.instBorder}`,
@@ -210,7 +212,7 @@ export function FieldSushi({ card, isEnemy = false, onSelect }: {
         gap: 'clamp(2px, 0.3vw, 5px)', overflow: 'hidden',
       }}
     >
-      <div style={{ width: '82%', display: 'flex', justifyContent: 'center' }}>
+      <div className="battle-field-art" style={{ width: '82%', display: 'flex', justifyContent: 'center' }}>
         <SushiArt card={card} size="100%" />
       </div>
       <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', lineHeight: 1.2, maxWidth: '90%' }}>
@@ -221,7 +223,7 @@ export function FieldSushi({ card, isEnemy = false, onSelect }: {
         {isPersist && <span style={{ fontSize: R.fxs, color: C.persBorder, fontWeight: 700 }}>×{card.turnsLeft}</span>}
       </div>
       {isPersist && (
-        <div style={{ display: 'flex', gap: 3 }}>
+        <div className="battle-field-duration" style={{ display: 'flex', gap: 3 }}>
           {Array.from({ length: maxT }, (_, i) => (
             <div key={i} style={{
               width: R.dot, height: R.dot, maxWidth: 12, maxHeight: 12, borderRadius: '50%',
@@ -259,13 +261,14 @@ export function HandSushi({
 
   return (
     <motion.button
+      className="battle-hand-card"
       onClick={onSelect}
       whileHover={{ y: -20, scale: 1.06 }}
       whileTap={{ scale: 0.93, y: -6 }}
       transition={{ type: 'spring', stiffness: 400, damping: 22 }}
       style={{
         flexShrink: 0,
-        width: R.hw, height: R.hh,
+        width: `var(--battle-hand-width, ${R.hw})`, height: `var(--battle-hand-card-height, ${R.hh})`,
         borderRadius: 'clamp(12px, 1.2vw, 20px)',
         background: bgGrad, border: `2px solid ${borderColor}`,
         opacity: canPlay ? 1 : 0.45,
@@ -283,7 +286,7 @@ export function HandSushi({
         }}>{card.cost}</span>
         <span style={{ fontSize: R.fxs }}>{isPersist ? '🔄' : '⚡'}</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '0 4px' }}>
+      <div className="battle-hand-art" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '0 4px' }}>
         <SushiArt card={card} size="88%" />
       </div>
       <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', padding: '0 4px', lineHeight: 1.25 }}>
@@ -297,7 +300,7 @@ export function HandSushi({
         </span>
         {isPersist && <span style={{ fontSize: R.fxs, color: C.persBorder, fontWeight: 700 }}>{card.fullness}T</span>}
       </div>
-      <p style={{
+      <p className="battle-hand-effect" style={{
         fontSize: R.f2xs, color: effectLabel ? '#78530a' : 'transparent',
         textAlign: 'center', padding: 'clamp(1px, 0.2vw, 3px) 4px clamp(4px, 0.5vw, 8px)',
         lineHeight: 1.2, minHeight: 'clamp(14px, 1.4vw, 20px)',

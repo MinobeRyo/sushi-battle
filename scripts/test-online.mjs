@@ -241,9 +241,19 @@ try {
   })
 
   await test('召喚を両者へ反映し、同じactionIdの再送は一度しか処理しない', async () => {
+    // 購入したデッキの初手はランダムなので、初期APで出せるカードがあるとは限らない。
+    // 両者の通常操作でAPと手札を増やし、召喚できる実際の状態から再送を検証する。
+    for (let round = 0; round < 10; round++) {
+      if (host.latest.match.you.hand.some(card => card.cost <= host.latest.match.you.ap)) break
+      for (const [client, other] of [[host, guest], [guest, host]]) {
+        assert.equal(client.latest.match.activePlayerId, client.latest.playerId)
+        const snapshot = await acceptedAction(client, nextAction(client))
+        await waitSnapshot(other, state => state.match?.revision === snapshot.match.revision)
+      }
+    }
     const before = host.latest.match
     const card = before.you.hand.find(c => c.cost <= before.you.ap)
-    assert.ok(card)
+    assert.ok(card, '10巡後にも召喚可能なカードがありません')
     firstAction = nextAction(host, { type: 'play_card', cardInstanceId: card.instanceId })
     const snapshot = await acceptedAction(host, firstAction)
     const after = snapshot.match

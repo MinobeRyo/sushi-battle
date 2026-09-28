@@ -145,9 +145,20 @@ try {
   })
 
   await test('召喚の応答が失われても再送は一度だけ反映し、古い操作を拒否する', async () => {
+    // 購入後の初手はランダム。AP不足なら正規のターン進行で召喚可能な状態を準備する。
+    for (let round = 0; round < 10; round++) {
+      const state = (await host.request()).snapshot
+      if (state.match.you.hand.some(card => card.cost <= state.match.you.ap)) break
+      for (const active of [host, guest]) {
+        const snapshot = (await active.request()).snapshot
+        assert.equal(snapshot.match.activePlayerId, snapshot.playerId)
+        const result = await active.request('match:action', action(snapshot))
+        assert.deepEqual(result.reply, { ok: true })
+      }
+    }
     const before = (await host.request()).snapshot
     const card = before.match.you.hand.find(card => card.cost <= before.match.you.ap)
-    assert.ok(card)
+    assert.ok(card, '10巡後にも召喚可能なカードがありません')
     const play = action(before, { type: 'play_card', cardInstanceId: card.instanceId })
     await host.dropReply('match:action', play)
     const retry = await host.request('match:action', play)

@@ -23,7 +23,7 @@ export function DraftCamera({ sevenPlates = false }: { sevenPlates?: boolean }) 
     }
     const target = up.clone().multiplyScalar((top + bottom) / 2)
     // 余白はピクセルで指定し、カメラの上半分を空白にしない。
-    // デモでは横幅を皿7枚分（間隔2.3 × 7）に固定。Canvas自体も一定の縦横比で表示する。
+    // 共通UIでは横幅を皿7枚分（間隔2.3 × 7）に固定。Canvas自体も一定の縦横比で表示する。
     camera.zoom = sevenPlates
       ? size.width / (2.3 * 7)
       : Math.max(1, Math.min((size.height - 28) / (top - bottom), (size.width - 24) / 4.4))
