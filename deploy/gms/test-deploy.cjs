@@ -47,7 +47,8 @@ async function main() {
     const backend = path.join(staging, 'sushi-battle-server')
     await fs.mkdir(path.join(staging, 'sushi-battle'), { recursive: true })
     await fs.writeFile(path.join(staging, 'sushi-battle/index.html'), id)
-    for (const relative of ['server', 'src/game', 'src/data/cards.ts', 'src/network/protocol.ts', 'src/network/httpProtocol.ts', 'src/types/index.ts']) {
+    // Keep the runtime fixture aligned with scripts/package-server.mjs.
+    for (const relative of ['server', 'src/game', 'src/features/draft/draftEngine.ts', 'src/data/cards.ts', 'src/network/protocol.ts', 'src/network/httpProtocol.ts', 'src/types/index.ts', 'tsconfig.server.json']) {
       await fs.mkdir(path.dirname(path.join(backend, relative)), { recursive: true })
       await fs.cp(path.join(root, relative), path.join(backend, relative), { recursive: true })
     }
