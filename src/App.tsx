@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { motion } from 'framer-motion'
 import { TitleScreen } from './features/title/TitleScreen'
 import { ModeSelectScreen } from './features/title/ModeSelectScreen'
@@ -8,8 +8,10 @@ import { OnlineScreen } from './features/online/OnlineScreen'
 import type { Phase, Card } from './types'
 
 type GameMode = 'cpu' | 'two_player'
+const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
 
 export default function App() {
+  const [isMobileDemo] = useState(() => window.location.hash === '#mobile-demo')
   const [phase, setPhase] = useState<Phase | 'online'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
@@ -58,6 +60,8 @@ export default function App() {
     setP2Deck([])
     setShowHandoff(false)
   }
+
+  if (isMobileDemo) return <Suspense fallback={<div style={{ padding: 32 }}>デモを準備しています…</div>}><MobileDraftDemo /></Suspense>
 
   return (
     <div className="w-full h-full relative">
