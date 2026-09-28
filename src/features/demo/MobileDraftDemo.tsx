@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { PCFShadowMap } from 'three'
 import { CARDS, getCardsByLane } from '../../data/cards'
 import type { Card } from '../../types'
-import { SushiArt } from '../../components/SushiArt'
+import { DraftDeckSheet, DraftRestaurantLayout } from '../draft/DraftRestaurantLayout'
 import { Scene } from '../draft/scene/DraftScene'
 import { PurchaseModal } from '../draft/PurchaseModal'
 import { ShinkansenOrderModal } from '../draft/ShinkansenOrderModal'
@@ -80,7 +80,6 @@ function RestaurantDemo({ onReset }: { onReset: () => void }) {
   const [overlay, setOverlay] = useState<Overlay>(null)
   const [selected, setSelected] = useState<SelectedPlate | null>(null)
   const [notice, setNotice] = useState('')
-  const dialogRef = useRef<HTMLDivElement>(null)
   const orderId = useRef(0)
   const close = () => { setOverlay(null); setSelected(null) }
   const update = (state: typeof draft) => { draftRef.current = state; setDraft(state) }
@@ -91,22 +90,6 @@ function RestaurantDemo({ onReset }: { onReset: () => void }) {
     const timer = setTimeout(() => setNotice(''), 3000)
     return () => clearTimeout(timer)
   }, [notice])
-
-  useEffect(() => {
-    if (!overlay) return
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const frame = requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus())
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { setOverlay(null); setSelected(null) }
-      if (event.key !== 'Tab') return
-      const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])
-      const first = buttons[0], last = buttons[buttons.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', onKey); previous?.focus() }
-  }, [overlay])
 
   const selectPlate = (card: Card, markSold: () => boolean, offerId: string) => {
     setSelected({ card, markSold, offerId }); setOverlay('purchase')
@@ -129,66 +112,27 @@ function RestaurantDemo({ onReset }: { onReset: () => void }) {
     if (result.accepted) { update(result.state); setNotice('ご注文ありがとうございます') }
   }
 
-  return <section className="demo-game" aria-label="横画面のドラフト体験">
-    <div className="demo-game-content" inert={overlay !== null}>
-      <header className="demo-game-header">
-        <div className="demo-shop-name">すしバトル<span>一番席</span></div>
-        <div className="demo-time"><span>残り時間</span><strong>01:30</strong></div>
-        <div className="demo-budget"><span>お財布</span><strong>¥{draft.budget.toLocaleString()}</strong></div>
-        <div className="demo-count"><strong>{draft.deck.length}</strong><span>/ 20皿</span></div>
-      </header>
-
-      <div className="demo-back-wall">
-        <div className="demo-tablet-stand">
-          <button className={`demo-small-tablet${draft.shinkansenPlate ? ' is-delivering' : ''}`} onClick={() => setOverlay('order')} disabled={!canOrder} aria-label="注文タブレットを開く">
-            <span className="demo-tablet-camera" aria-hidden="true" />
-            <span className="demo-tablet-speaker" aria-hidden="true" />
-            <span className="demo-tablet-power" aria-hidden="true" />
-            <span className="demo-small-tablet-screen">
-              <span className="demo-tablet-statusbar" aria-hidden="true"><span>お席 01</span><span className="demo-tablet-battery" /></span>
-              <span className="demo-tablet-menu"><span><small>握りたてを、お席まで。</small><strong>{draft.shinkansenPlate ? '特急をお届け中' : draft.shinkansenLeft === 0 ? '特急の受付終了' : draft.deck.length >= 20 ? 'お皿がいっぱいです' : '特急のご注文'}</strong></span><span className="demo-tablet-arrow">›</span></span>
-              <span className="demo-tablet-footnote">{draft.shinkansenPlate ? '奥の金色のお皿をタップ' : `あと${draft.shinkansenLeft}回 ご注文いただけます`}</span>
-            </span>
-            <span className="demo-tablet-brand" aria-hidden="true">SUSHI BATTLE</span>
-          </button>
-          <span className="demo-tablet-neck" /><span className="demo-tablet-base" />
-        </div>
-        <div className="demo-wall-seal"><span>本日も</span><strong>営業中</strong></div>
-      </div>
-
-      <div className="demo-lane-space">
-        <div className="demo-scene" data-world-width="16.1">
-          <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
-            <Suspense fallback={null}><Scene generalCards={GENERAL_CARDS} buildCards={BUILD_CARDS} shinkansenPlate={draft.shinkansenPlate} onBeltSelect={selectPlate} onShinkansenPickup={pickup} paused={overlay === 'purchase' || overlay === 'order'} sevenPlates /></Suspense>
-          </Canvas>
-          <div className="demo-lane-label demo-lane-label-express">特急<span>ご注文のお皿</span></div>
-          <div className="demo-lane-label demo-lane-label-general">汎用・サイド</div>
-          <div className="demo-lane-label demo-lane-label-build">ビルド系</div>
-        </div>
-        {notice && <p className="demo-toast" role="status">{notice}</p>}
-      </div>
-
-      <footer className="demo-counter">
-        <button className="demo-deck-button" onClick={() => setOverlay('deck')} aria-label={`購入した${draft.deck.length}皿を見る`}>
-          <span className="demo-plate-stack" aria-hidden="true"><i /><i /><i /><i /></span>
-          <span><strong>取ったお皿 <b>{draft.deck.length}</b></strong><small>デッキを見る <span>⌃</span></small></span>
-        </button>
-        <p className="demo-counter-hint">寿司もお皿もタップで選べます</p>
-        <button className="demo-checkout" onClick={() => setOverlay('checkout')}>お会計 <span>›</span></button>
-      </footer>
-    </div>
-
-    {overlay && <div className="demo-overlay" ref={dialogRef} role={overlay === 'order' ? undefined : 'dialog'} aria-modal={overlay === 'order' ? undefined : true} aria-label={overlay === 'purchase' ? 'お皿の詳細' : overlay === 'deck' ? '購入したお皿' : 'お会計'}>
+  return <DraftRestaurantLayout
+    timeLeft={90} budget={draft.budget} deckCount={draft.deck.length} maxCards={20}
+    canOrder={canOrder} delivering={Boolean(draft.shinkansenPlate)} remaining={draft.shinkansenLeft}
+    overlayActive={overlay !== null} onOrder={() => setOverlay('order')} onDeck={() => setOverlay('deck')}
+    onFinish={() => setOverlay('checkout')} finishLabel="お会計" notice={notice}
+    overlays={<>
       {overlay === 'order' && <ShinkansenOrderModal budget={draft.budget} initialCategory="all" onOrder={order} onClose={close} />}
-      {overlay === 'purchase' && selected && <PurchaseModal card={selected.card} displayPrice={selected.card.price} budget={draft.budget} deckCount={draft.deck.length} onPurchase={purchase} onClose={close} />}
-      {(overlay === 'deck' || overlay === 'checkout') && <div className="demo-sheet-backdrop" onClick={close}>
-        <section className={`demo-deck-sheet${overlay === 'checkout' ? ' is-receipt' : ''}`} onClick={event => event.stopPropagation()}>
-          <div className="demo-sheet-handle" />
-          <header><div><p>{overlay === 'checkout' ? 'ありがとうございました' : 'あなたが選んだ、とっておき。'}</p><h2>{overlay === 'checkout' ? '本日のお会計' : '取ったお皿'} <span>{draft.deck.length}皿</span></h2></div><button onClick={close}>レーンに戻る ×</button></header>
-          {overlay === 'deck' ? <div className="demo-deck-grid">{draft.deck.map((card, i) => <article key={`${card.id}-${i}`}><SushiArt card={card} size="100%" fit /><strong>{card.name}</strong><span>{card.cost} AP <b>攻撃 {card.attack}</b></span></article>)}</div> : <div className="demo-receipt"><p><span>ご利用額</span><strong>¥{(3000 - draft.budget).toLocaleString()}</strong></p><p><span>残金</span><strong>¥{draft.budget.toLocaleString()}</strong></p><p className="demo-receipt-note">こちらは画面を試すデモです。<br />バトルには進まず、何度でもお試しいただけます。</p><button onClick={onReset}>もう一度、席につく</button></div>}
-          {overlay === 'deck' && <footer>残金 <strong>¥{draft.budget.toLocaleString()}</strong><span>あと{20 - draft.deck.length}皿お選びいただけます</span></footer>}
+      {overlay === 'purchase' && selected && <div role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') close() }}>
+        <PurchaseModal card={selected.card} displayPrice={selected.card.price} budget={draft.budget} deckCount={draft.deck.length} onPurchase={purchase} onClose={close} />
+      </div>}
+      {overlay === 'deck' && <DraftDeckSheet deck={draft.deck} budget={draft.budget} maxCards={20} emptyMessage="まだ購入していません" onClose={close} />}
+      {overlay === 'checkout' && <div className="demo-receipt-backdrop" onClick={close} onKeyDown={event => { if (event.key === 'Escape') close() }}>
+        <section className="demo-receipt-sheet" role="dialog" aria-modal="true" aria-label="本日のお会計" onClick={event => event.stopPropagation()}>
+          <header><div><p>ありがとうございました</p><h2>本日のお会計 <span>{draft.deck.length}皿</span></h2></div><button onClick={close}>戻る ×</button></header>
+          <div className="demo-receipt"><p><span>ご利用額</span><strong>¥{(3000 - draft.budget).toLocaleString()}</strong></p><p><span>残金</span><strong>¥{draft.budget.toLocaleString()}</strong></p><p className="demo-receipt-note">こちらは画面を試すデモです。<br />バトルには進まず、何度でもお試しいただけます。</p><button onClick={onReset}>もう一度、席につく</button></div>
         </section>
       </div>}
-    </div>}
-  </section>
+    </>}
+  >
+    <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+      <Suspense fallback={null}><Scene generalCards={GENERAL_CARDS} buildCards={BUILD_CARDS} shinkansenPlate={draft.shinkansenPlate} onBeltSelect={selectPlate} onShinkansenPickup={pickup} paused={overlay === 'purchase' || overlay === 'order'} sevenPlates /></Suspense>
+    </Canvas>
+  </DraftRestaurantLayout>
 }

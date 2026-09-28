@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
 import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
-import { PLATE_HIT_POSITION, PLATE_HIT_SIZE } from './plateHitArea'
+import { PlateHitTarget } from './PlateHitTarget'
 
 const SPACING = 2.3 // world-unit spacing between plates
 
@@ -110,8 +110,7 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
         <meshStandardMaterial color={colors.plate} roughness={0.25} metalness={0.05} />
       </mesh>
       {/* 寿司の高さと皿の周りを含む、見た目より少し広いクリック領域。 */}
-      <mesh
-        position={PLATE_HIT_POSITION}
+      <PlateHitTarget
         onClick={(e) => {
           e.stopPropagation()
           if (soldRef.current || generationRef.current !== generation) return
@@ -132,10 +131,7 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
           document.body.style.cursor = 'pointer'
         }}
         onPointerOut={clearHover}
-      >
-        <boxGeometry args={PLATE_HIT_SIZE} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
-      </mesh>
+      />
       {/* Rim ring */}
       <mesh position={[0, 0.06, 0]}>
         <cylinderGeometry args={[0.75, 0.75, 0.08, 32, 1, true]} />

@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
-import { PLATE_HIT_POSITION, PLATE_HIT_SIZE } from './plateHitArea'
+import { PlateHitTarget } from './PlateHitTarget'
 
 // ─── Shinkansen arriving plate ────────────────────────────────────────────────
 export function ShinkansenPlate3D({ plate, laneZ, onPickup }: {
@@ -53,15 +53,11 @@ export function ShinkansenPlate3D({ plate, laneZ, onPickup }: {
             <cylinderGeometry args={[0.72, 0.72, 0.12, 32]} />
             <meshStandardMaterial color="#fffbeb" emissive="#f59e0b" emissiveIntensity={0.2} roughness={0.2} metalness={0.2} />
           </mesh>
-          <mesh
-            position={PLATE_HIT_POSITION}
+          <PlateHitTarget
             onClick={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'auto'; onPickup() }}
             onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
             onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto' }}
-          >
-            <boxGeometry args={PLATE_HIT_SIZE} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
-          </mesh>
+          />
           {/* Gold rim */}
           <mesh position={[0, 0.06, 0]}>
             <cylinderGeometry args={[0.75, 0.75, 0.08, 32, 1, true]} />
