@@ -1,0 +1,187 @@
+.battle-viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  container: battle-viewport / size;
+}
+
+.battle-board {
+  display: flex;
+  flex-direction: column;
+}
+
+.battle-side {
+  flex: 5 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.battle-opponent {
+  padding: clamp(10px, 1.5vh, 20px) clamp(12px, 2vw, 28px) clamp(8px, 1vh, 14px);
+}
+
+.battle-player {
+  padding: clamp(8px, 1vh, 14px) clamp(12px, 2vw, 28px) clamp(6px, 0.8vh, 12px);
+}
+
+.battle-status {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.5vw, 20px);
+  flex-shrink: 0;
+}
+
+.battle-opponent-status { margin-bottom: clamp(8px, 1.2vh, 14px); }
+.battle-player-status { margin-top: clamp(8px, 1.2vh, 14px); }
+
+.battle-field {
+  flex: 1;
+  min-width: 0;
+  min-height: clamp(90px, 10vh, 150px);
+  border-radius: clamp(12px, 1.2vw, 18px);
+  padding: clamp(8px, 1vw, 16px);
+  display: flex;
+  justify-content: center;
+  gap: clamp(6px, 0.65vw, 12px);
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.battle-opponent-field { align-items: flex-end; }
+.battle-player-field { align-items: flex-start; }
+
+.battle-counter {
+  flex-shrink: 0;
+  height: clamp(46px, 5.5vh, 68px);
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(14px, 2vw, 30px);
+  gap: clamp(8px, 1vw, 16px);
+}
+
+.battle-actions {
+  flex-shrink: 0;
+  padding: clamp(5px, 0.8vh, 10px) clamp(12px, 2vw, 28px);
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+}
+
+.battle-hand {
+  flex-shrink: 0;
+  height: clamp(152px, 15.5vw, 284px);
+  padding: clamp(10px, 1.2vh, 18px) clamp(12px, 2vw, 28px) clamp(14px, 2vh, 24px);
+  display: flex;
+  gap: clamp(6px, 0.65vw, 12px);
+  overflow-x: auto;
+  align-items: flex-end;
+  /* Overflow must start at the first card, even when the hand grows. */
+  justify-content: safe center;
+}
+
+.battle-card-detail {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Measure the board, not the window: the online room bar consumes height too. */
+@container battle-viewport (max-height: 520px) {
+  .battle-board {
+    --battle-hand-height: clamp(100px, 30cqh, 136px);
+    --battle-hand-card-height: calc(var(--battle-hand-height) - 14px);
+    --battle-hand-width: clamp(72px, 11cqw, 88px);
+    --battle-field-width: clamp(66px, 10cqw, 82px);
+    --battle-field-height: clamp(66px, calc(100cqh - 260px), 98px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) 36px 48px var(--battle-hand-height);
+    grid-template-areas: 'opponent player' 'counter counter' 'actions actions' 'hand hand';
+  }
+
+  .battle-opponent { grid-area: opponent; }
+  .battle-player { grid-area: player; }
+
+  .battle-side {
+    padding: 6px 8px;
+    overflow: hidden;
+  }
+
+  .battle-status {
+    gap: 6px;
+    margin: 0 0 4px;
+    min-height: 30px;
+  }
+
+  .battle-player-status { order: -1; }
+  .battle-avatar, .battle-counter-label { display: none; }
+  .battle-opponent-combos { max-width: 30%; }
+
+  .battle-field {
+    min-height: 0;
+    padding: 22px 6px 6px;
+    border-radius: 10px;
+    flex-wrap: nowrap;
+    justify-content: safe center;
+    align-items: safe center;
+    gap: 6px;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .battle-field-card {
+    padding: 3px !important;
+    gap: 2px !important;
+  }
+
+  .battle-field-art {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .battle-field-art svg, .battle-hand-art svg {
+    height: 100% !important;
+    max-height: 100%;
+  }
+
+  /* The numeric ×N remains visible; the duplicate dots cost valuable height. */
+  .battle-field-duration { display: none !important; }
+
+  .battle-counter {
+    grid-area: counter;
+    min-width: 0;
+    height: auto;
+    padding: 0 8px;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .battle-actions {
+    grid-area: actions;
+    min-width: 0;
+    padding: 2px 8px;
+    gap: 8px;
+  }
+
+  .battle-end-turn {
+    min-height: 42px;
+    padding: 8px 18px !important;
+  }
+
+  .battle-hand {
+    grid-area: hand;
+    min-width: 0;
+    height: auto;
+    padding: 6px 10px;
+    gap: 6px;
+    align-items: center;
+    overscroll-behavior: contain;
+  }
+
+  /* Full effects stay available in the card detail sheet. */
+  .battle-hand-effect { display: none; }
+}

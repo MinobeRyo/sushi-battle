@@ -1,4 +1,23 @@
 import type { MatchPlayer, PlayerId } from '../game/types'
+import type { DraftState } from '../features/draft/draftEngine'
+import type { DraftOffer } from '../game/draftOffers'
+
+export type PublicDraft = {
+  draftId: string
+  mode: 'initial' | 'reorder'
+  startedAt: number
+  initialBudget: number
+  revision: number
+  you: Omit<DraftState, 'purchasedIds'>
+  offers: DraftOffer[]
+  opponentCompleted: boolean
+}
+export type DraftCommand =
+  | { type: 'buy'; offerId: string }
+  | { type: 'order'; cardId: string }
+  | { type: 'pickup' }
+  | { type: 'complete' }
+export type OnlineDraftAction = DraftCommand & { draftId: string; actionId: string; expectedRevision: number }
 
 export type PublicMatch = {
   matchId: string
@@ -14,10 +33,12 @@ export type PublicMatch = {
 
 export type RoomSnapshot = {
   code: string
+  serverNow: number
   playerId: PlayerId
   connected: Record<PlayerId, boolean>
   rematchRequested: Record<PlayerId, boolean>
   match: PublicMatch | null
+  draft: PublicDraft | null
 }
 export type RoomSession = { code: string; playerId: PlayerId; token: string }
 export type Reply = { ok: true } | { ok: false; error: string }
@@ -40,5 +61,6 @@ export interface ClientToServerEvents {
   'room:resume': (request: { code: string; token: string }, reply: (result: JoinReply) => void) => void
   'room:leave': (reply: (result: Reply) => void) => void
   'match:action': (action: OnlineAction, reply: (result: Reply) => void) => void
+  'draft:action': (action: OnlineDraftAction, reply: (result: Reply) => void) => void
   'match:rematch': (reply: (result: Reply) => void) => void
 }

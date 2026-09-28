@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { io } from 'socket.io-client'
 import { createGameServer } from '../server/gameServer.ts'
+import { finishPurchases } from './online-test-helpers.mjs'
 
 const sockets = new Set()
 const servers = new Set()
@@ -110,6 +111,14 @@ function nextAction(client, patch = {}) {
   }
 }
 
+async function finishBoth(host, guest) {
+  for (const client of [host, guest]) {
+    await waitSnapshot(client, state => Boolean(state.draft))
+    await finishPurchases((event, payload) => rpc(client, event, payload), () => client.latest)
+  }
+  await Promise.all([host, guest].map(client => waitSnapshot(client, state => !state.draft && state.match?.phase === 'playing')))
+}
+
 async function acceptedAction(client, action) {
   const before = client.latest.match.revision
   const reply = await rpc(client, 'match:action', action)
@@ -164,12 +173,16 @@ try {
     assert.equal(retry.snapshot.match, null)
   })
 
-  await test('2人目の参加で固定デッキ対戦が開始し、3人目は満室で拒否する', async () => {
+  await test('2人目の参加で同時購入を開始し、両者が完了したデッキで対戦する', async () => {
     const reply = await rpc(guest, 'room:join', { code: hostSession.code })
     assert.equal(reply.ok, true)
     guestSession = reply.session
     assert.equal(guestSession.playerId, 2)
     assert.notEqual(guestSession.token, hostSession.token)
+    await waitSnapshot(host, snapshot => snapshot.draft !== null)
+    assert.equal(host.latest.match, null)
+    assert.equal(reply.snapshot.draft.you.budget, 3000)
+    await finishBoth(host, guest)
     const snapshots = await Promise.all([
       waitSnapshot(host, snapshot => snapshot.match !== null),
       waitSnapshot(guest, snapshot => snapshot.match !== null),
@@ -178,8 +191,8 @@ try {
       assert.deepEqual(snapshot.connected, { 1: true, 2: true })
       assert.deepEqual(snapshot.rematchRequested, { 1: false, 2: false })
       assert.equal(snapshot.match.activePlayerId, 1)
-      assert.equal(snapshot.match.you.hand.length + snapshot.match.you.deckCount, 16)
-      assert.equal(snapshot.match.opponent.handCount + snapshot.match.opponent.deckCount, 16)
+      assert.ok(snapshot.match.you.hand.length + snapshot.match.you.deckCount > 0)
+      assert.ok(snapshot.match.you.hand.length + snapshot.match.you.deckCount <= 20)
     }
     const full = await rpc(outsider, 'room:join', { code: hostSession.code })
     assert.equal(full.ok, false)
@@ -228,9 +241,19 @@ try {
   })
 
   await test('召喚を両者へ反映し、同じactionIdの再送は一度しか処理しない', async () => {
+    // 購入したデッキの初手はランダムなので、初期APで出せるカードがあるとは限らない。
+    // 両者の通常操作でAPと手札を増やし、召喚できる実際の状態から再送を検証する。
+    for (let round = 0; round < 10; round++) {
+      if (host.latest.match.you.hand.some(card => card.cost <= host.latest.match.you.ap)) break
+      for (const [client, other] of [[host, guest], [guest, host]]) {
+        assert.equal(client.latest.match.activePlayerId, client.latest.playerId)
+        const snapshot = await acceptedAction(client, nextAction(client))
+        await waitSnapshot(other, state => state.match?.revision === snapshot.match.revision)
+      }
+    }
     const before = host.latest.match
     const card = before.you.hand.find(c => c.cost <= before.you.ap)
-    assert.ok(card)
+    assert.ok(card, '10巡後にも召喚可能なカードがありません')
     firstAction = nextAction(host, { type: 'play_card', cardInstanceId: card.instanceId })
     const snapshot = await acceptedAction(host, firstAction)
     const after = snapshot.match
@@ -298,14 +321,15 @@ try {
     assert.equal(host.latest.connected[2], true)
   })
 
-  await test('2クライアントが購入・召喚の内部状態を渡さず、固定デッキ対戦を最後まで進める', async () => {
+  await test('2クライアントが購入・追加注文・召喚を送信して対戦を最後まで進める', async () => {
     let actionCount = 0
     while (host.latest.match.phase !== 'over' && actionCount < 500) {
+      if (host.latest.draft) await finishBoth(host, guest)
       const current = host.latest.match
       const client = current.activePlayerId === 1 ? host : guest
       await waitSnapshot(client, state => state.match.revision >= current.revision)
       const match = client.latest.match
-      assert.equal(match.phase, 'playing') // 追加補充はサーバーで確定済み
+      assert.equal(match.phase, 'playing')
       const card = match.you.field.length < 8
         ? [...match.you.hand].sort((a, b) => b.attack - a.attack).find(c => c.cost <= match.you.ap)
         : undefined
@@ -333,6 +357,10 @@ try {
     assert.deepEqual(await rpc(host, 'match:rematch'), { ok: true })
     assert.equal(host.latest.match.matchId, oldMatch.matchId)
     assert.deepEqual(await rpc(guest, 'match:rematch'), { ok: true })
+    await waitSnapshot(host, state => Boolean(state.draft))
+    assert.equal(host.latest.match, null)
+    assert.equal(host.latest.draft.you.budget, 3000)
+    await finishBoth(host, guest)
     await Promise.all([
       waitSnapshot(host, state => state.match.matchId !== oldMatch.matchId),
       waitSnapshot(guest, state => state.match.matchId !== oldMatch.matchId),

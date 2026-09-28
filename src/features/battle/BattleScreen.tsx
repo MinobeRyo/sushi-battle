@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { FieldSushi, HandSushi, CardDetailSheet } from './BattleCards'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
+import './BattleScreen.css'
 
 export function BattleScreen({
   deck,
@@ -61,22 +62,19 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     : (s.winner === 'player' ? '勝利！' : '敗北…')
 
   return (
-    <div style={{
-      height: '100%', display: 'flex', flexDirection: 'column',
+    <div className="battle-viewport">
+    <div className="battle-board" style={{
+      height: '100%',
       background: C.bgMain, color: C.txtPri,
       overflow: 'hidden', userSelect: 'none', position: 'relative',
     }}>
 
       {/* ══ 相手エリア ══ */}
-      <div style={{
-        flex: '5 1 0', minHeight: 0, display: 'flex', flexDirection: 'column',
-        padding: 'clamp(10px, 1.5vh, 20px) clamp(12px, 2vw, 28px) clamp(8px, 1vh, 14px)',
-        position: 'relative',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)', marginBottom: 'clamp(8px, 1.2vh, 14px)' }}>
-          <span style={{ fontSize: R.flg, flexShrink: 0 }}>{opponentEmoji}</span>
+      <div className="battle-side battle-opponent">
+        <div className="battle-status battle-opponent-status">
+          <span className="battle-avatar" style={{ fontSize: R.flg, flexShrink: 0 }}>{opponentEmoji}</span>
           <div style={{ flex: 1, minWidth: 0 }}><BellyGauge value={s.cBelly} label={`${opponentLabel} お腹`} flip /></div>
-          <div style={{ flexShrink: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}>
+          <div className="battle-opponent-combos" style={{ flexShrink: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}>
             <ComboStatusBar compact inline st={{
               summonedIds: s.cSummonedIds, combosFired: s.cCombosFired, field: s.cField,
               attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus,
@@ -88,14 +86,11 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             <p style={{ fontSize: R.fxs, color: C.txtMut }}>山札 {s.cDeckCount} 枚</p>
           </div>
         </div>
-        <div style={{
-          flex: 1, background: C.bgAreaCpu, border: `1px solid ${C.fieldBorder}`,
-          borderRadius: 'clamp(12px, 1.2vw, 18px)', padding: 'clamp(8px, 1vw, 16px)',
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          gap: R.gap, flexWrap: 'wrap', position: 'relative',
-          minHeight: 'clamp(90px, 10vh, 150px)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.06)',
+        <div className="battle-field battle-opponent-field" style={{
+          background: C.bgAreaCpu, border: `1px solid ${C.fieldBorder}`,
+          boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.06)',
         }}>
-          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>{opponentLabel} の机</span>
+          <span className="battle-field-label" style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>{opponentLabel} の机</span>
           <AnimatePresence>
             {s.cField.map(c => (
               <FieldSushi key={c.fid} card={c} isEnemy
@@ -123,17 +118,16 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       </div>
 
       {/* ══ カウンター席 ══ */}
-      <div style={{
-        flexShrink: 0, height: R.counter, background: C.counter,
+      <div className="battle-counter" style={{
+        background: C.counter,
         borderTop: `2px solid ${C.counterTop}`, borderBottom: `2px solid ${C.counterBot}`,
-        display: 'flex', alignItems: 'center', padding: '0 clamp(14px, 2vw, 30px)',
-        position: 'relative', gap: 'clamp(8px, 1vw, 16px)',
+        position: 'relative',
         boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
       }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.25, backgroundImage: 'repeating-linear-gradient(90deg,transparent,transparent 80px,rgba(255,255,255,0.5) 80px,rgba(255,255,255,0.5) 82px)' }} />
         <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 5, background: 'rgba(0,0,0,0.12)', transform: 'translateY(-50%)', borderRadius: 2 }} />
         {/* 狭い画面ではラベルを畳んでコンボ進捗の幅を確保する */}
-        <span className="hidden sm:inline" style={{ fontSize: R.fsm, color: '#5c3a0a', fontWeight: 700, zIndex: 1, textShadow: '0 1px 2px rgba(255,255,255,0.4)', flexShrink: 0 }}>🍵 カウンター席</span>
+        <span className="battle-counter-label hidden sm:inline" style={{ fontSize: R.fsm, color: '#5c3a0a', fontWeight: 700, zIndex: 1, textShadow: '0 1px 2px rgba(255,255,255,0.4)', flexShrink: 0 }}>🍵 カウンター席</span>
         {/* コンボ進捗（切れ味スタックもここに含む） */}
         <div style={{ flex: 1, minWidth: 0, zIndex: 1, display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
           <ComboStatusBar inline onGold st={{
@@ -153,19 +147,12 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       </div>
 
       {/* ══ プレイヤーエリア ══ */}
-      <div style={{
-        flex: '5 1 0', minHeight: 0, display: 'flex', flexDirection: 'column',
-        padding: 'clamp(8px, 1vh, 14px) clamp(12px, 2vw, 28px) clamp(6px, 0.8vh, 12px)',
-        position: 'relative',
-      }}>
-        <div style={{
-          flex: 1, background: C.bgArea, border: `1px solid ${C.fieldBorder}`,
-          borderRadius: 'clamp(12px, 1.2vw, 18px)', padding: 'clamp(8px, 1vw, 16px)',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-          gap: R.gap, flexWrap: 'wrap', position: 'relative',
-          minHeight: 'clamp(90px, 10vh, 150px)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.04)',
+      <div className="battle-side battle-player">
+        <div className="battle-field battle-player-field" style={{
+          background: C.bgArea, border: `1px solid ${C.fieldBorder}`,
+          boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.04)',
         }}>
-          <span style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>
+          <span className="battle-field-label" style={{ position: 'absolute', top: 'clamp(7px, 0.8vh, 11px)', left: 'clamp(12px, 1.2vw, 18px)', fontSize: R.fxs, color: C.txtMut, fontWeight: 700, letterSpacing: 1 }}>
             {activeLabel} の机
           </span>
           <AnimatePresence>
@@ -177,8 +164,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </AnimatePresence>
           {s.pField.length === 0 && <span style={{ fontSize: R.fsm, color: C.apEmpty, paddingTop: 'clamp(8px, 1vh, 16px)' }}>空</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)', marginTop: 'clamp(8px, 1.2vh, 14px)' }}>
-          <span style={{ fontSize: R.flg, flexShrink: 0 }}>🍱</span>
+        <div className="battle-status battle-player-status">
+          <span className="battle-avatar" style={{ fontSize: R.flg, flexShrink: 0 }}>🍱</span>
           <div style={{ flex: 1 }}><BellyGauge value={s.pBelly} label={`${activeLabel} お腹`} /></div>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ display: 'flex', gap: 'clamp(3px, 0.4vw, 6px)', flexWrap: 'wrap', maxWidth: 'clamp(80px, 10vw, 160px)', justifyContent: 'flex-end' }}>
@@ -212,10 +199,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       </div>
 
       {/* ══ アクションバー ══ */}
-      <div style={{
-        flexShrink: 0, background: C.bgAction, borderTop: '1px solid #d4c4ae',
-        padding: 'clamp(5px, 0.8vh, 10px) clamp(12px, 2vw, 28px)',
-        display: 'flex', alignItems: 'center', gap: 'clamp(8px, 1vw, 16px)',
+      <div className="battle-actions" style={{
+        background: C.bgAction, borderTop: '1px solid #d4c4ae',
       }}>
         <button onClick={() => setShowLog(v => !v)}
           style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}>
@@ -224,6 +209,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </p>
         </button>
         <motion.button
+          className="battle-end-turn"
           onClick={endTurn}
           disabled={!isPlayerTurn}
           whileTap={isPlayerTurn ? { scale: 0.91 } : {}}
@@ -243,11 +229,9 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       </div>
 
       {/* ══ 手札 ══ */}
-      <div style={{
-        flexShrink: 0, height: R.hand, background: C.bgHand, borderTop: '1px solid #ccc0a8',
-        padding: 'clamp(10px, 1.2vh, 18px) clamp(12px, 2vw, 28px) clamp(14px, 2vh, 24px)',
-        display: 'flex', gap: R.gap, overflowX: 'auto', alignItems: 'flex-end',
-        justifyContent: 'center', boxShadow: 'inset 0 3px 10px rgba(0,0,0,0.08)',
+      <div className="battle-hand" style={{
+        background: C.bgHand, borderTop: '1px solid #ccc0a8',
+        boxShadow: 'inset 0 3px 10px rgba(0,0,0,0.08)',
       }}>
         {s.pHand.length === 0
           ? <p style={{ fontSize: R.fmd, color: C.txtMut }}>手札がありません</p>
@@ -405,6 +389,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
     </div>
   )
 }

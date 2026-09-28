@@ -5,13 +5,43 @@ import type { Inspect } from '../battle/types'
 import { OnlineLobby } from './OnlineLobby'
 import { toOnlineBattleView } from './onlineBattleView'
 import { useOnlineRoom, type OnlineRoomController } from './useOnlineRoom'
+import { DraftScreenThree } from '../draft/DraftScreenThree'
 
 export function OnlineScreen({ onBack }: { onBack: () => void }) {
   const room = useOnlineRoom()
   const leave = () => { void room.leaveRoom().finally(onBack) }
+  if (room.snapshot?.draft) return <OnlineDraftScreen key={room.snapshot.draft.draftId} room={room} snapshot={room.snapshot} onBack={leave} />
   if (!room.snapshot?.match) return <OnlineLobby room={room} onBack={leave} />
   return <OnlineBattle key={room.snapshot.match.matchId} room={room}
     snapshot={room.snapshot} match={room.snapshot.match} onBack={leave} />
+}
+
+function OnlineDraftScreen({ room, snapshot, onBack }: {
+  room: OnlineRoomController; snapshot: RoomSnapshot; onBack: () => void
+}) {
+  const draft = snapshot.draft!
+  const connected = room.status === 'connected'
+  const opponentConnected = snapshot.connected[snapshot.playerId === 1 ? 2 : 1]
+  return <div className="flex h-full flex-col bg-stone-950">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs text-amber-100">
+      <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · {draft.mode === 'initial' ? 'デッキ構築' : '追加注文'}</span>
+      <span role="status">{!connected ? '再接続中です。制限時間は進みます。' : room.pending ? '購入内容を確認中…'
+        : !opponentConnected ? '相手が再接続中です。購入は続けられます。'
+          : draft.opponentCompleted ? '相手は購入を完了しています' : 'それぞれのレーンで同時に購入できます'}</span>
+      <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>
+    </div>
+    {room.error && <p role="alert" className="bg-red-950 px-4 py-2 text-sm text-red-100">{room.error}</p>}
+    <div className="relative min-h-0 flex-1">
+      {draft.you.completed ? <div className="flex h-full flex-col items-center justify-center gap-4 px-5 text-center text-amber-100">
+        <h1 className="text-2xl font-bold">購入が完了しました</h1>
+        <p>{draft.you.deck.length}枚購入 · 残金 ¥{draft.you.budget.toLocaleString()}</p>
+        <p>相手の購入が終わると、{draft.mode === 'initial' ? '対戦が始まります。' : '対戦を再開します。'}</p>
+        <p className="text-sm text-stone-400">制限時間になると自動で購入を締め切ります。</p>
+      </div> : <DraftScreenThree playerNum={snapshot.playerId} mode={draft.mode}
+        initialBudget={draft.initialBudget} seconds={draft.mode === 'initial' ? 90 : 45}
+        onComplete={() => {}} online={{ draft, now: room.serverNow, disabled: !connected || room.pending, send: room.draftAction }} />}
+    </div>
+  </div>
 }
 
 function OnlineBattle({ room, snapshot, match, onBack }: {
@@ -46,7 +76,7 @@ function OnlineBattle({ room, snapshot, match, onBack }: {
   return (
     <div className="flex h-full flex-col bg-stone-950">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs text-amber-100">
-        <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · 固定デッキ対戦</span>
+        <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · オンライン対戦</span>
         <span role="status">{match.phase === 'over' ? '対戦終了' : !ready ? '再接続を待っています（操作を一時停止中）'
           : room.pending ? '操作を確認中…' : yourTurn ? 'あなたのターン' : '相手のターン'}</span>
         <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>
