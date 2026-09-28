@@ -1,9 +1,9 @@
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createMatch, otherPlayer, transitionMatch } from '../src/game/matchEngine'
 import type { MatchState, PlayerId, RandomSource } from '../src/game/types'
-import type { JoinReply, OnlineAction, PublicMatch, Reply, RoomSnapshot } from '../src/network/protocol'
+import type { JoinReply, OnlineAction, PublicComboEvent, PublicMatch, Reply, RoomSnapshot } from '../src/network/protocol'
 import type { RoomEvent } from '../src/network/httpProtocol'
-import { applyDraftAction, createOnlineDraft, publicDraft, refreshOnlineDraft, validDraftAction } from './onlineDraft'
+import { applyDraftAction, applyDraftHover, createOnlineDraft, publicDraft, refreshOnlineDraft, releaseDraftHover, validDraftAction, validDraftHover } from './onlineDraft'
 import type { OnlineDraft } from './onlineDraft'
 
 export type RoomPeer = {
@@ -22,11 +22,13 @@ type Room = {
   draftTimer?: ReturnType<typeof setInterval>
   rematch: Set<PlayerId>
   processed: Map<string, ProcessedAction>
+  comboEvents: PublicComboEvent[]
 }
 const MAX_PROCESSED_ACTIONS = 4096
 const MAX_ROOMS = 1000
+const MAX_COMBO_EVENTS = 64
 
-function publicMatch(match: MatchState, playerId: PlayerId): PublicMatch {
+function publicMatch(match: MatchState, playerId: PlayerId, comboEvents: PublicComboEvent[]): PublicMatch {
   // 公開用オブジェクトは明示的に取り除いた値から作る。山札順・相手手札は送らない。
   const { deck, ...you } = match.players[playerId]
   const { hand: opponentHand, deck: opponentDeck, ...opponent } = match.players[otherPlayer(playerId)]
@@ -36,6 +38,7 @@ function publicMatch(match: MatchState, playerId: PlayerId): PublicMatch {
     you: { ...you, deckCount: deck.length },
     opponent: { ...opponent, handCount: opponentHand.length, deckCount: opponentDeck.length },
     log: match.log,
+    comboEvents,
   }
 }
 
@@ -44,7 +47,7 @@ function snapshot(room: Room, playerId: PlayerId): RoomSnapshot {
     code: room.code, playerId, serverNow: Date.now(),
     connected: { 1: Boolean(room.seats[1]?.peerId), 2: Boolean(room.seats[2]?.peerId) },
     rematchRequested: { 1: room.rematch.has(1), 2: room.rematch.has(2) },
-    match: room.match ? publicMatch(room.match, playerId) : null,
+    match: room.match ? publicMatch(room.match, playerId, room.comboEvents) : null,
     draft: room.draft ? publicDraft(room.draft, playerId) : null,
   }
 }
@@ -130,7 +133,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
 
   const startDraft = (room: Room, mode: OnlineDraft['mode']) => {
     clearInterval(room.draftTimer)
-    if (mode === 'initial') room.match = null
+    if (mode === 'initial') { room.match = null; room.comboEvents = [] }
     room.draft = createOnlineDraft(mode, Date.now(), random)
     room.rematch.clear()
     room.draftTimer = setInterval(() => refreshDraft(room), 250)
@@ -158,6 +161,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
       }
     }
     if (!room.match && !room.draft && room.seats[1] && room.seats[2]) startDraft(room, 'initial')
+    if (room.draft) releaseDraftHover(room.draft, playerId, Date.now())
     refreshDraft(room)
     sendState(room)
     return { ok: true, session: { code: room.code, playerId, token: seat.token }, snapshot: snapshot(room, playerId) }
@@ -173,7 +177,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (rooms.size >= MAX_ROOMS) return { ok: false, error: 'server_full' }
         let code: string
         do { code = randomInt(0, 1_000_000).toString().padStart(6, '0') } while (rooms.has(code))
-        const room: Room = { code, seats: {}, match: null, draft: null, rematch: new Set(), processed: new Map() }
+        const room: Room = { code, seats: {}, match: null, draft: null, rematch: new Set(), processed: new Map(), comboEvents: [] }
         rooms.set(code, room)
         return joinSeat(peer, room, 1)
       }
@@ -213,6 +217,17 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (!current) return { ok: false, error: 'not_in_room' }
         closeRoom(current.room, 'left')
         return { ok: true }
+      }
+      case 'draft:hover': {
+        const current = currentRoom(peer)
+        if (!current) return { ok: false, error: 'not_in_room' }
+        if (!validDraftHover(payload)) return { ok: false, error: 'invalid_action' }
+        const { room, playerId } = current
+        refreshDraft(room)
+        if (!room.draft) return { ok: false, error: 'draft_not_started' }
+        const reply = applyDraftHover(room.draft, playerId, payload, Date.now())
+        sendState(room)
+        return reply
       }
       case 'draft:action': {
         const current = currentRoom(peer)
@@ -263,6 +278,12 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
           : { type: 'end_turn', playerId }, random)
         if (result.error) return { ok: false, error: result.error }
         room.match = result.state
+        // HTTPのpoll間に複数操作があっても発動を取りこぼさない。再送は上の処理済み判定で除外する。
+        let sequence = room.comboEvents.at(-1)?.sequence ?? 0
+        const combos = result.events.filter(event => event.type === 'combo').map(event => ({
+          sequence: ++sequence, playerId: event.playerId, comboId: event.comboId,
+        }))
+        if (combos.length) room.comboEvents = [...room.comboEvents, ...combos].slice(-MAX_COMBO_EVENTS)
         if (room.match.phase === 'reorder') {
           startDraft(room, 'reorder')
         }
@@ -292,6 +313,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     if (!current) return
     const { room, playerId } = current
     const seat = room.seats[playerId]!
+    if (room.draft) releaseDraftHover(room.draft, playerId, Date.now())
     seat.peerId = null
     seat.expiry = setTimeout(() => {
       if (!seat.peerId) closeRoom(room, 'expired')

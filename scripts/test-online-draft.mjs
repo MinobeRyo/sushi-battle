@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createRoomService } from '../server/roomService.ts'
 import { applyDraftAction, createOnlineDraft } from '../server/onlineDraft.ts'
 import { CARDS } from '../src/data/cards.ts'
+import { DRAFT_HOVER_LEASE_MS, onlineLaneElapsed, onlinePlatePosition } from '../src/game/draftOffers.ts'
 
 const realNow = Date.now
 let now = 1_000_000
@@ -24,11 +25,14 @@ function fixture() {
     return { draftId: draft.draftId, expectedRevision: draft.revision, actionId: `draft-test-${++actionId}`, ...command }
   }
   const send = (player, command) => service.handle(player, 'draft:action', action(player, command))
+  const hover = (player, lanes, sequence = ++actionId) => service.handle(player, 'draft:hover', {
+    draftId: read(player).draft.draftId, lanes, sequence,
+  })
   const finish = () => {
     assert.deepEqual(send(host, { type: 'complete' }), { ok: true })
     assert.deepEqual(send(guest, { type: 'complete' }), { ok: true })
   }
-  return { service, host, guest, created, joined, read, action, send, finish, peer }
+  return { service, host, guest, created, joined, read, action, send, hover, finish, peer }
 }
 async function test(name, run) {
   now = 1_000_000
@@ -44,7 +48,7 @@ try {
     assert.equal(state.draft.you.deadlineAt - state.draft.startedAt, 90_000)
     assert.equal(state.draft.you.budget, 3000)
     assert.equal(state.draft.offers.length, 22)
-    assert.deepEqual(Object.keys(state.draft).sort(), ['draftId', 'mode', 'startedAt', 'initialBudget', 'revision', 'you', 'offers', 'opponentCompleted'].sort())
+    assert.deepEqual(Object.keys(state.draft).sort(), ['draftId', 'mode', 'startedAt', 'initialBudget', 'revision', 'you', 'offers', 'laneClocks', 'opponentCompleted'].sort())
     f.send(f.guest, { type: 'order', cardId: 'salmon' })
     assert.equal(f.read(f.host).draft.you.deck.length, 0)
     assert.equal('players' in f.read(f.host).draft, false)
@@ -117,6 +121,104 @@ try {
     const after = f.read(f.host).draft
     assert.equal(after.revision, before.revision)
     assert.ok(after.offers.some(next => next.slot === offer.slot && next.lane === offer.lane && next.generation > offer.generation))
+  })
+
+  await test('hoverは本人の該当レーンだけ停止し、相手・別レーン・締切は進む。停止中の皿を購入できる', () => {
+    const f = fixture()
+    const before = f.read(f.host).draft
+    const offer = before.offers.find(offer => offer.lane === 'build' && offer.slot === 0)
+    assert.deepEqual(f.hover(f.host, ['build']), { ok: true })
+    now += 2000
+    const stopped = f.read(f.host).draft
+    assert.equal(onlineLaneElapsed(stopped.startedAt, stopped.laneClocks.build, now), 0)
+    assert.equal(onlineLaneElapsed(stopped.startedAt, stopped.laneClocks.general, now), 2000)
+    const guest = f.read(f.guest).draft
+    assert.equal(onlineLaneElapsed(guest.startedAt, guest.laneClocks.build, now), 2000)
+    assert.ok(guest.offers.some(item => item.lane === 'build' && item.slot === 0 && item.generation > 0))
+    assert.equal(stopped.you.deadlineAt, before.you.deadlineAt)
+    assert.equal(stopped.you.deadlineAt - now, 88_000)
+    assert.equal(stopped.revision, before.revision)
+    assert.deepEqual(f.send(f.host, { type: 'buy', offerId: offer.id }), { ok: true })
+    assert.equal(f.read(f.host).draft.you.deck[0].id, offer.card.id)
+  })
+
+  await test('hoverを更新して長く停止しても、解除時に飛ばずその位置から再開する', () => {
+    const f = fixture()
+    now += 100
+    f.hover(f.host, ['build'])
+    const before = f.read(f.host).draft
+    const beforePosition = onlinePlatePosition('build', 4, onlineLaneElapsed(before.startedAt, before.laneClocks.build, now))
+    for (let i = 0; i < 5; i++) { now += 1000; f.hover(f.host, ['build']) }
+    const stopped = f.read(f.host).draft
+    assert.deepEqual(onlinePlatePosition('build', 4, onlineLaneElapsed(stopped.startedAt, stopped.laneClocks.build, now)), beforePosition)
+    f.hover(f.host, [])
+    const resumed = f.read(f.host).draft
+    assert.equal(resumed.laneClocks.build.pausedAt, null)
+    assert.equal(onlineLaneElapsed(resumed.startedAt, resumed.laneClocks.build, now), 100)
+    now += 100
+    assert.equal(onlineLaneElapsed(resumed.startedAt, resumed.laneClocks.build, now), 200)
+    assert.equal(resumed.you.deadlineAt, before.you.deadlineAt)
+  })
+
+  await test('停止期限切れは表示とサーバーの双方で再開し、hover解除より古い通信は再停止させない', () => {
+    const f = fixture()
+    f.hover(f.host, ['build'], 10)
+    const stopped = f.read(f.host).draft
+    now += DRAFT_HOVER_LEASE_MS + 2000
+    assert.equal(onlineLaneElapsed(stopped.startedAt, stopped.laneClocks.build, now), 2000)
+    const expired = f.read(f.host).draft
+    assert.equal(expired.laneClocks.build.pausedAt, null)
+    assert.equal(onlineLaneElapsed(expired.startedAt, expired.laneClocks.build, now), 2000)
+    assert.ok(expired.offers.some(item => item.lane === 'build' && item.slot === 0 && item.generation > 0))
+    f.hover(f.host, ['build'], 11)
+    f.hover(f.host, [], 12)
+    assert.deepEqual(f.hover(f.host, ['build'], 11), { ok: true })
+    assert.equal(f.read(f.host).draft.laneClocks.build.pausedAt, null)
+  })
+
+  await test('不正なhover・別の購入タイム・未参加者による停止を拒否する', () => {
+    const f = fixture()
+    const draftId = f.read(f.host).draft.draftId
+    for (const value of [null, {}, { draftId, lanes: ['fake'], sequence: 1 },
+      { draftId, lanes: ['build', 'build'], sequence: 1 }, { draftId, lanes: ['build'], sequence: 0 },
+      { draftId, lanes: ['build'], sequence: NaN }]) {
+      assert.deepEqual(f.service.handle(f.host, 'draft:hover', value), { ok: false, error: 'invalid_action' })
+    }
+    assert.deepEqual(f.service.handle(f.host, 'draft:hover', { draftId: 'old', lanes: ['build'], sequence: 1 }), { ok: false, error: 'stale_draft' })
+    assert.deepEqual(f.service.handle(f.peer('outsider'), 'draft:hover', { draftId, lanes: ['build'], sequence: 1 }), { ok: false, error: 'not_in_room' })
+  })
+
+  await test('切断と復帰でhoverを解除し、再接続側はレーンを操作できる', () => {
+    const f = fixture()
+    f.hover(f.host, ['general', 'build'])
+    now += 500
+    f.service.disconnect(f.host)
+    now += 1000
+    const replacement = f.peer('replacement')
+    f.service.connect(replacement)
+    const resumed = f.service.handle(replacement, 'room:resume', f.created.session)
+    assert.equal(resumed.ok, true)
+    assert.equal(resumed.snapshot.draft.laneClocks.build.pausedAt, null)
+    assert.equal(onlineLaneElapsed(resumed.snapshot.draft.startedAt, resumed.snapshot.draft.laneClocks.build, now), 1000)
+    assert.deepEqual(f.hover(replacement, ['build'], 1), { ok: true })
+    assert.notEqual(f.read(replacement).draft.laneClocks.build.pausedAt, null)
+    // 同じ席を新しい画面で開き直した場合も古いカーソル状態を引き継がない。
+    const another = f.peer('another')
+    f.service.connect(another)
+    const switched = f.service.handle(another, 'room:resume', f.created.session)
+    assert.equal(switched.snapshot.draft.laneClocks.build.pausedAt, null)
+    assert.deepEqual(f.service.handle(replacement, 'draft:hover', { draftId: switched.snapshot.draft.draftId, lanes: ['build'], sequence: 2 }), { ok: false, error: 'not_in_room' })
+  })
+
+  await test('両レーンを停止していても締切で購入を終了し、完了後のhoverは受付しない', () => {
+    const f = fixture()
+    const draftId = f.read(f.host).draft.draftId
+    for (let i = 0; i < 89; i++) { f.hover(f.host, ['general', 'build']); now += 1000 }
+    f.hover(f.host, ['general', 'build'])
+    now += 1000
+    assert.equal(f.read(f.host).draft, null)
+    assert.ok(f.read(f.host).match)
+    assert.deepEqual(f.service.handle(f.host, 'draft:hover', { draftId, lanes: ['build'], sequence: ++actionId }), { ok: false, error: 'draft_not_started' })
   })
 
   await test('購入・特急配送中の切断から復帰しても、デッキ・残金・締切を保持する', () => {

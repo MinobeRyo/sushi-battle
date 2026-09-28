@@ -7,6 +7,15 @@ export const ONLINE_LANES = {
 } as const
 export type DraftLane = keyof typeof ONLINE_LANES
 export type DraftOffer = { id: string; lane: DraftLane; slot: number; generation: number; card: Card; sold: boolean }
+export type DraftLaneClock = { pausedMs: number; pausedAt: number | null; pauseUntil: number | null }
+// hoverは更新が途絶えると自然に解除する。締切の時計はこの補正を使用しない。
+export const DRAFT_HOVER_LEASE_MS = 3000
+
+export function onlineLaneElapsed(startedAt: number, clock: DraftLaneClock, now: number) {
+  const currentPause = clock.pausedAt === null || clock.pauseUntil === null
+    ? 0 : Math.max(0, Math.min(now, clock.pauseUntil) - clock.pausedAt)
+  return Math.max(0, now - startedAt - clock.pausedMs - currentPause)
+}
 export const BELT_SPACING = 2.3
 export const BELT_LEFT = -12
 

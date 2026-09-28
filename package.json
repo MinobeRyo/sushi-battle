@@ -8,9 +8,9 @@
     "server:dev": "tsx watch server/index.ts",
     "server": "tsx server/index.ts",
     "typecheck:server": "tsc -p tsconfig.server.json",
-    "test:online": "node --import tsx scripts/test-online-draft.mjs && node --import tsx scripts/test-online.mjs && node --import tsx scripts/test-http-online.mjs && node scripts/test-room-transport.mjs",
+    "test:online": "node --import tsx scripts/test-online-draft.mjs && node --import tsx scripts/test-online-feedback.mjs && node --import tsx scripts/test-online.mjs && node --import tsx scripts/test-http-online.mjs && node scripts/test-room-transport.mjs",
     "build": "tsc -b && vite build",
-    "test": "node scripts/test-battle-logic.mjs && node scripts/test-match-engine.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs",
+    "test": "node scripts/test-battle-logic.mjs && node scripts/test-match-engine.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs && node scripts/test-battle-status.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

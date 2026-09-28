@@ -27,6 +27,7 @@ export function createSocketRoomTransport(callbacks: RoomTransportCallbacks): Ro
         case 'room:leave': return await pending.emitWithAck('room:leave') as RoomRequestReply<E>
         case 'match:action': return await pending.emitWithAck('match:action', payload as RoomRequestPayloads['match:action']) as RoomRequestReply<E>
         case 'draft:action': return await pending.emitWithAck('draft:action', payload as RoomRequestPayloads['draft:action']) as RoomRequestReply<E>
+        case 'draft:hover': return await pending.emitWithAck('draft:hover', payload as RoomRequestPayloads['draft:hover']) as RoomRequestReply<E>
         case 'match:rematch': return await pending.emitWithAck('match:rematch') as RoomRequestReply<E>
         default: throw new Error('Unknown room event')
       }

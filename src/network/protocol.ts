@@ -1,6 +1,6 @@
 import type { MatchPlayer, PlayerId } from '../game/types'
 import type { DraftState } from '../features/draft/draftEngine'
-import type { DraftOffer } from '../game/draftOffers'
+import type { DraftLane, DraftLaneClock, DraftOffer } from '../game/draftOffers'
 
 export type PublicDraft = {
   draftId: string
@@ -10,6 +10,7 @@ export type PublicDraft = {
   revision: number
   you: Omit<DraftState, 'purchasedIds'>
   offers: DraftOffer[]
+  laneClocks: Record<DraftLane, DraftLaneClock>
   opponentCompleted: boolean
 }
 export type DraftCommand =
@@ -18,6 +19,10 @@ export type DraftCommand =
   | { type: 'pickup' }
   | { type: 'complete' }
 export type OnlineDraftAction = DraftCommand & { draftId: string; actionId: string; expectedRevision: number }
+export type OnlineDraftHover = { draftId: string; lanes: DraftLane[]; sequence: number }
+
+// 発動済みの公開コンボだけを配信する。手札や未公開カードの情報は含めない。
+export type PublicComboEvent = { sequence: number; playerId: PlayerId; comboId: string }
 
 export type PublicMatch = {
   matchId: string
@@ -29,6 +34,7 @@ export type PublicMatch = {
   you: Omit<MatchPlayer, 'deck'> & { deckCount: number }
   opponent: Omit<MatchPlayer, 'hand' | 'deck'> & { handCount: number; deckCount: number }
   log: string[]
+  comboEvents: PublicComboEvent[]
 }
 
 export type RoomSnapshot = {
@@ -62,5 +68,6 @@ export interface ClientToServerEvents {
   'room:leave': (reply: (result: Reply) => void) => void
   'match:action': (action: OnlineAction, reply: (result: Reply) => void) => void
   'draft:action': (action: OnlineDraftAction, reply: (result: Reply) => void) => void
+  'draft:hover': (hover: OnlineDraftHover, reply: (result: Reply) => void) => void
   'match:rematch': (reply: (result: Reply) => void) => void
 }

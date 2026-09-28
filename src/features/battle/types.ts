@@ -9,7 +9,7 @@ export type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 
 export type ComboAnim = { key: number; name: string; desc: string; playerLabel: string }
 
-export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number }
+export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number; owner?: 'player' | 'opponent' }
 
 // 既存の画面部品へ渡す投影。対戦の正本は game/types.ts の MatchState。
 export type BattleView = {
@@ -30,9 +30,10 @@ export type BattleView = {
   pKiretaSpent: boolean  // コハダで切れ味を使い切ったか（実際のリセットはターン終了時）
   // この端末から見た相手側（ローカル対戦用）
   cHandCount: number; cField: FieldCard[]; cDeckCount: number
-  cBelly: number
+  cBelly: number; cAP: number; cMaxAP: number
   cSummonedIds: string[]
   cSummonedArch: Record<string, number>
+  cThisTurnArch: Record<string, number>
   cDrawBonus: number
   cAttackBuff: Record<string, number>
   cCombosFired: string[]

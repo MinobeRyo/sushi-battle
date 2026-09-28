@@ -63,11 +63,12 @@ type SideStatus = {
   summonedIds: string[]; combosFired: string[]; field: FieldCard[]
   attackBuff: Record<string, number>; drawBonus: number
   kireta: number; kiretaSpent: boolean; nikuMatsuri: boolean
+  digestStopTurns?: number; apNextBonus?: number
 }
 
 // 相手側は「今なにが効いているか」だけを出す（進捗の途中経過は出さない）
-export function ComboStatusBar({ st, compact, inline, onGold }: {
-  st: SideStatus; compact?: boolean; inline?: boolean; onGold?: boolean
+export function ComboStatusBar({ st, compact, inline, onGold, hideKireta }: {
+  st: SideStatus; compact?: boolean; inline?: boolean; onGold?: boolean; hideKireta?: boolean
 }) {
   const akamiFired = st.combosFired.includes('akami_mori')
   const makiFired = st.combosFired.includes('maki_comp_3')
@@ -80,6 +81,10 @@ export function ComboStatusBar({ st, compact, inline, onGold }: {
 
   const pills: React.ReactNode[] = []
   const push = (key: string, node: React.ReactNode) => pills.push(<div key={key}>{node}</div>)
+
+  if (!hideKireta) push('kireta', <StatusPill icon="✂" label="切れ味"
+    value={st.kiretaSpent ? `${st.kireta} → 0` : `${st.kireta}`}
+    on={st.kireta > 0} tone={C.kireta} onGold={onGold} />)
 
   if (akamiFired) push('akami', <StatusPill icon="🐟" label="赤身" value={`マグロ +${magBuff}`} on tone="#b45309" onGold={onGold} />)
   else if (!compact) push('akami', <StatusPill icon="🐟" label="赤身" value={`${akam}/3`} on={false} tone="#b45309" onGold={onGold} />)
@@ -94,13 +99,9 @@ export function ComboStatusBar({ st, compact, inline, onGold }: {
   if (obaFired) push('oba', <StatusPill icon="✨" label="大葉" value="発動済" on tone="#2563eb" onGold={onGold} />)
   else if (!compact || oba > 0) push('oba', <StatusPill icon="✨" label="大葉" value={`${oba}/${OBA_REQUIRED}`} on={false} tone="#2563eb" onGold={onGold} />)
 
-  if (st.kireta > 0 || !compact) {
-    push('kireta', <StatusPill icon="✂" label="切れ味"
-      value={st.kiretaSpent ? `${st.kireta} → 0` : `${st.kireta}`}
-      on={st.kireta > 0} tone={C.kireta} onGold={onGold} />)
-  }
-
   if (st.nikuMatsuri) push('niku', <StatusPill icon="🥩" label="肉祭り" value="ボーナス×2" on tone="#9a3412" onGold={onGold} />)
+  if (st.apNextBonus) push('ap', <StatusPill icon="⚡" label="次のAP" value={`+${st.apNextBonus}`} on tone="#b45309" onGold={onGold} />)
+  if (st.digestStopTurns) push('digest', <StatusPill icon="⊘" label="消化停止" value={`${st.digestStopTurns}回`} on tone="#b91c1c" onGold={onGold} />)
 
   if (pills.length === 0) return null
   return (

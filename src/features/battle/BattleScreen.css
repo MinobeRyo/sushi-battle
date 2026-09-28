@@ -38,6 +38,101 @@
 .battle-opponent-status { margin-bottom: clamp(8px, 1.2vh, 14px); }
 .battle-player-status { margin-top: clamp(8px, 1.2vh, 14px); }
 
+.battle-opponent-effects {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin: -2px 0 7px;
+  min-width: 0;
+}
+
+.battle-kireta-stock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-shrink: 0;
+  border: 1px solid #c7bda9;
+  border-radius: 7px;
+  padding: 2px 9px;
+  background: #fffaf1;
+  color: #62594c;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.battle-kireta-stock strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.battle-kireta-stock small { font-size: 10px; }
+.battle-kireta-stock[data-active='true'] { color: #68439a; border-color: #b59bcf; background: #f2eafb; }
+.battle-opponent-combos { flex: 1; min-width: 0; overflow: hidden; }
+
+.battle-status-open {
+  flex-shrink: 0;
+  min-height: 30px;
+  padding: 3px 9px;
+  border: 1px solid #cbb795;
+  border-radius: 7px;
+  background: #faf3e4;
+  color: #6f4b25;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.battle-status-open:hover { background: #eee0c5; }
+.battle-status-open:focus-visible { outline: 2px solid #a15b2d; outline-offset: 2px; }
+
+.battle-status-dialog {
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #b49771;
+  border-radius: 16px;
+  background: #faf6ee;
+  color: #403022;
+  box-shadow: 0 20px 90px #160c0670;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.battle-status-dialog::backdrop { background: #160c069c; }
+.battle-status-dialog-content { padding: 0 22px 22px; }
+.battle-status-dialog header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid #dcccb6;
+  background: #faf6ee;
+}
+.battle-status-dialog header p { font-size: 10px; letter-spacing: .15em; color: #8c7359; }
+.battle-status-dialog h2 { font-size: 22px; font-weight: 800; }
+.battle-status-dialog header button {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid #cbb795;
+  border-radius: 8px;
+  background: #fffaf2;
+  cursor: pointer;
+}
+.battle-status-totals { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 15px 0; font-size: 12px; color: #806b52; }
+.battle-status-totals strong { margin-left: 6px; color: #403022; font-size: 16px; }
+.battle-status-dialog section + section { margin-top: 22px; }
+.battle-status-dialog h3 { font-size: 12px; font-weight: 800; color: #896338; margin-bottom: 9px; }
+.battle-effects-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.battle-effects-list > div { border: 1px solid #ddd0bf; border-radius: 10px; background: #fffdf8; padding: 12px; }
+.battle-effects-list dt { font-size: 11px; color: #856e58; }
+.battle-effects-list strong { display: block; margin: 3px 0 5px; font-size: 18px; color: #704595; }
+.battle-effects-list p, .battle-combos-list dd { font-size: 12px; line-height: 1.6; color: #776754; }
+.battle-combos-list > div { border-top: 1px solid #e6dccd; padding: 10px 0; }
+.battle-combos-list dt { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 700; }
+.battle-combos-list dt span { color: #8b4c24; text-align: right; }
+.battle-combos-list dd { margin-top: 3px; }
+
 .battle-field {
   flex: 1;
   min-width: 0;
@@ -92,14 +187,14 @@
 /* Measure the board, not the window: the online room bar consumes height too. */
 @container battle-viewport (max-height: 520px) {
   .battle-board {
-    --battle-hand-height: clamp(100px, 30cqh, 136px);
+    --battle-hand-height: clamp(90px, 27cqh, 126px);
     --battle-hand-card-height: calc(var(--battle-hand-height) - 14px);
     --battle-hand-width: clamp(72px, 11cqw, 88px);
     --battle-field-width: clamp(66px, 10cqw, 82px);
     --battle-field-height: clamp(66px, calc(100cqh - 260px), 98px);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) 36px 48px var(--battle-hand-height);
+    grid-template-rows: minmax(0, 1fr) 32px 44px var(--battle-hand-height);
     grid-template-areas: 'opponent player' 'counter counter' 'actions actions' 'hand hand';
   }
 
@@ -119,7 +214,11 @@
 
   .battle-player-status { order: -1; }
   .battle-avatar, .battle-counter-label { display: none; }
-  .battle-opponent-combos { max-width: 30%; }
+  .battle-opponent-effects { gap: 5px; margin: 0 0 4px; }
+  .battle-kireta-stock { gap: 5px; padding: 1px 6px; }
+  .battle-kireta-stock strong { font-size: 14px; }
+  .battle-status-open { min-height: 27px; padding: 3px 6px; font-size: 10px; }
+  .battle-player-status-open { padding-inline: 5px; }
 
   .battle-field {
     min-height: 0;
@@ -136,6 +235,7 @@
   .battle-field-card {
     padding: 3px !important;
     gap: 2px !important;
+    max-height: 100%;
   }
 
   .battle-field-art {
@@ -184,4 +284,9 @@
 
   /* Full effects stay available in the card detail sheet. */
   .battle-hand-effect { display: none; }
+}
+
+@media (max-width: 440px) {
+  .battle-status-dialog-content { padding-inline: 15px; }
+  .battle-effects-list { grid-template-columns: 1fr; }
 }

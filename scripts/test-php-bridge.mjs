@@ -283,6 +283,14 @@ try {
       const joined = await call(second, 'room:join', { code: created.reply.session.code })
       assert.equal(joined.reply.ok, true)
       assert.ok(joined.snapshot.draft)
+      const draftId = joined.snapshot.draft.draftId
+      const paused = await call(first, 'draft:hover', { draftId, lanes: ['build'], sequence: 1 })
+      assert.deepEqual(paused.reply, { ok: true })
+      assert.notEqual(paused.snapshot.draft.laneClocks.build.pausedAt, null)
+      assert.equal((await call(second, 'poll')).snapshot.draft.laneClocks.build.pausedAt, null)
+      const flowing = await call(first, 'draft:hover', { draftId, lanes: [], sequence: 2 })
+      assert.deepEqual(flowing.reply, { ok: true })
+      assert.equal(flowing.snapshot.draft.laneClocks.build.pausedAt, null)
       for (const clientId of [first, second]) {
         await finishPurchases(async (event, payload) => (await call(clientId, event, payload)).reply,
           async () => (await call(clientId, 'poll')).snapshot)
