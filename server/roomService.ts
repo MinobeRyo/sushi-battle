@@ -3,7 +3,8 @@ import { createMatch, otherPlayer, transitionMatch } from '../src/game/matchEngi
 import type { MatchState, PlayerId, RandomSource } from '../src/game/types'
 import type { JoinReply, OnlineAction, PublicMatch, Reply, RoomSnapshot } from '../src/network/protocol'
 import type { RoomEvent } from '../src/network/httpProtocol'
-import { fixedDeck } from './fixedDeck'
+import { applyDraftAction, createOnlineDraft, publicDraft, refreshOnlineDraft, validDraftAction } from './onlineDraft'
+import type { OnlineDraft } from './onlineDraft'
 
 export type RoomPeer = {
   id: string
@@ -17,6 +18,8 @@ type Room = {
   code: string
   seats: Partial<Record<PlayerId, Seat>>
   match: MatchState | null
+  draft: OnlineDraft | null
+  draftTimer?: ReturnType<typeof setInterval>
   rematch: Set<PlayerId>
   processed: Map<string, ProcessedAction>
 }
@@ -38,10 +41,11 @@ function publicMatch(match: MatchState, playerId: PlayerId): PublicMatch {
 
 function snapshot(room: Room, playerId: PlayerId): RoomSnapshot {
   return {
-    code: room.code, playerId,
+    code: room.code, playerId, serverNow: Date.now(),
     connected: { 1: Boolean(room.seats[1]?.peerId), 2: Boolean(room.seats[2]?.peerId) },
     rematchRequested: { 1: room.rematch.has(1), 2: room.rematch.has(2) },
     match: room.match ? publicMatch(room.match, playerId) : null,
+    draft: room.draft ? publicDraft(room.draft, playerId) : null,
   }
 }
 
@@ -76,6 +80,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
 
   const closeRoom = (room: Room, reason: string) => {
     if (!rooms.delete(room.code)) return
+    clearInterval(room.draftTimer)
     for (const playerId of [1, 2] as const) {
       const seat = room.seats[playerId]
       if (seat?.expiry) clearTimeout(seat.expiry)
@@ -96,9 +101,40 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     return { room, playerId }
   }
 
-  const startMatch = (room: Room) => {
-    room.match = createMatch({ mode: 'two_player', matchId: randomUUID(), deck: fixedDeck(), p2Deck: fixedDeck() }, random)
+  const finishDraftIfReady = (room: Room) => {
+    const draft = room.draft
+    if (!draft || !draft.players[1].state.completed || !draft.players[2].state.completed) return
+    if (draft.mode === 'initial') {
+      room.match = createMatch({ mode: 'two_player', matchId: randomUUID(),
+        deck: draft.players[1].state.deck, p2Deck: draft.players[2].state.deck }, random)
+    } else if (room.match) {
+      // 購入は同時進行。共通エンジンへの反映だけ、要求される手番順に行う。
+      while (room.match.phase === 'reorder' && room.match.reorderPlayerId) {
+        const playerId: PlayerId = room.match.reorderPlayerId
+        room.match = transitionMatch(room.match, {
+          type: 'complete_reorder', playerId, cards: draft.players[playerId].state.deck,
+        }, random).state
+      }
+    }
+    room.draft = null
+    clearInterval(room.draftTimer)
+    delete room.draftTimer
+  }
+
+  const refreshDraft = (room: Room) => {
+    if (!room.draft) return
+    const changed = refreshOnlineDraft(room.draft, Date.now(), random)
+    finishDraftIfReady(room)
+    if (changed) sendState(room)
+  }
+
+  const startDraft = (room: Room, mode: OnlineDraft['mode']) => {
+    clearInterval(room.draftTimer)
+    if (mode === 'initial') room.match = null
+    room.draft = createOnlineDraft(mode, Date.now(), random)
     room.rematch.clear()
+    room.draftTimer = setInterval(() => refreshDraft(room), 250)
+    room.draftTimer.unref()
   }
 
   const joinSeat = (peer: RoomPeer, room: Room, playerId: PlayerId): JoinReply => {
@@ -121,7 +157,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         disconnect(previous)
       }
     }
-    if (!room.match && room.seats[1] && room.seats[2]) startMatch(room)
+    if (!room.match && !room.draft && room.seats[1] && room.seats[2]) startDraft(room, 'initial')
+    refreshDraft(room)
     sendState(room)
     return { ok: true, session: { code: room.code, playerId, token: seat.token }, snapshot: snapshot(room, playerId) }
   }
@@ -136,7 +173,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (rooms.size >= MAX_ROOMS) return { ok: false, error: 'server_full' }
         let code: string
         do { code = randomInt(0, 1_000_000).toString().padStart(6, '0') } while (rooms.has(code))
-        const room: Room = { code, seats: {}, match: null, rematch: new Set(), processed: new Map() }
+        const room: Room = { code, seats: {}, match: null, draft: null, rematch: new Set(), processed: new Map() }
         rooms.set(code, room)
         return joinSeat(peer, room, 1)
       }
@@ -177,6 +214,31 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         closeRoom(current.room, 'left')
         return { ok: true }
       }
+      case 'draft:action': {
+        const current = currentRoom(peer)
+        if (!current) return { ok: false, error: 'not_in_room' }
+        const { room, playerId } = current
+        if (!validDraftAction(payload)) return { ok: false, error: 'invalid_action' }
+        const action = payload
+        const key = `draft:${playerId}:${action.actionId}`
+        const fingerprint = JSON.stringify([action.draftId, action.expectedRevision, action.type,
+          action.type === 'buy' ? action.offerId : action.type === 'order' ? action.cardId : null])
+        const previous = room.processed.get(key)
+        refreshDraft(room)
+        if (previous) {
+          sendState(room)
+          return previous.fingerprint === fingerprint ? previous.reply : { ok: false, error: 'action_id_conflict' }
+        }
+        if (!room.draft) return { ok: false, error: 'draft_not_started' }
+        const reply = applyDraftAction(room.draft, playerId, action, Date.now())
+        if (reply.ok) {
+          room.processed.set(key, { fingerprint, reply })
+          if (room.processed.size > MAX_PROCESSED_ACTIONS) room.processed.delete(room.processed.keys().next().value!)
+          finishDraftIfReady(room)
+        }
+        sendState(room)
+        return reply
+      }
       case 'match:action': {
         const current = currentRoom(peer)
         if (!current) return { ok: false, error: 'not_in_room' }
@@ -202,14 +264,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (result.error) return { ok: false, error: result.error }
         room.match = result.state
         if (room.match.phase === 'reorder') {
-          // 試遊版では双方へ同じ固定デッキを補充する。
-          while (room.match.phase === 'reorder' && room.match.reorderPlayerId) {
-            room.match = transitionMatch(room.match, {
-              type: 'complete_reorder', playerId: room.match.reorderPlayerId, cards: fixedDeck(),
-            }, random).state
-          }
-          room.match.log = ['試遊版：双方に固定デッキを補充しました',
-            ...room.match.log.filter(message => !message.includes('追加注文'))].slice(0, 40)
+          startDraft(room, 'reorder')
         }
         const accepted: Reply = { ok: true }
         room.processed.set(key, { fingerprint, reply: accepted })
@@ -224,7 +279,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (room.match?.phase !== 'over') return { ok: false, error: 'match_not_over' }
         if (!room.seats[1]?.peerId || !room.seats[2]?.peerId) return { ok: false, error: 'players_disconnected' }
         room.rematch.add(playerId)
-        if (room.rematch.size === 2) startMatch(room)
+        if (room.rematch.size === 2) startDraft(room, 'initial')
         sendState(room)
         return { ok: true }
       }
@@ -252,6 +307,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     hasRoom(code: string) { return rooms.has(code) },
     snapshot(peer: RoomPeer) {
       const current = currentRoom(peer)
+      if (current) refreshDraft(current.room)
       return current ? snapshot(current.room, current.playerId) : undefined
     },
     close() {

@@ -4,6 +4,7 @@ import { createServer, request as httpRequest } from 'node:http'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { finishPurchases } from './online-test-helpers.mjs'
 
 // Optional isolated test dependency; the game and deployed server do not need PHP-WASM.
 // npm install --prefix .cache/php-bridge-runtime --ignore-scripts --no-audit --no-fund \
@@ -281,6 +282,11 @@ try {
       assert.equal(created.reply.ok, true)
       const joined = await call(second, 'room:join', { code: created.reply.session.code })
       assert.equal(joined.reply.ok, true)
+      assert.ok(joined.snapshot.draft)
+      for (const clientId of [first, second]) {
+        await finishPurchases(async (event, payload) => (await call(clientId, event, payload)).reply,
+          async () => (await call(clientId, 'poll')).snapshot)
+      }
       const before = (await call(first, 'poll')).snapshot
       assert.ok(before.match)
       assert.equal(before.connected[1], true)

@@ -6,6 +6,7 @@ import { request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { io } from 'socket.io-client'
 import { createGameServer } from '../server/gameServer.ts'
+import { finishPurchases } from './online-test-helpers.mjs'
 
 const servers = new Set()
 const sockets = new Set()
@@ -23,6 +24,12 @@ async function start(options = {}) {
   const server = await createGameServer({ port: 0, host: '127.0.0.1', ...options })
   servers.add(server)
   return server
+}
+async function finishBoth(left, right, buy = true) {
+  for (const client of [left, right]) {
+    await finishPurchases(async (event, payload) => (await client.request(event, payload)).reply,
+      async () => (await client.request()).snapshot, buy)
+  }
 }
 function client(server) {
   const clientId = id()
@@ -96,7 +103,7 @@ try {
     assert.deepEqual((await host.request('room:create')).reply.session, hostSession)
   })
 
-  await test('参加応答の再送で試合を作り直さず、席とトークンを維持する', async () => {
+  await test('参加応答の再送で購入状態を作り直さず、席とトークンを維持する', async () => {
     await guest.dropReply('room:join', { code: hostSession.code })
     const started = (await guest.request()).snapshot
     const retry = await guest.request('room:join', { code: hostSession.code })
@@ -104,8 +111,10 @@ try {
     guestSession = retry.reply.session
     assert.equal(guestSession.playerId, 2)
     assert.deepEqual(retry.snapshot.match, started.match)
+    assert.equal(retry.snapshot.draft.draftId, started.draft.draftId)
     assert.deepEqual((await guest.request('room:create')).reply.session, guestSession)
     assert.deepEqual((await outsider.request('room:join', { code: hostSession.code })).reply, { ok: false, error: 'room_full' })
+    await finishBoth(host, guest)
   })
 
   await test('HTTPの状態にも相手の手札・山札・再参加トークンを含めない', async () => {
@@ -155,6 +164,7 @@ try {
     let snapshot = (await host.request()).snapshot
     let steps = 0
     while (snapshot.match.phase !== 'over' && steps++ < 500) {
+      if (snapshot.draft) await finishBoth(host, guest)
       const active = snapshot.match.activePlayerId === 1 ? host : guest
       snapshot = (await active.request()).snapshot
       const match = snapshot.match
@@ -174,9 +184,13 @@ try {
     assert.equal(consent.snapshot.match.matchId, oldId)
     const rematch = await guest.request('match:rematch')
     assert.deepEqual(rematch.reply, { ok: true })
-    assert.notEqual(rematch.snapshot.match.matchId, oldId)
-    assert.equal(rematch.snapshot.match.phase, 'playing')
-    assert.equal(rematch.snapshot.match.revision, 0)
+    assert.equal(rematch.snapshot.match, null)
+    assert.equal(rematch.snapshot.draft.mode, 'initial')
+    await finishBoth(host, guest)
+    const restarted = (await host.request()).snapshot.match
+    assert.notEqual(restarted.matchId, oldId)
+    assert.equal(restarted.phase, 'playing')
+    assert.equal(restarted.revision, 0)
   })
 
   await test('正規トークンで接続を引き継ぎ、旧HTTP接続の全要求をreplacedで止める', async () => {
@@ -232,7 +246,7 @@ try {
       (error, result) => error ? reject(error) : resolve(result)))
     const joined = await rpc('room:join', { code: created.reply.session.code })
     assert.equal(joined.ok, true)
-    assert.ok((await http.request()).snapshot.match)
+    assert.ok((await http.request()).snapshot.draft)
     const replacement = client(server)
     const replaced = new Promise(resolve => socket.once('room:closed', resolve))
     assert.equal((await replacement.request('room:resume', joined.session)).reply.ok, true)
@@ -256,6 +270,7 @@ try {
     const right = client(ttlServer)
     const created = await left.request('room:create')
     const joined = await right.request('room:join', { code: created.reply.session.code })
+    await finishBoth(left, right, false)
     const gone = await waitFor(() => left.request(), value => value.snapshot?.connected[2] === false)
     const denied = await left.request('match:action', action(gone.snapshot))
     assert.deepEqual(denied.reply, { ok: false, error: 'players_disconnected' })

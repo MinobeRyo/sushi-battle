@@ -2,13 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoomTransport } from '../../network/roomTransport'
 import type { RoomTransport } from '../../network/roomTransportTypes'
 import type {
-  JoinReply, OnlineAction, Reply, RoomSession, RoomSnapshot,
+  DraftCommand, JoinReply, OnlineAction, OnlineDraftAction, Reply, RoomSession, RoomSnapshot,
 } from '../../network/protocol'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 const SESSION_KEY = 'sushi-battle:online-session'
 
 const ERROR_MESSAGES: Record<string, string> = {
+  stale_draft: '注文時間が切り替わりました。最新の状態を取得します。',
+  draft_not_started: '購入受付が終了しました。最新の状態を取得します。',
+  draft_offer_expired: 'このお皿は流れていきました。別のお皿を選んでください。',
+  draft_completed: '購入は完了しています。相手の完了をお待ちください。',
+  draft_expired: '注文時間が終了しました。購入済みのカードで進みます。',
+  draft_duplicate: 'このお皿は購入済みです。',
+  draft_full: 'デッキは20枚までです。',
+  draft_budget: '残金が足りません。',
+  draft_delivery_pending: '特急のお皿を受け取ってから次を注文してください。',
+  draft_orders_used: '特急の注文は3回までです。',
+  draft_no_delivery: '受け取れる特急のお皿はありません。',
   already_in_room: 'すでに部屋に参加しています。現在の部屋を退出してからお試しください。',
   invalid_code: '部屋コードを半角数字6桁で入力してください。',
   room_not_found: 'この部屋は見つかりません。コードをご確認いただくか、新しい部屋を作成してください。',
@@ -71,6 +82,8 @@ export function useOnlineRoom() {
   const snapshotRef = useRef<RoomSnapshot | null>(null)
   const pendingRef = useRef(false)
   const operationRef = useRef(0)
+  const clockRef = useRef({ server: Date.now(), received: performance.now() })
+  const serverNow = useCallback(() => clockRef.current.server + performance.now() - clockRef.current.received, [])
 
   const invalidateRequests = useCallback(() => {
     operationRef.current += 1
@@ -89,6 +102,7 @@ export function useOnlineRoom() {
   }, [])
 
   const showSnapshot = useCallback((next: RoomSnapshot | null) => {
+    if (next) clockRef.current = { server: next.serverNow, received: performance.now() }
     snapshotRef.current = next
     setSnapshot(next)
   }, [])
@@ -263,6 +277,19 @@ export function useOnlineRoom() {
   }, [request, resumeRoom])
 
   const playCard = useCallback((instanceId: string) => sendAction('play_card', instanceId), [sendAction])
+  const draftAction = useCallback(async (command: DraftCommand) => {
+    const draft = snapshotRef.current?.draft
+    if (!draft || pendingRef.current) return false
+    const action: OnlineDraftAction = {
+      ...command, draftId: draft.draftId, actionId: actionId(), expectedRevision: draft.revision,
+    }
+    const result = await request(
+      transport => transport.request('draft:action', action),
+      '購入結果を確認できませんでした。最新の残金とデッキを取得しています。',
+    )
+    if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
+    return result?.ok === true
+  }, [request, resumeRoom])
   const endTurn = useCallback(() => sendAction('end_turn'), [sendAction])
   const rematch = useCallback(async () => {
     if (pendingRef.current) return
@@ -273,7 +300,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch }
+  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch, draftAction, serverNow }
 }
 
 export type OnlineRoomController = ReturnType<typeof useOnlineRoom>

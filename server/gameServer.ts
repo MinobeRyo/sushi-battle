@@ -67,6 +67,7 @@ export async function createGameServer(options: GameServerOptions = {}) {
     socket.on('room:resume', (request, reply) => replyTo(reply, service.handle(peer, 'room:resume', request)))
     socket.on('room:leave', reply => replyTo(reply, service.handle(peer, 'room:leave')))
     socket.on('match:action', (action, reply) => replyTo(reply, service.handle(peer, 'match:action', action)))
+    socket.on('draft:action', (action, reply) => replyTo(reply, service.handle(peer, 'draft:action', action)))
     socket.on('match:rematch', reply => replyTo(reply, service.handle(peer, 'match:rematch')))
     socket.on('disconnect', () => service.disconnect(peer))
   })

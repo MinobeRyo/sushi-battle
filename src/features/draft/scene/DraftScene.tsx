@@ -1,5 +1,6 @@
 import type { Card } from '../../../types'
 import { BeltLane3D } from './BeltLane3D'
+import type { OnlineBeltSupply } from './BeltLane3D'
 import { ShinkansenPlate3D } from './ShinkansenPlate3D'
 import { DraftCamera } from './DraftCamera'
 
@@ -27,6 +28,7 @@ function Counter() {
 // ─── Full scene ───────────────────────────────────────────────────────────────
 
 interface SceneProps {
+  onlineSupply?: OnlineBeltSupply
   generalCards: Card[]
   buildCards: Card[]
   shinkansenPlate: { card: Card } | null
@@ -36,7 +38,7 @@ interface SceneProps {
   sevenPlates?: boolean
 }
 
-export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false, sevenPlates = false }: SceneProps) {
+export function Scene({ onlineSupply, generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false, sevenPlates = false }: SceneProps) {
   const LANE_SHINKANSEN = -2.6
   const LANE_GENERAL = 0
   const LANE_BUILD = 2.6
@@ -70,6 +72,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
       <BeltLane3D
         label="汎用・サイドメニュー"
         cards={generalCards}
+        supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'general') }}
         duration={32 / BELT_SPEED_MULTIPLIER}
         laneZ={LANE_GENERAL}
         paused={paused}
@@ -80,6 +83,7 @@ export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect,
       <BeltLane3D
         label="ビルド系雑多"
         cards={buildCards}
+        supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'build') }}
         duration={16 / BELT_SPEED_MULTIPLIER}
         laneZ={LANE_BUILD}
         paused={paused}

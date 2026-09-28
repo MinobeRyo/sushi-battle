@@ -31,7 +31,7 @@ export function OnlineLobby({ room, onBack }: Props) {
         <div className="text-center">
           <p className="mb-2 text-sm font-bold tracking-widest text-amber-600">すしバトル</p>
           <h1 className="text-3xl font-bold text-amber-100">オンライン対戦</h1>
-          <p className="mt-3 text-sm leading-relaxed text-stone-300">部屋コードを共有して、2人で対戦できます。<br />今回は固定デッキで通信を試せます。<br />両者のカードがなくなると自動で補充します。</p>
+          <p className="mt-3 text-sm leading-relaxed text-stone-300">部屋コードを共有して、2人で対戦できます。<br />90秒・¥3,000でそれぞれデッキを構築します。<br />特急注文と、対戦中の追加注文にも対応しています。</p>
         </div>
 
         <p role="status" className={`text-center text-sm ${connected ? 'text-amber-200' : 'text-stone-300'}`}>
@@ -54,7 +54,7 @@ export function OnlineLobby({ room, onBack }: Props) {
               {copiedCode === room.snapshot.code ? 'コピーしました' : '部屋コードをコピー'}
             </button>
             {copyFailed && <p role="status" className="mt-2 text-xs text-stone-400">コピーできませんでした。上のコードを選択して共有してください。</p>}
-            <p className="mt-5 text-sm leading-relaxed text-stone-400">相手が参加すると対戦が始まります。<br />この画面を開いたままお待ちください。</p>
+            <p className="mt-5 text-sm leading-relaxed text-stone-400">相手が参加するとデッキ構築が始まります。<br />この画面を開いたままお待ちください。</p>
           </section>
         ) : room.session ? (
           <div className="rounded-2xl border border-amber-900 bg-stone-950/35 px-5 py-6 text-center text-amber-100">

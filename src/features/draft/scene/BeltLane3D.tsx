@@ -5,6 +5,10 @@ import { SushiGeometry } from '../models/SushiGeometry'
 import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { PLATE_HIT_POSITION, PLATE_HIT_SIZE } from './plateHitArea'
+import { onlinePlatePosition } from '../../../game/draftOffers'
+import type { DraftOffer } from '../../../game/draftOffers'
+
+export type OnlineBeltSupply = { offers: DraftOffer[]; elapsed: () => number }
 
 const SPACING = 2.3 // world-unit spacing between plates
 
@@ -34,6 +38,8 @@ function shuffled<T>(arr: T[]): T[] {
 // カードはレーン共有のシャッフルバッグから引く（出現の偏りを防ぐ）
 
 interface BeltPlate3DProps {
+  offer?: DraftOffer
+  elapsed?: () => number
   drawCard: () => Card
   laneZ: number
   initialX: number
@@ -44,14 +50,15 @@ interface BeltPlate3DProps {
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, isPaused, hoveredSlots }: BeltPlate3DProps) {
+function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, isPaused, hoveredSlots }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const posX = useRef(initialX)
   const slotId = useId()
   const generationRef = useRef(0)
   const soldRef = useRef(false)
   const [hovered, setHovered] = useState(false)
-  const [{ card, generation }, setCard] = useState(() => ({ card: drawCard(), generation: 0 }))
+  const [localCard, setCard] = useState(() => ({ card: offer?.card ?? drawCard(), generation: 0 }))
+  const { card, generation } = offer ?? localCard
   const [sold, setSold] = useState(false)
   const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
 
@@ -67,6 +74,14 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
   }, [hoveredSlots, slotId])
 
   useFrame((_, delta) => {
+    if (offer && elapsed) {
+      const position = onlinePlatePosition(offer.lane, offer.slot, elapsed())
+      if (groupRef.current) {
+        groupRef.current.position.x = position.x
+        groupRef.current.visible = position.generation === offer.generation
+      }
+      return
+    }
     if (!isPaused()) posX.current -= speed * Math.min(delta, 0.1)
     if (posX.current < LEFT_EDGE) {
       // 右端へ戻し、バッグから新しいカードを補充
@@ -82,7 +97,7 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
     }
   })
 
-  if (sold) {
+  if (offer ? offer.sold : sold) {
     // 購入済みの皿（この皿だけ空になり、流れ続けて右から補充される）
     return (
       <group ref={groupRef} position={[initialX, 0, laneZ]}>
@@ -114,6 +129,12 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
         position={PLATE_HIT_POSITION}
         onClick={(e) => {
           e.stopPropagation()
+          if (offer && elapsed) {
+            if (offer.sold || onlinePlatePosition(offer.lane, offer.slot, elapsed()).generation !== offer.generation) return
+            clearHover()
+            onSelect(offer.card, () => true, offer.id)
+            return
+          }
           if (soldRef.current || generationRef.current !== generation) return
           clearHover()
           onSelect(card, () => {
@@ -179,6 +200,7 @@ function BeltPlate3D({ drawCard, laneZ, initialX, speed, wrapWidth, onSelect, is
 // ─── Belt lane ────────────────────────────────────────────────────────────────
 
 interface BeltLane3DProps {
+  supply?: OnlineBeltSupply
   label: string
   cards: Card[]
   duration: number
@@ -188,10 +210,10 @@ interface BeltLane3DProps {
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSelect, paused = false }: BeltLane3DProps) {
+export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false }: BeltLane3DProps) {
   const hoveredSlots = useRef(new Set<string>())
   // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
-  const slotCount = Math.min(cards.length, 12)
+  const slotCount = supply?.offers.length ?? Math.min(cards.length, 12)
   const wrapWidth = slotCount * SPACING
   const speed = duration > 0 ? wrapWidth / duration : 0
   const railColor = isShinkansen ? '#ca8a04' : '#57534e'
@@ -239,6 +261,8 @@ export function BeltLane3D({ label, cards, duration, laneZ, isShinkansen, onSele
       {initialXs.map((x, i) => (
         <BeltPlate3D
           key={i}
+          offer={supply?.offers[i]}
+          elapsed={supply?.elapsed}
           drawCard={drawCard}
           laneZ={laneZ}
           initialX={x}

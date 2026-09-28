@@ -16,6 +16,7 @@ import {
   orderShinkansen, pickupShinkansen, purchaseBeltCard,
 } from './draftEngine'
 import type { DraftState } from './draftEngine'
+import type { DraftCommand, PublicDraft } from '../../network/protocol'
 import './DraftScreen.css'
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ const ARCHETYPE_STYLE: Record<string, { bg: string; text: string; label: string 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
+  online?: { draft: PublicDraft; now: () => number; disabled: boolean; send: (command: DraftCommand) => Promise<boolean> }
   onComplete: (deck: Card[]) => void
   playerNum?: 1 | 2
   initialBudget?: number   // 追加注文タイムでは¥1500
@@ -47,13 +49,15 @@ type Props = {
 type SelectedItem = { card: Card; offerId: string; markSold: () => boolean }
 
 export function DraftScreenThree({
+  online,
   onComplete,
   playerNum,
   initialBudget = INITIAL_BUDGET,
   seconds = DRAFT_SECONDS,
   mode = 'initial',
 }: Props) {
-  const [draft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now()))
+  const [localDraft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now()))
+  const draft = online ? { ...online.draft.you, purchasedIds: [] } : localDraft
   const { budget, deck, shinkansenLeft, shinkansenPlate } = draft
   const [timeLeft, setTimeLeft] = useState(seconds)
   const [selected, setSelected] = useState<SelectedItem | null>(null)
@@ -67,10 +71,16 @@ export function DraftScreenThree({
   const selectedRef = useRef<SelectedItem | null>(null)
   const orderIdRef = useRef(0)
   const onCompleteRef = useRef(onComplete)
+  const onlineRef = useRef(online)
+  onlineRef.current = online
   const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   const completeDraft = useCallback(() => {
+    if (onlineRef.current) {
+      if (!onlineRef.current.disabled) void onlineRef.current.send({ type: 'complete' })
+      return
+    }
     // 時間切れと手動終了が重なっても、次のプレイヤーへ二重に進めない。
     const result = finishDraft(draftRef.current)
     if (!result.accepted) return
@@ -82,10 +92,13 @@ export function DraftScreenThree({
 
   useEffect(() => {
     const tick = () => {
-      const remaining = draftSecondsLeft(draftRef.current, Date.now())
+      const remote = onlineRef.current
+      const remaining = remote
+        ? Math.max(0, Math.ceil((remote.draft.you.deadlineAt - remote.now()) / 1000))
+        : draftSecondsLeft(draftRef.current, Date.now())
       setTimeLeft(remaining)
       // 親画面の更新はstate更新関数の外で行う。
-      if (remaining === 0) completeDraft()
+      if (remaining === 0 && !remote) completeDraft()
     }
     tick()
     const id = setInterval(tick, 250)
@@ -107,7 +120,8 @@ export function DraftScreenThree({
   }
 
   const handleBeltSelect = (card: Card, markSold: () => boolean, offerId: string) => {
-    if (draftRef.current.completed || draftSecondsLeft(draftRef.current, Date.now()) === 0) return
+    if (online ? online.disabled || draft.completed || timeLeft === 0
+      : draftRef.current.completed || draftSecondsLeft(draftRef.current, Date.now()) === 0) return
     clearAutoClose()
     setPurchaseNotice('')
     selectedRef.current = { card, offerId, markSold }
@@ -121,6 +135,13 @@ export function DraftScreenThree({
   const handlePurchase = (card: Card) => {
     const item = selectedRef.current
     if (!item || item.card.id !== card.id) return
+    if (online) {
+      if (!online.disabled) {
+        void online.send({ type: 'buy', offerId: item.offerId })
+        handleModalClose()
+      }
+      return
+    }
     const result = purchaseBeltCard(draftRef.current, item.offerId, item.card, Date.now())
     if (!result.accepted) {
       if (result.reason === 'expired') completeDraft()
@@ -137,6 +158,13 @@ export function DraftScreenThree({
   const handleModalClose = () => { clearAutoClose(); selectedRef.current = null; setSelected(null) }
 
   const handleShinkansenOrder = (card: Card) => {
+    if (online) {
+      if (!online.disabled) {
+        void online.send({ type: 'order', cardId: card.id })
+        setShowShinkansenModal(false)
+      }
+      return
+    }
     const result = orderShinkansen(draftRef.current, String(orderIdRef.current), card, Date.now())
     if (!result.accepted) {
       if (result.reason === 'expired') completeDraft()
@@ -148,6 +176,10 @@ export function DraftScreenThree({
   }
 
   const handleShinkansenPickup = () => {
+    if (online) {
+      if (!online.disabled) void online.send({ type: 'pickup' })
+      return
+    }
     const result = pickupShinkansen(draftRef.current)
     if (result.accepted) updateDraft(result.state)
   }
@@ -159,13 +191,15 @@ export function DraftScreenThree({
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
   const urgent = timeLeft <= 20
-  const canOrder = !draft.completed && timeLeft > 0 && deck.length < DRAFT_MAX_CARDS && shinkansenLeft > 0 && !shinkansenPlate
+  const canOrder = !online?.disabled && !draft.completed && timeLeft > 0 && deck.length < DRAFT_MAX_CARDS && shinkansenLeft > 0 && !shinkansenPlate
   const emptyDeckHint = mode === 'reorder'
     ? '0枚で終了すると、補充なしでバトルを再開します。'
     : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
 
   return (
-    <div className="draft-restaurant">
+    <div className="draft-restaurant" onClickCapture={event => {
+      if (online?.disabled) { event.preventDefault(); event.stopPropagation() }
+    }}>
       {/* ヘッダー */}
       <div className="draft-restaurant-header flex items-center justify-between px-5 py-2.5 flex-shrink-0 z-10"
         style={{ background: '#2c1006', borderBottom: '1px solid #78350f' }}>
@@ -215,6 +249,7 @@ export function DraftScreenThree({
             <Canvas orthographic camera={{ position: [0, 8, 9], zoom: 60 }} shadows={{ type: PCFShadowMap }} dpr={[1, 2]} gl={{ antialias: true }}>
               <Suspense fallback={null}>
                 <Scene
+                  onlineSupply={online && { offers: online.draft.offers, elapsed: () => online.now() - online.draft.startedAt }}
                   generalCards={generalCards}
                   buildCards={buildCards}
                   shinkansenPlate={shinkansenPlate}
@@ -225,7 +260,7 @@ export function DraftScreenThree({
               </Suspense>
             </Canvas>
           </div>
-          <p className="draft-restaurant-hint" role="status">{shinkansenPlate ? '特急が到着。奥の金色のお皿か寿司をタップして受け取ってください。' : '寿司もお皿もタップで選べます。'}<span className="draft-hover-hint"> カーソルを合わせるとレーンが止まります。</span></p>
+          <p className="draft-restaurant-hint" role="status">{shinkansenPlate ? '特急が到着。奥の金色のお皿か寿司をタップして受け取ってください。' : '寿司もお皿もタップで選べます。'}<span className={online ? undefined : 'draft-hover-hint'}>{online ? ' オンラインでは選択中もレーンと制限時間が進みます。' : ' カーソルを合わせるとレーンが止まります。'}</span></p>
         </div>
       </div>
 
@@ -235,7 +270,7 @@ export function DraftScreenThree({
             <span>手札 <strong>{deck.length}</strong> / {DRAFT_MAX_CARDS}枚</span>
             <span>{handOpen ? '閉じる ▾' : '確認する ▴'}</span>
           </button>
-          <button onClick={completeDraft} className="draft-restaurant-battle">{mode === 'reorder' ? 'バトル再開' : 'バトルへ'} →</button>
+          <button disabled={online?.disabled} onClick={completeDraft} className="draft-restaurant-battle">{online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : 'バトルへ'} →</button>
         </div>
         {handOpen && (
           <div id="draft-deck" className={`draft-restaurant-deck${deck.length === 0 ? ' is-empty' : ''}`} aria-label="購入した寿司">

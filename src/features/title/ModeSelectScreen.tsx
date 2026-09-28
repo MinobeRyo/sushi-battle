@@ -25,7 +25,7 @@ export function ModeSelectScreen({ onSelect, onBack }: Props) {
           className="py-4 bg-sky-800 hover:bg-sky-700 text-white text-xl font-bold rounded-xl transition-colors"
         >
           オンライン対戦
-          <span className="mt-1 block text-xs font-normal text-sky-200">固定デッキで試す</span>
+          <span className="mt-1 block text-xs font-normal text-sky-200">デッキを組んで2人で対戦</span>
         </button>
       </div>
       <button onClick={onBack} className="text-stone-400 hover:text-stone-200 transition-colors">
