@@ -39,7 +39,7 @@
 .demo-back-wall { position: relative; height: clamp(91px, 25cqh, 129px); flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(0deg, #4e2813, transparent 18%), repeating-linear-gradient(90deg, #633d21 0 34px, #55311a 35px 36px); border-bottom: 2px solid #8d6237; box-shadow: inset 0 8px 20px #1f0c0033; }
 .demo-wall-seal { position: absolute; right: 10%; transform: rotate(3deg); display: flex; flex-direction: column; align-items: center; padding: 5px 11px; border: 1px solid #ba9b60; outline: 3px solid #23100966; background: #e6d0a6; color: #74311f; box-shadow: 2px 3px 7px #0003; }
 .demo-wall-seal span { font-size: 8px; letter-spacing: .2em; }
-.demo-wall-seal strong { font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif; font-size: clamp(16px, 2.2cqw, 23px); font-weight: 700; letter-spacing: .12em; padding-left: .12em; line-height: 1.5; }
+.demo-wall-seal strong { font-family: 'Sushi Brush', serif; font-size: clamp(19px, 2.6cqw, 26px); font-weight: 400; letter-spacing: .04em; padding-left: .04em; line-height: 1.25; }
 .demo-tablet-stand { align-self: flex-end; display: flex; flex-direction: column; align-items: center; z-index: 1; }
 .demo-small-tablet { position: relative; width: clamp(170px, 21cqw, 224px); height: clamp(80px, 22cqh, 116px); padding: 8px 9px 11px; display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #8c908b; background: linear-gradient(150deg, #454846, #1b1d1c 34%, #252827); box-shadow: 0 3px 0 #101211, 0 4px 0 #5e625c, 0 9px 14px #0007, inset 0 1px 1px #d7ddd74d, inset 0 -1px 2px #080b08; transform-origin: bottom center; transition: transform .16s; }
 .demo-small-tablet:hover:not(:disabled) { transform: translateY(-2px); }
