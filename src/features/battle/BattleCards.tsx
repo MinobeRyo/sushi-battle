@@ -3,6 +3,7 @@ import { EFFECT_FULL, R, C, ARCH_LABEL } from './battlePresentation'
 import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
+import { cardAttackBuff } from './battleStatusModel'
 
 // ── CardDetailSheet ──────────────────────────────────────────────────────────
 export function CardDetailSheet({
@@ -17,7 +18,7 @@ export function CardDetailSheet({
   const isPresent = useIsPresent()
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
-  const buff = attackBuff[card.base] ?? 0
+  const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const isField = remainingTurns !== undefined
   const effectDesc = card.effect ? EFFECT_FULL[card.effect] : null
@@ -245,7 +246,7 @@ export function HandSushi({
   kiretaStack: number; isSelected: boolean; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
-  const buff = attackBuff[card.base] ?? 0
+  const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const effectLabel = card.effect
     ? (EFFECT_FULL[card.effect]?.slice(0, 14) + '…')

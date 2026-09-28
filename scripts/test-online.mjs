@@ -130,7 +130,7 @@ function assertPrivate(snapshot) {
   const match = snapshot.match
   if (!match) return
   assert.deepEqual(Object.keys(match).sort(), [
-    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'you', 'opponent', 'log',
+    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'you', 'opponent', 'log', 'comboEvents',
   ].sort(), '配信状態に内部試合データを追加してはいけません')
   assert.equal('deck' in match.you, false, '自分の山札の中身も未公開です')
   assert.equal('hand' in match.opponent, false, '相手の手札は送信しません')
@@ -182,6 +182,13 @@ try {
     await waitSnapshot(host, snapshot => snapshot.draft !== null)
     assert.equal(host.latest.match, null)
     assert.equal(reply.snapshot.draft.you.budget, 3000)
+    const draftId = host.latest.draft.draftId
+    assert.deepEqual(await rpc(host, 'draft:hover', { draftId, lanes: ['build'], sequence: 1 }), { ok: true })
+    const paused = await waitSnapshot(host, state => state.draft?.laneClocks.build.pausedAt !== null)
+    assert.equal(paused.draft.laneClocks.general.pausedAt, null)
+    assert.equal(guest.latest.draft.laneClocks.build.pausedAt, null)
+    assert.deepEqual(await rpc(host, 'draft:hover', { draftId, lanes: [], sequence: 2 }), { ok: true })
+    await waitSnapshot(host, state => state.draft?.laneClocks.build.pausedAt === null)
     await finishBoth(host, guest)
     const snapshots = await Promise.all([
       waitSnapshot(host, snapshot => snapshot.match !== null),
@@ -368,6 +375,7 @@ try {
     assert.equal(host.latest.match.phase, 'playing')
     assert.equal(host.latest.match.turn, 1)
     assert.equal(host.latest.match.revision, 0)
+    assert.deepEqual(host.latest.match.comboEvents, [])
     assert.deepEqual(host.latest.rematchRequested, { 1: false, 2: false })
     const stale = await rpc(host, 'match:action', { ...staleAction, expectedRevision: 0 })
     assert.deepEqual(stale, { ok: false, error: 'stale_match' })

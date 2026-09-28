@@ -1,4 +1,4 @@
-import type { Card } from '../../../types'
+import type { DraftState } from '../draftEngine'
 import { useRef, useState, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
@@ -8,7 +8,7 @@ import { PlateHitTarget } from './PlateHitTarget'
 
 // ─── Shinkansen arriving plate ────────────────────────────────────────────────
 export function ShinkansenPlate3D({ plate, laneZ, onPickup }: {
-  plate: { card: Card } | null
+  plate: DraftState['shinkansenPlate']
   laneZ: number
   onPickup: () => void
 }) {
@@ -17,12 +17,13 @@ export function ShinkansenPlate3D({ plate, laneZ, onPickup }: {
   const scaleV = useRef(0)
   const [hovered, setHovered] = useState(false)
   const active = useRef(false)
+  const orderId = plate?.orderId
 
   useEffect(() => {
-    if (plate) { posX.current = 14; scaleV.current = 0; active.current = true }
+    if (orderId !== undefined) { posX.current = 14; scaleV.current = 0; active.current = true }
     else { active.current = false }
     return () => { document.body.style.cursor = 'auto' }
-  }, [plate])
+  }, [orderId])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return

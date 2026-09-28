@@ -114,6 +114,15 @@ try {
     assert.equal(retry.snapshot.draft.draftId, started.draft.draftId)
     assert.deepEqual((await guest.request('room:create')).reply.session, guestSession)
     assert.deepEqual((await outsider.request('room:join', { code: hostSession.code })).reply, { ok: false, error: 'room_full' })
+    const draftId = started.draft.draftId
+    const paused = await host.request('draft:hover', { draftId, lanes: ['general'], sequence: 1 })
+    assert.deepEqual(paused.reply, { ok: true })
+    assert.notEqual(paused.snapshot.draft.laneClocks.general.pausedAt, null)
+    assert.equal(paused.snapshot.draft.laneClocks.build.pausedAt, null)
+    assert.equal((await guest.request()).snapshot.draft.laneClocks.general.pausedAt, null)
+    const resumed = await host.request('draft:hover', { draftId, lanes: [], sequence: 2 })
+    assert.deepEqual(resumed.reply, { ok: true })
+    assert.equal(resumed.snapshot.draft.laneClocks.general.pausedAt, null)
     await finishBoth(host, guest)
   })
 

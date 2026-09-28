@@ -1,14 +1,18 @@
 import type { Card } from '../../../types'
-import { useRef, useState, useMemo, useId, useEffect } from 'react'
+import { useRef, useState, useMemo, useId, useEffect, useCallback } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SushiGeometry } from '../models/SushiGeometry'
 import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { PlateHitTarget } from './PlateHitTarget'
 import { onlinePlatePosition } from '../../../game/draftOffers'
-import type { DraftOffer } from '../../../game/draftOffers'
+import type { DraftLane, DraftOffer } from '../../../game/draftOffers'
 
-export type OnlineBeltSupply = { offers: DraftOffer[]; elapsed: () => number }
+export type OnlineBeltSupply = {
+  offers: DraftOffer[]
+  elapsed: (lane: DraftLane) => number
+  onHoverChange: (lane: DraftLane, hovered: boolean) => void
+}
 
 const SPACING = 2.3 // world-unit spacing between plates
 
@@ -47,10 +51,11 @@ interface BeltPlate3DProps {
   wrapWidth: number
   isPaused: () => boolean
   hoveredSlots: Set<string>
+  onHoverChange: () => void
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, isPaused, hoveredSlots }: BeltPlate3DProps) {
+function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, isPaused, hoveredSlots, onHoverChange }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const posX = useRef(initialX)
   const slotId = useId()
@@ -63,15 +68,15 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
   const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
 
   const clearHover = () => {
-    hoveredSlots.delete(slotId)
+    if (hoveredSlots.delete(slotId)) onHoverChange()
     setHovered(false)
     document.body.style.cursor = 'auto'
   }
 
   useEffect(() => () => {
-    hoveredSlots.delete(slotId)
+    if (hoveredSlots.delete(slotId)) onHoverChange()
     document.body.style.cursor = 'auto'
-  }, [hoveredSlots, slotId])
+  }, [hoveredSlots, slotId, onHoverChange])
 
   useFrame((_, delta) => {
     if (offer && elapsed) {
@@ -148,6 +153,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
           e.stopPropagation()
           if (e.pointerType === 'touch') return
           hoveredSlots.add(slotId)
+          onHoverChange()
           setHovered(true)
           document.body.style.cursor = 'pointer'
         }}
@@ -208,6 +214,24 @@ interface BeltLane3DProps {
 
 export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false }: BeltLane3DProps) {
   const hoveredSlots = useRef(new Set<string>())
+  const supplyRef = useRef(supply)
+  supplyRef.current = supply
+  const notifyHover = useCallback(() => {
+    const current = supplyRef.current
+    const lane = current?.offers[0]?.lane
+    if (lane) current?.onHoverChange(lane, hoveredSlots.current.size > 0)
+  }, [])
+  useEffect(() => {
+    const release = () => { hoveredSlots.current.clear(); notifyHover() }
+    const visibility = () => { if (document.visibilityState === 'hidden') release() }
+    window.addEventListener('blur', release)
+    document.addEventListener('visibilitychange', visibility)
+    return () => {
+      window.removeEventListener('blur', release)
+      document.removeEventListener('visibilitychange', visibility)
+      release()
+    }
+  }, [notifyHover])
   // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
   const slotCount = supply?.offers.length ?? Math.min(cards.length, 12)
   const wrapWidth = slotCount * SPACING
@@ -258,7 +282,7 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
         <BeltPlate3D
           key={i}
           offer={supply?.offers[i]}
-          elapsed={supply?.elapsed}
+          elapsed={supply && (() => supply.elapsed(supply.offers[i].lane))}
           drawCard={drawCard}
           laneZ={laneZ}
           initialX={x}
@@ -266,6 +290,7 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
           wrapWidth={wrapWidth}
           isPaused={() => paused || hoveredSlots.current.size > 0}
           hoveredSlots={hoveredSlots.current}
+          onHoverChange={notifyHover}
           onSelect={onSelect}
         />
       ))}

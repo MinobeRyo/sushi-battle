@@ -1,4 +1,5 @@
 import type { Card } from '../../types'
+import { useEffect, useState } from 'react'
 import { useBattleGame } from './useBattleGame'
 import { calcFieldDmg, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
@@ -7,6 +8,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { FieldSushi, HandSushi, CardDetailSheet } from './BattleCards'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
+import { BattleStatusDialog } from './BattleStatusDialog'
+import type { BattleSideStatus } from './battleStatusModel'
 import './BattleScreen.css'
 
 export function BattleScreen({
@@ -33,10 +36,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   canRestart?: boolean
   restartLabel?: string
 }) {
+  const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
     playCard, endTurn, handlePassReady, handleReorderComplete, restart,
   } = game
+  // native dialogは通常の演出より前面に出るため、発動時は閉じて双方のコンボを見せる。
+  useEffect(() => { if (comboAnim) setStatusSide(null) }, [comboAnim])
 
   // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
@@ -56,6 +62,17 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     : 'CPU'
   const opponentEmoji = mode !== 'cpu' ? '👤' : '💻'
   const activeLabel = mode !== 'cpu' ? `P${s.activePlayer}` : 'あなた'
+  const sideStatus = (opponent: boolean): BattleSideStatus => opponent ? {
+    summonedIds: s.cSummonedIds, combosFired: s.cCombosFired, field: s.cField,
+    attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus, kiretaStack: s.cKiretaStack,
+    kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
+    digestStopTurns: s.cDigestStopTurns, apNextBonus: s.cApNextBonus, thisTurnArch: s.cThisTurnArch,
+  } : {
+    summonedIds: s.pSummonedIds, combosFired: s.pCombosFired, field: s.pField,
+    attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus, kiretaStack: s.pKiretaStack,
+    kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
+    digestStopTurns: s.pDigestStopTurns, apNextBonus: s.pApNextBonus, thisTurnArch: s.pThisTurnArch,
+  }
 
   const winnerLabel = mode !== 'cpu'
     ? (s.winner === 'player' ? `P${s.activePlayer}の勝利！` : `P${s.activePlayer === 1 ? 2 : 1}の勝利！`)
@@ -74,17 +91,25 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         <div className="battle-status battle-opponent-status">
           <span className="battle-avatar" style={{ fontSize: R.flg, flexShrink: 0 }}>{opponentEmoji}</span>
           <div style={{ flex: 1, minWidth: 0 }}><BellyGauge value={s.cBelly} label={`${opponentLabel} お腹`} flip /></div>
-          <div className="battle-opponent-combos" style={{ flexShrink: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}>
-            <ComboStatusBar compact inline st={{
+          <div className="battle-opponent-counts" style={{ flexShrink: 0, textAlign: 'right' }}>
+            <p style={{ fontSize: R.fxs, color: C.txtSec, fontWeight: 700 }}>AP {s.cAP}/{s.cMaxAP}</p>
+            <p style={{ fontSize: R.fxs, color: C.txtMut }}>手札 {s.cHandCount} · 山札 {s.cDeckCount}</p>
+          </div>
+        </div>
+        <div className="battle-opponent-effects" role="group" aria-label={`${opponentLabel}のストックと効果`}>
+          <span className="battle-kireta-stock" data-active={s.cKiretaStack > 0}>
+            切れ味 <strong>{s.cKiretaStack}</strong>{s.cKiretaSpent && <small>終了時0</small>}
+          </span>
+          <div className="battle-opponent-combos">
+            <ComboStatusBar compact inline hideKireta st={{
               summonedIds: s.cSummonedIds, combosFired: s.cCombosFired, field: s.cField,
               attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus,
               kireta: s.cKiretaStack, kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
+              digestStopTurns: s.cDigestStopTurns, apNextBonus: s.cApNextBonus,
             }} />
           </div>
-          <div style={{ flexShrink: 0, textAlign: 'right' }}>
-            <p style={{ fontSize: R.fxs, color: C.txtMut }}>手札 {s.cHandCount} 枚</p>
-            <p style={{ fontSize: R.fxs, color: C.txtMut }}>山札 {s.cDeckCount} 枚</p>
-          </div>
+          <button className="battle-status-open" onClick={() => setStatusSide('opponent')}
+            aria-label={`${opponentLabel}の状態とコンボを見る`}>状態・コンボ ›</button>
         </div>
         <div className="battle-field battle-opponent-field" style={{
           background: C.bgAreaCpu, border: `1px solid ${C.fieldBorder}`,
@@ -94,7 +119,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <AnimatePresence>
             {s.cField.map(c => (
               <FieldSushi key={c.fid} card={c} isEnemy
-                onSelect={() => setInspect({ card: c, canPlay: false, remainingTurns: c.turnsLeft })}
+                onSelect={() => setInspect({ card: c, canPlay: false, remainingTurns: c.turnsLeft, owner: 'opponent' })}
               />
             ))}
           </AnimatePresence>
@@ -134,6 +159,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             summonedIds: s.pSummonedIds, combosFired: s.pCombosFired, field: s.pField,
             attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus,
             kireta: s.pKiretaStack, kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
+            digestStopTurns: s.pDigestStopTurns, apNextBonus: s.pApNextBonus,
           }} />
         </div>
         {previewDmg > 0 && (
@@ -167,6 +193,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         <div className="battle-status battle-player-status">
           <span className="battle-avatar" style={{ fontSize: R.flg, flexShrink: 0 }}>🍱</span>
           <div style={{ flex: 1 }}><BellyGauge value={s.pBelly} label={`${activeLabel} お腹`} /></div>
+          <button className="battle-status-open battle-player-status-open" onClick={() => setStatusSide('player')}
+            aria-label={`${activeLabel}の状態とコンボを見る`}>状態・コンボ ›</button>
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ display: 'flex', gap: 'clamp(3px, 0.4vw, 6px)', flexWrap: 'wrap', maxWidth: 'clamp(80px, 10vw, 160px)', justifyContent: 'flex-end' }}>
               {Array.from({ length: s.pMaxAP }, (_, i) => (
@@ -279,13 +307,23 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         {inspect && (
           <CardDetailSheet
             inspect={inspect}
-            attackBuff={s.pAttackBuff}
-            kiretaStack={s.pKiretaStack}
+            attackBuff={inspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
+            kiretaStack={inspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
             onPlay={() => playCard(inspect.card)}
             onClose={() => setInspect(null)}
           />
         )}
       </AnimatePresence>
+
+      {statusSide && <BattleStatusDialog
+        label={statusSide === 'opponent' ? opponentLabel : activeLabel}
+        status={sideStatus(statusSide === 'opponent')}
+        ap={statusSide === 'opponent' ? s.cAP : s.pAP}
+        maxAP={statusSide === 'opponent' ? s.cMaxAP : s.pMaxAP}
+        handCount={statusSide === 'opponent' ? s.cHandCount : s.pHand.length}
+        deckCount={statusSide === 'opponent' ? s.cDeckCount : s.pDeckCount}
+        onClose={() => setStatusSide(null)}
+      />}
 
       {/* ══ コンボ演出 ══ */}
       <AnimatePresence mode="wait">

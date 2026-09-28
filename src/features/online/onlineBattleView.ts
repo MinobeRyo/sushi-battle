@@ -13,6 +13,7 @@ export function toOnlineBattleView(match: PublicMatch, phase: ViewPhase): Battle
     pDigestStopTurns: p.digestStopTurns, pApNextBonus: p.apNextBonus,
     pNikuMatsuri: p.nikuMatsuri, pKiretaSpent: p.kiretaSpent,
     cHandCount: c.handCount, cField: c.field, cDeckCount: c.deckCount, cBelly: c.belly,
+    cAP: c.ap, cMaxAP: c.maxAP, cThisTurnArch: c.thisTurnArch,
     cSummonedIds: c.summonedIds, cSummonedArch: c.summonedArch,
     cDrawBonus: c.drawBonus, cAttackBuff: c.attackBuff, cCombosFired: c.combosFired,
     cKiretaStack: c.kiretaStack, cDigestStopTurns: c.digestStopTurns,

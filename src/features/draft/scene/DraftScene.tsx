@@ -3,6 +3,7 @@ import { BeltLane3D } from './BeltLane3D'
 import type { OnlineBeltSupply } from './BeltLane3D'
 import { ShinkansenPlate3D } from './ShinkansenPlate3D'
 import { DraftCamera } from './DraftCamera'
+import type { DraftState } from '../draftEngine'
 
 // 選択中やホバー中は停止できるので、通常時は従来より20%速く流す。
 const BELT_SPEED_MULTIPLIER = 1.2
@@ -31,7 +32,7 @@ interface SceneProps {
   onlineSupply?: OnlineBeltSupply
   generalCards: Card[]
   buildCards: Card[]
-  shinkansenPlate: { card: Card } | null
+  shinkansenPlate: DraftState['shinkansenPlate']
   onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
   onShinkansenPickup: () => void
   paused?: boolean

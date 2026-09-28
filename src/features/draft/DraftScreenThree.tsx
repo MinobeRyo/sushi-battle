@@ -16,6 +16,8 @@ import {
 } from './draftEngine'
 import type { DraftState } from './draftEngine'
 import type { DraftCommand, PublicDraft } from '../../network/protocol'
+import { onlineLaneElapsed } from '../../game/draftOffers'
+import type { DraftLane } from '../../game/draftOffers'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -26,7 +28,10 @@ const INITIAL_BUDGET = 3000
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
-  online?: { draft: PublicDraft; now: () => number; disabled: boolean; send: (command: DraftCommand) => Promise<boolean> }
+  online?: {
+    draft: PublicDraft; now: () => number; disabled: boolean; send: (command: DraftCommand) => Promise<boolean>
+    setHover: (lane: DraftLane, hovered: boolean) => void
+  }
   onComplete: (deck: Card[]) => void
   playerNum?: 1 | 2
   initialBudget?: number   // 追加注文タイムでは¥1500
@@ -190,7 +195,7 @@ export function DraftScreenThree({
       onOrder={() => { setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
       finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : 'お会計・バトルへ'}
-      hint={shinkansenPlate ? '奥の金色のお皿をタップしてお受け取りください。' : online ? 'オンラインでは選択中もレーンと制限時間が進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
+      hint={shinkansenPlate ? '奥の金色のお皿をタップしてお受け取りください。' : online ? 'PCではお皿にカーソルを合わせるとレーンが止まります。残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
       notice={purchaseNotice}
       overlays={<>
         {handOpen && <DraftDeckSheet deck={deck} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}
@@ -208,7 +213,11 @@ export function DraftScreenThree({
       <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
           <Scene
-            onlineSupply={online && { offers: online.draft.offers, elapsed: () => online.now() - online.draft.startedAt }}
+            onlineSupply={online && {
+              offers: online.draft.offers,
+              elapsed: lane => onlineLaneElapsed(online.draft.startedAt, online.draft.laneClocks[lane], online.now()),
+              onHoverChange: online.setHover,
+            }}
             generalCards={generalCards}
             buildCards={buildCards}
             shinkansenPlate={shinkansenPlate}

@@ -16,6 +16,7 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     pDigestStopTurns: p.digestStopTurns, pApNextBonus: p.apNextBonus,
     pNikuMatsuri: p.nikuMatsuri, pKiretaSpent: p.kiretaSpent,
     cHandCount: c.hand.length, cField: c.field, cDeckCount: c.deck.length, cBelly: c.belly,
+    cAP: c.ap, cMaxAP: c.maxAP, cThisTurnArch: c.thisTurnArch,
     cSummonedIds: c.summonedIds, cSummonedArch: c.summonedArch,
     cDrawBonus: c.drawBonus, cAttackBuff: c.attackBuff, cCombosFired: c.combosFired,
     cKiretaStack: c.kiretaStack, cDigestStopTurns: c.digestStopTurns,

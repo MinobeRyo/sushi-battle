@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoomTransport } from '../../network/roomTransport'
 import type { RoomTransport } from '../../network/roomTransportTypes'
+import type { DraftLane } from '../../game/draftOffers'
 import type {
   DraftCommand, JoinReply, OnlineAction, OnlineDraftAction, Reply, RoomSession, RoomSnapshot,
 } from '../../network/protocol'
@@ -82,6 +83,7 @@ export function useOnlineRoom() {
   const snapshotRef = useRef<RoomSnapshot | null>(null)
   const pendingRef = useRef(false)
   const operationRef = useRef(0)
+  const hoverRef = useRef({ draftId: '', lanes: new Set<DraftLane>(), sequence: 0, inFlight: false, dirty: false })
   const clockRef = useRef({ server: Date.now(), received: performance.now() })
   const serverNow = useCallback(() => clockRef.current.server + performance.now() - clockRef.current.received, [])
 
@@ -103,9 +105,64 @@ export function useOnlineRoom() {
 
   const showSnapshot = useCallback((next: RoomSnapshot | null) => {
     if (next) clockRef.current = { server: next.serverNow, received: performance.now() }
+    const draftId = next?.draft?.you.completed ? '' : next?.draft?.draftId ?? ''
+    if (hoverRef.current.draftId !== draftId) {
+      hoverRef.current.draftId = draftId
+      hoverRef.current.lanes.clear()
+      hoverRef.current.dirty = false
+    }
     snapshotRef.current = next
     setSnapshot(next)
   }, [])
+
+  // 購入リクエストの待機状態とは独立させ、HTTPでもhover更新を積み上げない。
+  const flushDraftHover = useCallback(function flush() {
+    const hover = hoverRef.current
+    const transport = transportRef.current
+    if (hover.inFlight || !hover.draftId || !transport?.connected) return
+    hover.inFlight = true
+    hover.dirty = false
+    void transport.request('draft:hover', {
+      draftId: hover.draftId, lanes: [...hover.lanes], sequence: ++hover.sequence,
+    }).catch(() => {
+      // 通信失敗時はサーバーの短い停止期限で再開する。購入エラーとは分ける。
+    }).finally(() => {
+      hover.inFlight = false
+      if (hover.dirty) flush()
+    })
+  }, [])
+
+  const draftHover = useCallback((lane: DraftLane, hovered: boolean) => {
+    const hover = hoverRef.current
+    if (!hover.draftId || document.visibilityState === 'hidden') return
+    if (hover.lanes.has(lane) === hovered) return
+    if (hovered) hover.lanes.add(lane)
+    else hover.lanes.delete(lane)
+    hover.dirty = true
+    flushDraftHover()
+  }, [flushDraftHover])
+
+  useEffect(() => {
+    const release = () => {
+      const hover = hoverRef.current
+      if (!hover.lanes.size) return
+      hover.lanes.clear()
+      hover.dirty = true
+      flushDraftHover()
+    }
+    const visibility = () => { if (document.visibilityState === 'hidden') release() }
+    const timer = setInterval(() => {
+      if (hoverRef.current.lanes.size && !hoverRef.current.inFlight) flushDraftHover()
+    }, 1000)
+    window.addEventListener('blur', release)
+    document.addEventListener('visibilitychange', visibility)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('blur', release)
+      document.removeEventListener('visibilitychange', visibility)
+      release()
+    }
+  }, [flushDraftHover])
 
   const request = useCallback(async <T extends Reply | JoinReply>(
     send: (transport: RoomTransport) => Promise<T>,
@@ -173,6 +230,8 @@ export function useOnlineRoom() {
       },
       onDisconnect: reason => {
         if (!active) return
+        hoverRef.current.lanes.clear()
+        hoverRef.current.dirty = false
         invalidateRequests()
         setPending(false)
         if (reason === 'io server disconnect') {
@@ -300,7 +359,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch, draftAction, serverNow }
+  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch, draftAction, draftHover, serverNow }
 }
 
 export type OnlineRoomController = ReturnType<typeof useOnlineRoom>

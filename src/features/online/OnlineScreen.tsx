@@ -1,19 +1,27 @@
 import { useState } from 'react'
 import type { PublicMatch, RoomSnapshot } from '../../network/protocol'
 import { BattleBoard, type BattleController } from '../battle/BattleScreen'
-import type { Inspect } from '../battle/types'
+import type { ComboAnim, Inspect } from '../battle/types'
 import { OnlineLobby } from './OnlineLobby'
 import { toOnlineBattleView } from './onlineBattleView'
 import { useOnlineRoom, type OnlineRoomController } from './useOnlineRoom'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
+import { useOnlineComboAnnouncements } from './useOnlineComboAnnouncements'
+import { canPlayOnlineCard } from './onlineBattleActions'
+import { ComboCutIn } from '../battle/ComboCutIn'
+import { AnimatePresence } from 'framer-motion'
 
 export function OnlineScreen({ onBack }: { onBack: () => void }) {
   const room = useOnlineRoom()
+  const comboAnim = useOnlineComboAnnouncements(room.snapshot, room.status === 'connected')
   const leave = () => { void room.leaveRoom().finally(onBack) }
-  if (room.snapshot?.draft) return <OnlineDraftScreen key={room.snapshot.draft.draftId} room={room} snapshot={room.snapshot} onBack={leave} />
+  if (room.snapshot?.draft) return <div className="relative h-full">
+    <OnlineDraftScreen key={room.snapshot.draft.draftId} room={room} snapshot={room.snapshot} onBack={leave} />
+    <AnimatePresence>{comboAnim && <ComboCutIn key={comboAnim.key} combo={comboAnim} />}</AnimatePresence>
+  </div>
   if (!room.snapshot?.match) return <OnlineLobby room={room} onBack={leave} />
   return <OnlineBattle key={room.snapshot.match.matchId} room={room}
-    snapshot={room.snapshot} match={room.snapshot.match} onBack={leave} />
+    snapshot={room.snapshot} match={room.snapshot.match} comboAnim={comboAnim} onBack={leave} />
 }
 
 function OnlineDraftScreen({ room, snapshot, onBack }: {
@@ -39,13 +47,13 @@ function OnlineDraftScreen({ room, snapshot, onBack }: {
         <p className="text-sm text-stone-400">制限時間になると自動で購入を締め切ります。</p>
       </div> : <DraftScreenThree playerNum={snapshot.playerId} mode={draft.mode}
         initialBudget={draft.initialBudget} seconds={draft.mode === 'initial' ? 90 : 45}
-        onComplete={() => {}} online={{ draft, now: room.serverNow, disabled: !connected || room.pending, send: room.draftAction }} />}
+        onComplete={() => {}} online={{ draft, now: room.serverNow, disabled: !connected || room.pending, send: room.draftAction, setHover: room.draftHover }} />}
     </div>
   </div>
 }
 
-function OnlineBattle({ room, snapshot, match, onBack }: {
-  room: OnlineRoomController; snapshot: RoomSnapshot; match: PublicMatch; onBack: () => void
+function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
+  room: OnlineRoomController; snapshot: RoomSnapshot; match: PublicMatch; comboAnim: ComboAnim | null; onBack: () => void
 }) {
   const [showLog, setShowLog] = useState(false)
   const [inspect, setInspect] = useState<Inspect | null>(null)
@@ -58,12 +66,11 @@ function OnlineBattle({ room, snapshot, match, onBack }: {
   const opponentRequested = snapshot.rematchRequested[snapshot.playerId === 1 ? 2 : 1]
   const currentInspect = inspect && {
     ...inspect,
-    canPlay: inspect.canPlay && canAct && match.you.hand.some(card =>
-      'instanceId' in inspect.card && card.instanceId === inspect.card.instanceId),
+    canPlay: canPlayOnlineCard(match, canAct, inspect.card),
   }
   const game: BattleController = {
     s: toOnlineBattleView(match, phase), showLog, setShowLog,
-    comboAnim: null, floats: [], inspect: currentInspect, setInspect, reorderStep: 'p',
+    comboAnim, floats: [], inspect: currentInspect, setInspect, reorderStep: 'p',
     playCard: card => {
       if (!canAct || !('instanceId' in card) || typeof card.instanceId !== 'string') return
       setInspect(null)

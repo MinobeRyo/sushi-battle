@@ -1,4 +1,4 @@
-import type { JoinReply, OnlineAction, OnlineDraftAction, Reply, RoomSnapshot } from './protocol'
+import type { JoinReply, OnlineAction, OnlineDraftAction, OnlineDraftHover, Reply, RoomSnapshot } from './protocol'
 
 export type RoomRequestPayloads = {
   'room:create': undefined
@@ -7,6 +7,7 @@ export type RoomRequestPayloads = {
   'room:leave': undefined
   'match:action': OnlineAction
   'draft:action': OnlineDraftAction
+  'draft:hover': OnlineDraftHover
   'match:rematch': undefined
 }
 export type RoomRequestEvent = keyof RoomRequestPayloads
