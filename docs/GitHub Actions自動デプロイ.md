@@ -6,6 +6,22 @@ GitHubのmain更新をきっかけに、テスト、公開用ビルド、ゼミ�
 
 全体の順番と役割分担は[初回設定のフロー](自動デプロイの実行フロー.md)を参照してください。現在手動で起動しているゲームは、接続確認が成功して切り替える段階まで止めません。すでに停止している場合は、そのまま接続確認と初回の自動起動へ進めます。
 
+## PRからマージ・配布まで
+
+このリポジトリ内のブランチからmainへ通常のPRを作成すると、テスト・ビルド成功後に`Merge verified pull requests`がマージします。作業途中で取り込ませたくないPRはDraftで作成し、準備ができたらReady for reviewへ切り替えます。
+
+- 外部フォークのPR、Draft、失敗・中断したチェック、チェック後にコミットが追加されたPRは自動マージしません。
+- GitHubに設定された必須レビューやブランチ保護はそのまま適用します。条件未達や競合で取り込めない場合はSummaryに理由を記録します。必要な対応後にチェックを再実行できます。
+- マージ処理はmain上のコードだけを実行し、PRのコードや生成物を実行しません。PRのテストには従来どおり書き込み権限やSSH秘密鍵を渡しません。
+- マージ時には検証済みコミットのSHAを指定し、検証後の差し替えを防ぎます。
+- `GMS_AUTO_DEPLOY=true`なら、マージ直後にmainでテスト・ビルド・配布を再実行します。`false`ならマージまでで止まります。
+
+GitHubの標準トークンでマージしても`push`ワークフローは起動しないため、配布を`workflow_dispatch`で明示的に呼び出します。呼び出しに失敗した場合はマージ処理を再実行できます。すでに新しいmainがある場合、古いPRから配布を再開しません。
+
+自動マージを止める場合はActionsの`Merge verified pull requests`を無効化します。GitHubのリポジトリ設定にある「Allow auto-merge」や個人用アクセストークンは不要です。初回だけ、このワークフローを含むPRをチェック成功後に取り込むと有効になります。
+
+参考: [別ワークフロー完了時の実行](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)、[トークンで発生させたイベントとワークフローの起動](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)、[マージAPIのSHA条件](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request)。
+
 ## 最初に本人が行う設定
 
 この手順は初回だけです。既存の個人用SSH秘密鍵は使わず、自動化専用の鍵を作ります。この鍵にはryom13としてファイルやコマンドを操作できる権限があるため、秘密鍵を登録する先はこのリポジトリのActions Secretsに限ってください。

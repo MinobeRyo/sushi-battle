@@ -10,8 +10,6 @@
     "typecheck:server": "tsc -p tsconfig.server.json",
     "test:online": "node --import tsx scripts/test-online.mjs",
     "build": "tsc -b && vite build",
-    "build:lab": "tsc -b && vite build --base=/~ryom13/sushi-battle/ --outDir=release/gms/sushi-battle",
-    "package:lab": "npm run build:lab && node scripts/package-lab.mjs",
     "test": "node scripts/test-battle-logic.mjs && node scripts/test-match-engine.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
