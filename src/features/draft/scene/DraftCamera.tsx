@@ -4,13 +4,13 @@ import { OrthographicCamera, Vector3 } from 'three'
 
 // 3本のレーンの奥行きと寿司の高さを、表示領域の中に収める。
 // ウィンドウのリサイズ・デッキ開閉でもCanvasを作り直さず、皿の状態を保つ。
-export function DraftCamera() {
+export function DraftCamera({ sevenPlates = false }: { sevenPlates?: boolean }) {
   const { camera, size } = useThree()
 
   useLayoutEffect(() => {
     if (!(camera instanceof OrthographicCamera) || size.height === 0) return
     // 奥の皿だけ極端に小さくならない投影で、各レーンの押しやすさを揃える。
-    const direction = new Vector3(0, 7, 9).normalize()
+    const direction = new Vector3(0, sevenPlates ? 5 : 7, 9).normalize()
     const up = new Vector3(0, direction.z, -direction.y)
     let bottom = Infinity
     let top = -Infinity
@@ -23,11 +23,14 @@ export function DraftCamera() {
     }
     const target = up.clone().multiplyScalar((top + bottom) / 2)
     // 余白はピクセルで指定し、カメラの上半分を空白にしない。
-    camera.zoom = Math.max(1, Math.min((size.height - 28) / (top - bottom), (size.width - 24) / 4.4))
+    // デモでは横幅を皿7枚分（間隔2.3 × 7）に固定。Canvas自体も一定の縦横比で表示する。
+    camera.zoom = sevenPlates
+      ? size.width / (2.3 * 7)
+      : Math.max(1, Math.min((size.height - 28) / (top - bottom), (size.width - 24) / 4.4))
     camera.position.copy(target).addScaledVector(direction, 12)
     camera.lookAt(target)
     camera.updateProjectionMatrix()
-  }, [camera, size.width, size.height])
+  }, [camera, size.width, size.height, sevenPlates])
 
   return null
 }

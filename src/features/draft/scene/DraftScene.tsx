@@ -33,16 +33,17 @@ interface SceneProps {
   onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
   onShinkansenPickup: () => void
   paused?: boolean
+  sevenPlates?: boolean
 }
 
-export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false }: SceneProps) {
+export function Scene({ generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false, sevenPlates = false }: SceneProps) {
   const LANE_SHINKANSEN = -2.6
   const LANE_GENERAL = 0
   const LANE_BUILD = 2.6
 
   return (
     <>
-      <DraftCamera />
+      <DraftCamera sevenPlates={sevenPlates} />
       <color attach="background" args={['#3d1a08']} />
       <fog attach="fog" args={['#1c0a04', 14, 28]} />
 
