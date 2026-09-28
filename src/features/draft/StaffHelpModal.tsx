@@ -58,6 +58,7 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <motion.div
+        tabIndex={0} role="region" aria-label="ビルドとコンボの説明"
         onClick={(e) => e.stopPropagation()}
         initial={{ scale: 0.92, y: 14 }} animate={{ scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 380, damping: 28 }}

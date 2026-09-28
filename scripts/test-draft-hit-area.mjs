@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // WebGLなしで実際のThree.jsの交差判定を使い、別レーンの皿への誤選択を検出する。
 import assert from 'node:assert/strict'
-import test from 'node:test'
-import { BoxGeometry, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
+import test, { describe } from 'node:test'
+import { Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
 import { loadTs } from './load-ts.mjs'
 
-const { PLATE_HIT_POSITION, PLATE_HIT_SIZE } = loadTs('src/features/draft/scene/plateHitArea.ts')
+const { createPlateHitGeometry } = loadTs('src/features/draft/scene/plateHitArea.ts')
+// 従来の視点と、7皿表示で使う低い視点の両方で押し間違いを検出する。
+for (const cameraHeight of [7, 5]) describe(`カメラの高さ ${cameraHeight}`, () => {
 // DraftCameraの正面方向。平行投影なので画面サイズにかかわらず同じ光線方向になる。
-const direction = new Vector3(0, 7, 9).normalize()
+const direction = new Vector3(0, cameraHeight, 9).normalize()
 const laneZs = [-2.6, 0, 2.6]
-const geometry = new BoxGeometry(...PLATE_HIT_SIZE)
 const material = new MeshBasicMaterial()
 
 function plate(x, laneZ) {
-  const mesh = new Mesh(geometry, material)
-  mesh.position.set(x + PLATE_HIT_POSITION[0], PLATE_HIT_POSITION[1], laneZ + PLATE_HIT_POSITION[2])
-  mesh.updateMatrixWorld()
+  const mesh = new Mesh(createPlateHitGeometry(), material)
+  mesh.position.set(x, 0, laneZ)
+  mesh.updateMatrixWorld(true)
   return mesh
 }
 
@@ -26,7 +27,7 @@ function assertSelectsOwnPlate(localPoint, laneZ, neighborOffset = 0) {
     .map(x => plate(x + (z === laneZ ? 0 : neighborOffset), z)))
   const point = new Vector3(...localPoint).add(new Vector3(0, 0, laneZ))
   const ray = new Raycaster(point.clone().addScaledVector(direction, 20), direction.clone().negate())
-  const hit = ray.intersectObjects([selected, ...others])[0]
+  const hit = ray.intersectObjects([selected, ...others], true)[0]
   assert.ok(hit?.object === selected,
     `レーンz=${laneZ}、皿の点${localPoint}、隣列x差=${neighborOffset}が別の皿に遮られています`)
 }
@@ -57,4 +58,6 @@ test('背の高い寿司の上端と横端からも同じ皿を選択できる',
       assertSelectsOwnPlate(point, laneZ)
     }
   }
+})
+
 })
