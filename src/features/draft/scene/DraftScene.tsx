@@ -5,7 +5,7 @@ import { ShinkansenPlate3D } from './ShinkansenPlate3D'
 import { DraftCamera } from './DraftCamera'
 import type { DraftState } from '../draftEngine'
 
-// 選択中やホバー中は停止できるので、通常時は従来より20%速く流す。
+// レーンは基準速度の1.2倍で流す。
 const BELT_SPEED_MULTIPLIER = 1.2
 
 // ─── Counter surface ──────────────────────────────────────────────────────────
