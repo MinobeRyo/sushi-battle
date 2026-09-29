@@ -47,7 +47,7 @@ function OnlineDraftScreen({ room, snapshot, onBack }: {
         <p className="text-sm text-stone-400">制限時間になると自動で購入を締め切ります。</p>
       </div> : <DraftScreenThree playerNum={snapshot.playerId} mode={draft.mode}
         initialBudget={draft.initialBudget} seconds={draft.mode === 'initial' ? 90 : 45}
-        onComplete={() => {}} online={{ draft, now: room.serverNow, disabled: !connected || room.pending, send: room.draftAction, setHover: room.draftHover }} />}
+        onComplete={() => {}} online={{ draft, now: room.serverNow, disabled: !connected || room.pending, send: room.draftAction }} />}
     </div>
   </div>
 }
