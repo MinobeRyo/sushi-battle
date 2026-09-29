@@ -26,7 +26,8 @@ async function test(label, run) {
 }
 
 async function startServer(options = {}) {
-  const server = await createGameServer({ port: 0, host: '127.0.0.1', ...options })
+  // 初手に低APの寿司がある購入・配札を再現する。乱数の消費順にも依存させない。
+  const server = await createGameServer({ port: 0, host: '127.0.0.1', random: () => 0.5, ...options })
   servers.add(server)
   return server
 }

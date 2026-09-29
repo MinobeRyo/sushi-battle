@@ -2,6 +2,9 @@ import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
+import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
+import { SideMenuArt } from '../side-menu/SideMenuArt'
+import { DraftSideMenuButton } from './DraftSideMenuButton'
 import './DraftRestaurantLayout.css'
 
 const FOCUSABLE_SELECTOR = [
@@ -32,6 +35,9 @@ export type DraftRestaurantLayoutProps = {
   disabled?: boolean
   overlayActive: boolean
   onOrder: () => void
+  sideMenu?: SideMenuId | null
+  sideMenuEnabled?: boolean
+  onSideMenu?: () => void
   onDeck: () => void
   onFinish: () => void
   onHelp?: () => void
@@ -44,7 +50,7 @@ export type DraftRestaurantLayoutProps = {
 export function DraftRestaurantLayout({
   timeLeft, budget, deckCount, maxCards, playerNum = 1,
   canOrder, delivering, remaining, finishLabel, disabled = false,
-  overlayActive, onOrder, onDeck, onFinish, onHelp, hint, notice,
+  overlayActive, onOrder, sideMenu, sideMenuEnabled = false, onSideMenu, onDeck, onFinish, onHelp, hint, notice,
   children, overlays,
 }: DraftRestaurantLayoutProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -78,7 +84,7 @@ export function DraftRestaurantLayout({
 
   const seconds = Math.max(0, Math.ceil(timeLeft))
   const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-  const orderTitle = delivering ? '特急をお届け中'
+  const orderTitle = onSideMenu ? '寿司・サイドのご注文' : delivering ? '特急をお届け中'
     : deckCount >= maxCards ? 'お皿がいっぱいです'
       : remaining === 0 ? '特急の受付終了' : '特急のご注文'
 
@@ -95,21 +101,22 @@ export function DraftRestaurantLayout({
         {onHelp && <button className="restaurant-help" onClick={onHelp}>遊び方</button>}
       </header>
 
-      <div className="restaurant-back-wall">
+      <div className={`restaurant-back-wall${onSideMenu ? ' restaurant-back-wall--with-side' : ''}`}>
         <div className="restaurant-tablet-stand">
-          <button className="restaurant-tablet" onClick={onOrder} disabled={!canOrder || disabled} aria-label="注文タブレットを開く">
+          <button className="restaurant-tablet" onClick={canOrder ? onOrder : onSideMenu ?? onOrder} disabled={disabled || (!canOrder && !onSideMenu)} aria-label="注文タブレットを開く">
             <span className="restaurant-tablet-camera" aria-hidden="true" />
             <span className="restaurant-tablet-speaker" aria-hidden="true" />
             <span className="restaurant-tablet-power" aria-hidden="true" />
             <span className="restaurant-tablet-screen">
               <span className="restaurant-tablet-statusbar" aria-hidden="true"><span>お席 {String(playerNum).padStart(2, '0')}</span><span className="restaurant-tablet-battery" /></span>
-              <span className="restaurant-tablet-menu"><span><small>握りたてを、お席まで。</small><strong>{orderTitle}</strong></span><span className="restaurant-tablet-arrow">›</span></span>
-              <span className="restaurant-tablet-footnote">{delivering ? '奥の金色のお皿をタップ' : `あと${remaining}回 ご注文いただけます`}</span>
+              <span className="restaurant-tablet-menu"><span><small>{onSideMenu ? '特急と、勝負を支える一皿。' : '握りたてを、お席まで。'}</small><strong>{orderTitle}</strong></span><span className="restaurant-tablet-arrow">›</span></span>
+              <span className="restaurant-tablet-footnote">{delivering ? '特急は奥の金色のお皿をタップ' : !canOrder && onSideMenu ? 'サイドメニューを確認できます' : `特急はあと${remaining}回 ご注文いただけます`}</span>
             </span>
             <span className="restaurant-tablet-brand" aria-hidden="true">SUSHI BATTLE</span>
           </button>
           <span className="restaurant-tablet-neck" aria-hidden="true" /><span className="restaurant-tablet-base" aria-hidden="true" />
         </div>
+        {onSideMenu && <DraftSideMenuButton className="restaurant-side-order" sideMenu={sideMenu} enabled={sideMenuEnabled} disabled={disabled} onClick={onSideMenu} />}
         <div className="restaurant-wall-seal"><span>本日も</span><strong>営業中</strong></div>
       </div>
 
@@ -117,7 +124,7 @@ export function DraftRestaurantLayout({
         <div className="restaurant-scene" data-world-width="16.1" aria-label="奥から特急、汎用、ビルド系の3Dレーン">
           {children}
           <div className="restaurant-lane-label restaurant-lane-label-express">特急<span>ご注文のお皿</span></div>
-          <div className="restaurant-lane-label restaurant-lane-label-general">汎用・サイド</div>
+          <div className="restaurant-lane-label restaurant-lane-label-general">汎用寿司</div>
           <div className="restaurant-lane-label restaurant-lane-label-build">ビルド系</div>
         </div>
         {notice && <p className="restaurant-notice" role="status">{notice}</p>}
@@ -138,13 +145,14 @@ export function DraftRestaurantLayout({
 
 export type DraftDeckSheetProps = {
   deck: Card[]
+  sideMenu?: SideMenuId | null
   budget: number
   maxCards: number
   emptyMessage: string
   onClose: () => void
 }
 
-export function DraftDeckSheet({ deck, budget, maxCards, emptyMessage, onClose }: DraftDeckSheetProps) {
+export function DraftDeckSheet({ deck, sideMenu, budget, maxCards, emptyMessage, onClose }: DraftDeckSheetProps) {
   const titleId = useId()
   const sheetRef = useRef<HTMLElement>(null)
   const closeRef = useRef(onClose)
@@ -182,6 +190,11 @@ export function DraftDeckSheet({ deck, budget, maxCards, emptyMessage, onClose }
       onClick={event => event.stopPropagation()}>
       <div className="restaurant-sheet-handle" aria-hidden="true" />
       <header><h2 id={titleId}>取ったお皿 <span>{deck.length}皿</span></h2><button onClick={onClose}>レーンに戻る ×</button></header>
+      {sideMenu !== undefined && <div className="restaurant-deck-side-menu">
+        {sideMenu && <SideMenuArt id={sideMenu} />}
+        <span><small>サイドメニュー · 寿司とは別の専用1枠</small><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : '未購入です'}</strong></span>
+        {sideMenu && <b>購入済み</b>}
+      </div>}
       {deck.length === 0 ? <p className="restaurant-empty-deck">{emptyMessage}</p>
         : <div className="restaurant-deck-grid" tabIndex={0} role="region" aria-label="購入したお皿の一覧">{deck.map((card, index) => <article key={`${card.id}-${index}`}>
           <SushiArt card={card} size="100%" fit /><strong>{card.name}</strong><span>{card.cost} AP <b>攻撃 {card.attack}</b></span>

@@ -1,10 +1,18 @@
 import type { Card } from '../types'
+import type { SideMenuId } from '../data/sideMenus'
 
 export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
 export type RandomSource = () => number
 export type CardInstance = Card & { instanceId: string }
-export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean }
+export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number }
+
+export type SideMenuState = {
+  id: SideMenuId
+  status: 'ready' | 'active' | 'used' | 'expired'
+  turnsLeft: number | null
+  usedThisTurn: boolean
+}
 
 export type MatchPlayer = {
   id: PlayerId
@@ -26,6 +34,10 @@ export type MatchPlayer = {
   apNextBonus: number
   nikuMatsuri: boolean
   kiretaSpent: boolean
+  sideMenu: SideMenuState | null
+  sushiPlayedThisTurn: number
+  tempuraTriggeredThisTurn: boolean
+  skippedDigestionThisTurn: number
 }
 
 // 通信・保存できるデータだけを持つ。演出、React、待ち時間は含めない。
@@ -46,6 +58,7 @@ export type MatchState = {
 export type MatchAction =
   | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string }
   | { type: 'end_turn'; playerId: PlayerId }
+  | { type: 'use_side_menu'; playerId: PlayerId }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。
   | { type: 'complete_reorder'; playerId: PlayerId; cards: Card[] }
 

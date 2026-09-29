@@ -1,0 +1,8 @@
+.draft-side-menu-button { display: flex; align-items: center; gap: 7px; min-height: 52px; min-width: 0; padding: 5px 9px; border: 1px solid #a8b58e; border-radius: 7px; background: #e9eedc; color: #3d553b; text-align: left; touch-action: manipulation; }
+.draft-side-menu-button > svg { width: 43px; height: 36px; flex-shrink: 0; }
+.draft-side-menu-button > span { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
+.draft-side-menu-button strong { font-size: 12px; font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
+.draft-side-menu-button small { color: #526747; font-size: 9px; line-height: 1.5; }
+.draft-side-menu-button > b { flex-shrink: 0; font-size: 20px; line-height: 1; font-weight: 400; }
+.draft-side-menu-button:hover:not(:disabled) { background: #f2f4e7; border-color: #72875e; }
+.draft-side-menu-button:disabled { opacity: .6; cursor: default; }

@@ -1,18 +1,25 @@
 import type { Card } from '../types'
 import { CARDS } from '../data/cards'
+import { isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
+import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PlayerId, RandomSource } from './types'
 import { applySummon, calcFieldDmg, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, HAND_LIMIT, INIT_AP, MAX_BELLY, shuffled } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
-export type MatchOptions = { deck: Card[]; p2Deck?: Card[]; mode: MatchMode; matchId?: string }
+export type MatchOptions = {
+  deck: Card[]; p2Deck?: Card[]; mode: MatchMode; matchId?: string
+  sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
+}
 
-function newPlayer(id: PlayerId): MatchPlayer {
+function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
   return {
     id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP,
     summonedIds: [], summonedArch: {}, drawBonus: 0, attackBuff: {}, combosFired: [],
     kiretaStack: 0, thisTurnBases: [], thisTurnArch: {}, digestStopTurns: 0,
     apNextBonus: 0, nikuMatsuri: false, kiretaSpent: false,
+    sideMenu: isSideMenuId(sideMenu) ? { id: sideMenu, status: 'ready', turnsLeft: null, usedThisTurn: false } : null,
+    sushiPlayedThisTurn: 0, tempuraTriggeredThisTurn: false, skippedDigestionThisTurn: 0,
   }
 }
 
@@ -28,7 +35,7 @@ function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSour
 export function createMatch(options: MatchOptions, random: RandomSource = Math.random): MatchState {
   const state: MatchState = {
     matchId: options.matchId ?? 'local', mode: options.mode,
-    players: { 1: newPlayer(1), 2: newPlayer(2) }, activePlayerId: 1,
+    players: { 1: newPlayer(1, options.sideMenu), 2: newPlayer(2, options.p2SideMenu) }, activePlayerId: 1,
     turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null,
     revision: 0, nextInstanceId: 1, log: ['バトル開始！'],
   }
@@ -36,6 +43,11 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   deal(state, 1, options.deck.length ? options.deck : fallback, random)
   deal(state, 2, options.mode === 'cpu' ? getCpuDeck(random)
     : options.p2Deck?.length ? options.p2Deck : fallback, random)
+  // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
+  if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
+    const id = SIDE_MENUS[Math.min(SIDE_MENUS.length - 1, Math.floor(random() * SIDE_MENUS.length))].id
+    state.players[2].sideMenu = { id, status: 'ready', turnsLeft: null, usedThisTurn: false }
+  }
   return state
 }
 
@@ -57,8 +69,9 @@ function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEv
   if (amount > 0) events.push({ type: 'damage', playerId: id, amount })
 }
 
-function checkWin(state: MatchState, events: MatchEvent[]) {
-  const loser = ([1, 2] as const).find(id => state.players[id].belly >= MAX_BELLY)
+function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: PlayerId) {
+  const order: PlayerId[] = simultaneousLoser ? [simultaneousLoser, otherPlayer(simultaneousLoser)] : [1, 2]
+  const loser = order.find(id => state.players[id].belly >= MAX_BELLY)
   if (loser === undefined) return false
   state.winnerId = otherPlayer(loser)
   state.phase = 'over'
@@ -67,11 +80,71 @@ function checkWin(state: MatchState, events: MatchEvent[]) {
   return true
 }
 
+function activeSideMenu(player: MatchPlayer, id: SideMenuId) {
+  return player.sideMenu?.id === id && player.sideMenu.status === 'active'
+}
+
+/** UI・CPU・サーバーで共通の使用可否。参照した状態は変更しません。 */
+export function getSideMenuUseError(state: MatchState, playerId: PlayerId): string | undefined {
+  if (playerId !== 1 && playerId !== 2) return 'unknown_player'
+  if (state.phase === 'over') return 'game_over'
+  if (state.phase !== 'playing' || state.activePlayerId !== playerId) return 'not_your_turn'
+  const player = state.players[playerId]
+  const menu = player.sideMenu
+  if (!menu) return 'side_menu_missing'
+  if (menu.status === 'used' || menu.status === 'expired') return 'side_menu_spent'
+  if (menu.status === 'active' && menu.id !== 'ramen') return 'side_menu_already_active'
+  if (menu.usedThisTurn) return 'side_menu_used_this_turn'
+  if (menu.id === 'ramen' && player.ap >= player.maxAP) return 'side_menu_ap_full'
+  return undefined
+}
+
+function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
+  const player = state.players[id]
+  const menu = player.sideMenu!
+  menu.usedThisTurn = true
+  addLog(state, `${label(state, id)}: ${SIDE_MENU_BY_ID[menu.id].name}を使用`)
+  switch (menu.id) {
+    case 'karaage':
+      menu.status = 'used'
+      damage(state, id, 15, events)
+      damage(state, otherPlayer(id), 15, events)
+      checkWin(state, events, id)
+      break
+    case 'chawanmushi': {
+      const restored = player.skippedDigestionThisTurn
+      player.belly = Math.max(0, player.belly - 15 - restored)
+      player.digestStopTurns = 0
+      player.skippedDigestionThisTurn = 0
+      menu.status = 'used'
+      addLog(state, `${label(state, id)}: お腹 -15${restored > 0 ? `・止められた消化${restored}を回復` : ''}・消化停止を解除`)
+      break
+    }
+    case 'ramen':
+      if (menu.status === 'ready') menu.turnsLeft = 3
+      menu.status = 'active'
+      player.ap = Math.min(player.maxAP, player.ap + 1)
+      damage(state, id, 5, events)
+      addLog(state, `${label(state, id)}: AP +1・お腹 +5`)
+      checkWin(state, events)
+      break
+    default:
+      menu.status = 'active'
+      break
+  }
+}
+
 function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[]) {
   const player = state.players[id]
   const enemyId = otherPlayer(id)
   const enemy = state.players[enemyId]
   const [card] = player.hand.splice(index, 1)
+  const tempuraTarget = card.archetype.includes('niku') || [card.base, ...(card.subBases ?? [])].includes('えび')
+  const tempuraBonus = tempuraTarget && !player.tempuraTriggeredThisTurn
+    && (activeSideMenu(player, 'tempura') || activeSideMenu(enemy, 'tempura')) ? 3 : 0
+  // 設置前に出した対象も「このターン最初の一枚」として数えます。
+  if (tempuraTarget) player.tempuraTriggeredThisTurn = true
+  player.sushiPlayedThisTurn += 1
   const result = applySummon({
     card, fieldId: card.instanceId, belly: player.belly, kireta: player.kiretaStack,
     field: player.field, summonedIds: player.summonedIds, summonedArch: player.summonedArch,
@@ -79,6 +152,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     combosFired: player.combosFired, attackBuff: player.attackBuff,
     drawBonus: player.drawBonus, nikuMatsuri: player.nikuMatsuri,
     kiretaSpent: player.kiretaSpent, enemyBelly: enemy.belly,
+    turnAttackBonus: tempuraBonus,
   })
   Object.assign(player, {
     belly: result.belly, kiretaStack: result.kireta, field: result.field,
@@ -90,6 +164,11 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     ap: player.ap - card.cost, apNextBonus: player.apNextBonus + result.apNext,
   })
   draw(player, result.drawNow)
+  if (activeSideMenu(player, 'fries') && player.sushiPlayedThisTurn === 2) {
+    draw(player, 1)
+    addLog(state, `${label(state, id)}: ポテトで1枚ドロー`)
+  }
+  if (tempuraBonus) addLog(state, `${label(state, id)}: 天ぷら盛り合わせで${card.name}の今ターン攻撃 +3`)
   if (result.stopOppDigest) enemy.digestStopTurns = 1
   addLog(state, `${label(state, id)} ▶ ${card.name} 召喚`)
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
@@ -109,7 +188,10 @@ function finishTurn(state: MatchState, events: MatchEvent[]) {
   damage(state, nextId, total, events)
   if (checkWin(state, events)) return
 
-  player.field = player.field.map(card => ({ ...card, turnsLeft: card.turnsLeft - 1 }))
+  player.field = player.field.map(card => {
+    const { turnAttackBonus: _, ...persistentCard } = card
+    return { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
+  })
     .filter(card => card.turnsLeft > 0)
   draw(player, 1 + player.drawBonus)
   if (player.kiretaSpent) {
@@ -120,17 +202,32 @@ function finishTurn(state: MatchState, events: MatchEvent[]) {
   player.nikuMatsuri = false
   player.thisTurnBases = []
   player.thisTurnArch = {}
+  player.sushiPlayedThisTurn = 0
+  player.tempuraTriggeredThisTurn = false
+  player.skippedDigestionThisTurn = 0
+  const ownMenu = player.sideMenu
+  if (ownMenu?.id === 'ramen' && ownMenu.status === 'active' && ownMenu.turnsLeft !== null) {
+    ownMenu.turnsLeft -= 1
+    if (ownMenu.turnsLeft === 0) {
+      ownMenu.status = 'expired'
+      addLog(state, `${label(state, id)}: ラーメンの効果が終了`)
+    }
+  }
 
   const oldTurn = state.turn
   if (state.mode === 'two_player' || id === 2) state.turn += 1
   state.activePlayerId = nextId
   const next = state.players[nextId]
+  if (next.sideMenu) next.sideMenu.usedThisTurn = false
+  next.skippedDigestionThisTurn = 0
   const round = state.mode === 'cpu' ? oldTurn : Math.ceil(oldTurn / 2)
+  const digestion = digestionAmount(round) + digestBonus(next.field) + (activeSideMenu(next, 'miso') ? 2 : 0)
   if (next.digestStopTurns > 0) {
+    next.skippedDigestionThisTurn = Math.min(next.belly, digestion)
     next.digestStopTurns -= 1
     addLog(state, `🚫 ${label(state, nextId)}の消化がスキップされた！`)
   } else {
-    next.belly = Math.max(0, next.belly - digestionAmount(round) - digestBonus(next.field))
+    next.belly = Math.max(0, next.belly - digestion)
   }
   const baseAP = state.mode === 'two_player'
     ? INIT_AP + Math.floor((state.turn - 1) / 2)
@@ -180,10 +277,14 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     if (index < 0) return reject('card_not_in_hand')
     if (player.ap < player.hand[index].cost) return reject('insufficient_ap')
     if (player.field.length >= FIELD_MAX) return reject('field_full')
+  } else if (action.type === 'use_side_menu') {
+    const error = getSideMenuUseError(state, action.playerId)
+    if (error) return reject(error)
   } else if (action.type !== 'end_turn') return reject('unknown_action')
   const next = structuredClone(state)
   const events: MatchEvent[] = []
   if (action.type === 'play_card') summon(next, action.playerId, index, events)
+  else if (action.type === 'use_side_menu') applySideMenu(next, action.playerId, events)
   else finishTurn(next, events)
   next.revision += 1
   return { state: next, events }
@@ -192,7 +293,32 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
 /** 思考の方針は既存の攻撃力順。実際の処理は人間と同じ操作を使う。 */
 export function getCpuActions(state: MatchState): MatchAction[] {
   if (state.mode !== 'cpu' || state.phase !== 'playing' || state.activePlayerId !== 2) return []
-  const cpu = state.players[2]
-  return cpuChoose(cpu.hand, cpu.ap).slice(0, Math.max(0, FIELD_MAX - cpu.field.length))
-    .map(card => ({ type: 'play_card', playerId: 2, cardInstanceId: card.instanceId }))
+  const actions: MatchAction[] = []
+  let planned = state
+  // 仮の状態へ同じ操作を適用し、AP回復・追加ドロー後も手札を選び直します。
+  for (let count = 0; count < FIELD_MAX + 2 && planned.phase === 'playing'; count++) {
+    const cpu = planned.players[2]
+    const menu = cpu.sideMenu
+    const canUse = !getSideMenuUseError(planned, 2)
+    const useMenu = canUse && menu && (
+      menu.id === 'fries' || menu.id === 'tempura' || menu.id === 'miso'
+      || (menu.id === 'chawanmushi' && (cpu.belly >= 15 || cpu.skippedDigestionThisTurn > 0 || cpu.digestStopTurns > 0))
+      || (menu.id === 'karaage' && cpu.belly < 85
+        && (planned.players[1].belly >= 50 || cpu.hand.some(card => card.archetype.includes('niku'))))
+      || (menu.id === 'ramen' && cpu.belly < 95 && cpu.field.length < FIELD_MAX
+        && cpu.hand.some(card => card.cost <= cpu.ap + 1))
+    )
+    let action: MatchAction
+    if (useMenu) action = { type: 'use_side_menu', playerId: 2 }
+    else {
+      const card = cpu.field.length < FIELD_MAX ? cpuChoose(cpu.hand, cpu.ap)[0] : undefined
+      if (!card) break
+      action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId }
+    }
+    const result = transitionMatch(planned, action)
+    if (result.error) break
+    actions.push(action)
+    planned = result.state
+  }
+  return actions
 }

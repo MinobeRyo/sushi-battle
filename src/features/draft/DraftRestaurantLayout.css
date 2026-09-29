@@ -167,3 +167,23 @@
 }
 @keyframes restaurant-sheet-open { from { opacity: .2; transform: translateY(50%); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .restaurant-deck-sheet { animation: none; } .restaurant-tablet { transition: none; } }
+
+/* 特急の回数・寿司の枚数に関係なく、専用の一皿を注文・確認できます。 */
+.restaurant-side-order { position: absolute; left: max(14px, calc(50% - 350px)); width: 190px; box-shadow: 0 3px 9px #1e100b33; }
+.restaurant-deck-side-menu { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-bottom: 12px; padding: 7px 10px; border: 1px solid #bbc5a5; border-radius: 7px; background: #e3e8d5; color: #405436; }
+.restaurant-deck-side-menu > svg { width: 50px; height: 36px; flex-shrink: 0; }
+.restaurant-deck-side-menu > span { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; }
+.restaurant-deck-side-menu small { font-size: 10px; color: #617053; }
+.restaurant-deck-side-menu strong { font-size: 13px; overflow-wrap: anywhere; }
+.restaurant-deck-side-menu > b { white-space: nowrap; font-size: 11px; }
+@container restaurant-screen (max-width: 760px) {
+  .restaurant-side-order { width: 160px; gap: 5px; padding-inline: 6px; }
+  .restaurant-side-order > svg { width: 32px; }
+  .restaurant-side-order strong { font-size: 11px; }
+  .restaurant-side-order small { font-size: 8px; }
+}
+@container restaurant-screen (max-width: 560px) {
+  .restaurant-back-wall--with-side { justify-content: center; gap: 14px; padding-inline: 14px; }
+  .restaurant-back-wall--with-side .restaurant-wall-seal { display: none; }
+  .restaurant-side-order { position: static; width: min(160px, 42cqw); }
+}

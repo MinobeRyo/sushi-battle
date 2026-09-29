@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import type { DraftRestaurantLayoutProps } from './DraftRestaurantLayout'
 import type { DraftState } from './draftEngine'
 import { VerticalExpressScene } from '../demo/VerticalDraftScene'
+import { DraftSideMenuButton } from './DraftSideMenuButton'
 import './PortraitDraftLayout.css'
 
 type Props = DraftRestaurantLayoutProps & {
@@ -18,7 +19,7 @@ function focusableElements(element: HTMLElement | null) {
 
 export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, playerNum = 1,
   canOrder, delivering, remaining, finishLabel, disabled = false, overlayActive,
-  onOrder, onDeck, onFinish, onHelp, hint, notice, children, overlays, shinkansenPlate, onPickup }: Props) {
+  onOrder, sideMenu, sideMenuEnabled = false, onSideMenu, onDeck, onFinish, onHelp, hint, notice, children, overlays, shinkansenPlate, onPickup }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -58,8 +59,11 @@ export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, pla
         <div><span>購入した皿</span><strong>{deckCount}<small> / {maxCards}</small></strong></div>
         <div data-urgent={seconds <= 20}><span>残り時間</span><strong role="timer" aria-label={`残り${seconds}秒`}>{time}</strong></div>
       </div>
-      <div className="pd-toolbar"><button className="pd-order-button" disabled={!canOrder || disabled} onClick={onOrder}><strong>特急で注文</strong><span>{orderLabel}</span></button><span className="pd-tap-hint">お皿をタップ<br />して選ぶ</span></div>
-      <div className="pd-lane-headings"><h2>汎用・サイド<span aria-hidden="true">↓</span></h2><h2>ビルド系<span aria-hidden="true">↓</span></h2></div>
+      <div className={`pd-toolbar${onSideMenu ? ' pd-toolbar--with-side' : ''}`}>
+        <button className="pd-order-button" disabled={!canOrder || disabled} onClick={onOrder}><strong>特急で注文</strong><span>{orderLabel}</span></button>
+        {onSideMenu ? <DraftSideMenuButton className="pd-side-button" sideMenu={sideMenu} enabled={sideMenuEnabled} disabled={disabled} onClick={onSideMenu} /> : <span className="pd-tap-hint">お皿をタップ<br />して選ぶ</span>}
+      </div>
+      <div className="pd-lane-headings"><h2>汎用寿司<span aria-hidden="true">↓</span></h2><h2>ビルド系<span aria-hidden="true">↓</span></h2></div>
       <div className="pd-stage" role="region" aria-label="寿司のお皿が上から下へ流れる2本のレーン">
         {children}
         {shinkansenPlate && <section className="pd-delivery" aria-label="特急のお届け">

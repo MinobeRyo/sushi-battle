@@ -6,6 +6,7 @@ import { DraftScreenThree } from './features/draft/DraftScreenThree'
 import { BattleScreen } from './features/battle/BattleScreen'
 import { OnlineScreen } from './features/online/OnlineScreen'
 import type { Phase, Card } from './types'
+import type { SideMenuId } from './data/sideMenus'
 
 type GameMode = 'cpu' | 'two_player'
 const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
@@ -20,6 +21,8 @@ export default function App() {
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
   const [p2Deck, setP2Deck] = useState<Card[]>([])
+  const [p1SideMenu, setP1SideMenu] = useState<SideMenuId | null>(null)
+  const [p2SideMenu, setP2SideMenu] = useState<SideMenuId | null>(null)
   const [showHandoff, setShowHandoff] = useState(false)
 
   const handleModeSelect = (mode: 'cpu' | '2p' | 'online') => {
@@ -33,19 +36,24 @@ export default function App() {
     setDraftPlayer(1)
     setP1Deck([])
     setP2Deck([])
+    setP1SideMenu(null)
+    setP2SideMenu(null)
     setPhase('draft')
   }
 
-  const handleDraftComplete = (deck: Card[]) => {
+  const handleDraftComplete = (deck: Card[], sideMenu: SideMenuId | null = null) => {
     if (gameMode === 'cpu') {
       setP1Deck(deck)
+      setP1SideMenu(sideMenu)
       setPhase('battle')
     } else {
       if (draftPlayer === 1) {
         setP1Deck(deck)
+        setP1SideMenu(sideMenu)
         setShowHandoff(true)
       } else {
         setP2Deck(deck)
+        setP2SideMenu(sideMenu)
         setPhase('battle')
       }
     }
@@ -61,6 +69,8 @@ export default function App() {
     setDraftPlayer(1)
     setP1Deck([])
     setP2Deck([])
+    setP1SideMenu(null)
+    setP2SideMenu(null)
     setShowHandoff(false)
   }
 
@@ -101,6 +111,8 @@ export default function App() {
         <BattleScreen
           deck={p1Deck}
           p2Deck={gameMode === 'two_player' ? p2Deck : undefined}
+          sideMenu={p1SideMenu}
+          p2SideMenu={gameMode === 'two_player' ? p2SideMenu : undefined}
           mode={gameMode}
           onBack={handleBattleBack}
         />

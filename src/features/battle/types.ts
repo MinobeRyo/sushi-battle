@@ -1,5 +1,5 @@
 import type { Card } from '../../types'
-import type { CardInstance, FieldCard } from '../../game/types'
+import type { CardInstance, FieldCard, SideMenuState } from '../../game/types'
 export type { FieldCard } from '../../game/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -13,6 +13,8 @@ export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number; o
 
 // 既存の画面部品へ渡す投影。対戦の正本は game/types.ts の MatchState。
 export type BattleView = {
+  pSideMenu: SideMenuState | null
+  cSideMenu: SideMenuState | null
   // この端末から見た自分側
   pHand: CardInstance[]; pField: FieldCard[]; pDeckCount: number
   pBelly: number; pAP: number; pMaxAP: number

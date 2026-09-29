@@ -9,6 +9,7 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
   const p = match.players[viewer]
   const c = match.players[otherPlayer(viewer)]
   return {
+    pSideMenu: p.sideMenu, cSideMenu: c.sideMenu,
     pHand: p.hand, pField: p.field, pDeckCount: p.deck.length, pBelly: p.belly,
     pAP: p.ap, pMaxAP: p.maxAP, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
     pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
