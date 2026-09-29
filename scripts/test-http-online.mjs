@@ -285,6 +285,57 @@ try {
     socket.disconnect()
   })
 
+  await test('HTTPでもサイド皿を購入でき、再送とレーン・タブレット間の追加購入を防ぐ', async () => {
+    const left = client(server), right = client(server)
+    const created = await left.request('room:create')
+    assert.equal((await right.request('room:join', { code: created.reply.session.code })).reply.ok, true)
+    const sendDraft = async (buyer, command) => {
+      const draft = (await buyer.request()).snapshot.draft
+      return buyer.request('draft:action', {
+        draftId: draft.draftId, expectedRevision: draft.revision,
+        actionId: `http-side-${++nextActionId}`, ...command,
+      })
+    }
+    const initial = (await left.request()).snapshot.draft
+    const sides = initial.offers.filter(offer => offer.sideMenuId)
+    assert.deepEqual(sides.map(offer => offer.slot), [3, 7])
+    assert.ok(sides.every(offer => !('card' in offer)))
+    const purchase = {
+      type: 'buy', offerId: sides[0].id, draftId: initial.draftId,
+      expectedRevision: initial.revision, actionId: `http-side-${++nextActionId}`,
+    }
+    await left.dropReply('draft:action', purchase)
+    const retry = await left.request('draft:action', purchase)
+    assert.deepEqual(retry.reply, { ok: true })
+    const after = retry.snapshot.draft
+    assert.equal(after.you.sideMenu, sides[0].sideMenuId)
+    assert.equal(after.you.budget, initial.you.budget - 300)
+    assert.equal(after.you.deck.length, 0)
+    assert.equal(after.you.shinkansenLeft, initial.you.shinkansenLeft)
+    assert.equal(after.offers.find(offer => offer.id === sides[0].id).sold, true)
+    assert.equal(after.revision, initial.revision + 1)
+    assert.deepEqual((await sendDraft(left, { type: 'buy', offerId: sides[0].id })).reply,
+      { ok: false, error: 'draft_duplicate' })
+    assert.deepEqual((await sendDraft(left, { type: 'buy', offerId: sides[1].id })).reply,
+      { ok: false, error: 'draft_side_menu_owned' })
+    assert.deepEqual((await sendDraft(left, { type: 'buy_side_menu', sideMenuId: 'ramen' })).reply,
+      { ok: false, error: 'draft_side_menu_owned' })
+    assert.deepEqual((await left.request()).snapshot.draft.you, after.you)
+
+    const tablet = await sendDraft(right, { type: 'buy_side_menu', sideMenuId: 'ramen' })
+    assert.deepEqual(tablet.reply, { ok: true })
+    const rightOffer = tablet.snapshot.draft.offers.find(offer => offer.sideMenuId)
+    assert.deepEqual((await sendDraft(right, { type: 'buy', offerId: rightOffer.id })).reply,
+      { ok: false, error: 'draft_side_menu_owned' })
+    assert.deepEqual((await right.request()).snapshot.draft.you, tablet.snapshot.draft.you)
+    await finishBoth(left, right, false)
+    const match = (await left.request()).snapshot.match
+    assert.equal(match.you.sideMenu.id, sides[0].sideMenuId)
+    assert.equal(match.opponent.sideMenu.id, 'ramen')
+    privateSnapshot({ match, playerId: 1 })
+    await left.request('room:leave')
+  })
+
   await test('poll停止で一時切断し、同じclientIdでもトークンで状態を回復できる', async () => {
     const ttlServer = await start({ httpPresenceTtlMs: 100, resumeTtlMs: 500 })
     const left = client(ttlServer)

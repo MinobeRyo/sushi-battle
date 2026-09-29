@@ -1,5 +1,7 @@
+import { useId } from 'react'
 import type { SideMenuState } from '../../game/types'
-import { SideMenuCard } from './SideMenuCard'
+import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
+import { SideMenuArt } from './SideMenuArt'
 import './BattleSideMenuSlot.css'
 
 export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP = 0, onUse }: {
@@ -10,31 +12,57 @@ export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP 
   maxAP?: number
   onUse?: () => void
 }) {
+  const instanceId = useId()
+  const dish = menu ? SIDE_MENU_BY_ID[menu.id] : null
   const isRamen = menu?.id === 'ramen'
   const isInstant = menu?.id === 'karaage' || menu?.id === 'chawanmushi'
   const status = !menu ? '' : menu.status === 'used' ? '使用済み'
     : menu.status === 'expired' ? '効果終了'
       : menu.status === 'ready' ? '未使用'
-        : isRamen ? `残り自分${menu.turnsLeft}ターン` : '効果発動中'
+        : '発動中'
   const finished = menu?.status === 'used' || menu?.status === 'expired'
   const passive = menu?.status === 'active' && !isRamen
   const blockedReason = finished ? 'この試合では使い切りました'
     : passive ? '設置した効果が続いています'
       : !canAct ? '自分のターンに使用できます'
         : isRamen && menu?.usedThisTurn ? 'このターンは使用済みです'
-          : isRamen && ap >= maxAP ? 'APを使うと回復できます' : undefined
-  const actionLabel = isRamen ? 'お腹＋5でAPを1回復'
-    : isInstant ? 'この一皿を使う · 0AP' : 'フィールドに設置 · 0AP'
+          : isRamen && ap >= maxAP ? 'APが満タンです' : undefined
+  const actionLabel = isRamen ? 'AP＋1' : isInstant ? '使う 0AP' : '設置 0AP'
+  const showAction = !!onUse && !!menu && !finished && !passive
 
-  return <section className="battle-side-slot" aria-label={`${label}のサイドメニュースロット`}>
-    <header><h2>{label}のサイド</h2><span>専用1枠</span></header>
-    {menu ? <>
-      <SideMenuCard id={menu.id} compact status={status}
-        disabled={!!blockedReason} disabledReason={onUse && !finished && !passive ? blockedReason : undefined}
-        actionLabel={actionLabel} onAction={onUse && !finished && !passive ? onUse : undefined} />
-      {menu.id === 'ramen' && !finished && <p className="battle-side-hint">{menu.status === 'ready' ? '初回の使用から3ターン。使用したターンも含みます。' : '自分のターン終了で残り時間が1減ります。使用は任意です。'}</p>}
-      {menu.id === 'karaage' && !finished && <p className="battle-side-hint">自分も満腹になります。同時に100に達した場合は使用した側の敗北です。</p>}
-      {finished && <p className="battle-side-hint">追加購入・交換はできません。</p>}
-    </> : <p className="battle-side-empty">サイドメニューは未購入です。<span>最初の注文タブレットで1品選べます。</span></p>}
+  return <section className="battle-side-slot" aria-label={`${label}のサイドメニュースロット`}
+    data-state={menu?.status ?? 'empty'} data-owner={!!onUse}>
+    <header className="battle-side-heading">
+      <h2>{label}のサイド</h2>
+      {menu && <span className="battle-side-state">
+        {isRamen && menu.status === 'active'
+          ? <>{onUse ? '自分' : '相手'}の残り <strong>{menu.turnsLeft}</strong> ターン</> : status}
+      </span>}
+    </header>
+    {menu && dish ? <>
+      <div className="battle-side-main">
+        <div className="battle-side-art"><SideMenuArt id={menu.id} decorative /></div>
+        <div className="battle-side-content">
+          <h3 id={`${instanceId}-name`}>{dish.name}</h3>
+          <p id={`${instanceId}-effect`}>{dish.summary}</p>
+        </div>
+        {showAction && <div className="battle-side-action-area">
+          {blockedReason && <p className="battle-side-action-reason" id={`${instanceId}-reason`}>{blockedReason}</p>}
+          <button type="button" className="battle-side-use" disabled={!!blockedReason}
+            aria-label={`${dish.name}：${actionLabel}`}
+            aria-describedby={`${instanceId}-effect${blockedReason ? ` ${instanceId}-reason` : ''}`}
+            onClick={() => { if (!blockedReason) onUse?.() }}>{actionLabel}</button>
+        </div>}
+      </div>
+      <details className="battle-side-details" key={menu.id}>
+        <summary>効果の詳細</summary>
+        <div>
+          <p>{dish.effect}</p>
+          <p className="battle-side-timing">{dish.timing}</p>
+          {isRamen && <p>初回の使用で効果が始まります。自分のターン終了ごとに残りが1減り、使用しなかったターンも数えます。</p>}
+          {finished && <p>この試合では使い切りました。追加購入・交換はできません。</p>}
+        </div>
+      </details>
+    </> : <p className="battle-side-empty">未購入</p>}
   </section>
 }
