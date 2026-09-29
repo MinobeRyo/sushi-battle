@@ -671,7 +671,7 @@ export const CARDS: Card[] = [
     price: 400,
     attack: 12,
     fullness: 0,
-    effect: 'belly_boost_70', // 相手お腹>70で攻撃+8
+    effect: 'sacrifice_namahamu_2_8', // 生ハムを最大2体生贄にして、1体につき攻撃+8
     archetype: ['niku'],
     lane: 'build',
   },
@@ -685,7 +685,7 @@ export const CARDS: Card[] = [
     price: 300,
     attack: 9,
     fullness: 0,
-    effect: 'belly_boost_60', // 相手お腹>60で攻撃+5
+    effect: 'sacrifice_namahamu_1_7', // 生ハムを最大1体生贄にして、攻撃+7
     archetype: ['niku'],
     lane: 'build',
   },
@@ -697,9 +697,9 @@ export const CARDS: Card[] = [
     type: 'instant',
     cost: 4,
     price: 400,
-    attack: 12,
+    attack: 10,
     fullness: 0,
-    effect: 'belly_boost_70',
+    effect: 'generate_namahamu_2',
     archetype: ['niku'],
     lane: 'build',
   },
@@ -723,11 +723,11 @@ export const CARDS: Card[] = [
     base: '牛タン',
     topping: null,
     type: 'instant',
-    cost: 3,
+    cost: 2,
     price: 250,
-    attack: 10,
+    attack: 5,
     fullness: 0,
-    effect: null,
+    effect: 'generate_namahamu_1',
     archetype: ['niku'],
     lane: 'build',
   },
@@ -774,6 +774,15 @@ export const CARDS: Card[] = [
     lane: 'build',
   },
 ]
+
+// 料理の効果で机にだけ生成する。購入候補・完成デッキには含めない。
+export const NAMAHAM_CARD: Card = {
+  id: 'namahamu', name: '生ハム', base: '生ハム', topping: null,
+  type: 'persist', cost: 0, price: 0, attack: 1, fullness: 3,
+  effect: null, archetype: ['niku'], lane: 'build',
+}
+
+export const GENERATED_CARDS: Card[] = [NAMAHAM_CARD]
 
 export const getCardsByLane = (lane: Card['lane']) =>
   CARDS.filter(c => c.lane === lane)

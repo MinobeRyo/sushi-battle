@@ -10,6 +10,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loadTs } from './load-ts.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = process.env.SUSHI_ROOT ?? path.resolve(HERE, '..')
@@ -79,6 +80,7 @@ const draftSrc = read(path.join(SRC, 'features/draft/DraftScreenThree.tsx'))
 const draftEngineSrc = read(path.join(SRC, 'features/draft/draftEngine.ts'))
 
 const cards = parseCards(cardsSrc)
+const { GENERATED_CARDS } = loadTs('src/data/cards.ts')
 
 const K = {
   MAX_BELLY: parseConst(battleSrc, 'MAX_BELLY'),
@@ -93,6 +95,7 @@ const K = {
   OBA_REQUIRED: parseConst(battleSrc, 'OBA_REQUIRED'),
   KIRETA_MULT: parseConst(battleSrc, 'KIRETA_MULT'),
   NIKU_REQUIRED: parseConst(battleSrc, 'NIKU_REQUIRED'),
+  NIKU_DAMAGE: parseConst(battleSrc, 'NIKU_DAMAGE'),
   REORDER_BUDGET: parseConst(battleSrc, 'REORDER_BUDGET'),
   REORDER_SECONDS: parseConst(battleSrc, 'REORDER_SECONDS'),
   DRAFT_SECONDS: parseConst(draftSrc, 'DRAFT_SECONDS'),
@@ -122,6 +125,10 @@ const EFFECTS = {
   belly_boost_65: '相手のお腹が65以上のとき 攻撃 +6',
   belly_boost_70: '相手のお腹が70以上のとき 攻撃 +8',
   belly_boost_persist_50: '机にいる間、相手のお腹50以上で 攻撃 +2',
+  generate_namahamu_1: '召喚後、机の空き枠に生ハムを1体生成（攻撃1・自分の3ターン）',
+  generate_namahamu_2: '召喚後、机の空き枠に生ハムを最大2体生成（攻撃1・自分の3ターン）',
+  sacrifice_namahamu_1_7: '召喚時、生ハムを0〜1体生贄にし、1体につき攻撃 +7',
+  sacrifice_namahamu_2_8: '召喚時、生ハムを0〜2体生贄にし、1体につき攻撃 +8',
   chain_on_kaisen_summon: `base「${chainBases.join('・')}」を召喚するたび +${K.CHAIN_BONUS} の連鎖攻撃`,
   draw_1: '召喚時、カードを1枚引く',
   draw_2: '召喚時、カードを2枚引く',
@@ -190,10 +197,13 @@ const COMBOS = [
   {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩', color: 'niku',
     trigger: '都度発動 · ターンに1回', state: 'impl',
-    cond: `同じターンに肉寿司アーキタイプを <strong>${K.NIKU_REQUIRED}枚</strong> 召喚`,
-    effect: 'そのターンの終盤強化ボーナス（お腹条件のボーナス）を <strong>×2</strong>',
-    lists: [['対象カード', cs => cs.filter(c => c.archetype.includes('niku'))]],
-    note: '相手のお腹が条件に達していないと効果はありません。牛タン寿司だけ終盤強化ボーナスを持たないため恩恵を受けません。',
+    cond: `同じターンに生ハムを合計 <strong>${K.NIKU_REQUIRED}体</strong> 生贄にする`,
+    effect: `即時 <strong>+${K.NIKU_DAMAGE}</strong> ダメージ（ガリで防御可能）`,
+    lists: [
+      ['生ハムを生成するカード', cs => cs.filter(c => c.effect?.startsWith('generate_namahamu_'))],
+      ['生贄で攻撃を強化するカード', cs => cs.filter(c => c.effect?.startsWith('sacrifice_namahamu_'))],
+    ],
+    note: '生贄の使用は任意で、カルビ・和牛で使った合計を数えます。各ターン1回まで。お腹条件ボーナスの倍増はありません。',
   },
   {
     id: 'kokyu_zanmai', name: '高級三昧', emoji: '💴', color: 'general',
@@ -433,7 +443,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
     ${stat('初期AP / 上限', `${K.INIT_AP} → 10`, 'CPU戦は毎ターン+1、二人対戦は2ターンで+1')}
     ${stat('消化量', `2 → ${K.DIGESTION_MAX}`, `本人の手番開始時に min(${K.DIGESTION_MAX}, 1+ラウンド)`)}
     ${stat('手札上限', String(K.HAND_LIMIT), '超過分は山札に残る')}
-    ${stat('机の上限', String(K.FIELD_MAX), '満杯だと召喚不可')}
+    ${stat('机の上限', String(K.FIELD_MAX), '生ハムも1枠使用。生贄で枠を空けて召喚可能')}
     ${stat('連鎖ボーナス', `+${K.CHAIN_BONUS}`, `連鎖カード1枚につき（base ${chainBases.join('・')} の召喚時）`)}
     ${stat('巻物コンプ①', `机に${K.MAKI_COMP_3}枚`, '以降ドロー+1（1試合1回）')}
     ${stat('巻物コンプ②', `机に${K.MAKI_COMP_5}枚`, `維持している間 軍艦の攻撃 ×${K.GUNKAN_BOOST}`)}
@@ -451,7 +461,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
   <div class="subhead"><h3>ダメージ計算</h3><span>game/battleRules.ts の calcFieldDmg</span></div>
   <div class="kw">
-    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス〈肉祭り中は×2〉）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
+    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
     <div><code>総ダメージ（表の列）</code><p>攻撃力 × 持続ターン。バフ・ボーナスを含まない素の値</p></div>
   </div>
@@ -460,6 +470,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 <section id="cards">
   <h2><span class="n">02</span>カード性能表</h2>
   <p class="lede">列見出しをクリックで並び替え。総ダメージは「攻撃力 × 持続ターン」、AP効率は「総ダメージ ÷ AP」、円効率は「総ダメージ ÷ 定価 × 100」です。</p>
+  <div class="kw">${GENERATED_CARDS.map(c => `<div><code>${esc(c.name)}（生成専用）</code><p>攻撃${c.attack}・自分の${turnsOf(c)}ターン持続。牛タン寿司・ローストビーフ寿司から生成され、机の${K.FIELD_MAX}枠を使います。購入・デッキ編成はできないため、下の購入カード表には含めません。</p></div>`).join('')}</div>
 
   <div class="controls">
     <span class="label">ビルド</span>

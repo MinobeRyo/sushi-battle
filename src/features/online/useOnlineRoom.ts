@@ -44,6 +44,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   card_not_in_hand: 'このカードはすでに手札にありません。',
   insufficient_ap: '召喚に必要なAPが足りません。',
   field_full: '机が満杯です。',
+  invalid_sacrifice_count: '生贄にする生ハムの数を選び直してください。',
+  not_enough_namahamu: '机の生ハムが足りません。最新の状態をご確認ください。',
   side_menu_missing: 'サイドメニューを購入していません。',
   side_menu_spent: 'このサイドメニューは使用済み、または効果が終了しています。',
   side_menu_already_active: 'このサイドメニューの効果は発動中です。',
@@ -269,7 +271,7 @@ export function useOnlineRoom() {
     }
   }, [invalidateRequests, showSnapshot, storeSession])
 
-  const sendAction = useCallback(async (type: OnlineAction['type'], cardInstanceId?: string, useGari?: boolean) => {
+  const sendAction = useCallback(async (type: OnlineAction['type'], cardInstanceId?: string, useGari?: boolean, sacrificeCount?: number) => {
     if (pendingRef.current) return
     const match = snapshotRef.current?.match
     if (!match) {
@@ -279,6 +281,7 @@ export function useOnlineRoom() {
     const action: OnlineAction = {
       matchId: match.matchId, actionId: actionId(), expectedRevision: match.revision, type,
       ...(cardInstanceId ? { cardInstanceId } : {}),
+      ...(type === 'play_card' ? { sacrificeCount: sacrificeCount ?? 0 } : {}),
       ...(type === 'respond_defense' ? { useGari } : {}),
     }
     const result = await request(
@@ -289,7 +292,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  const playCard = useCallback((instanceId: string) => sendAction('play_card', instanceId), [sendAction])
+  const playCard = useCallback((instanceId: string, sacrificeCount = 0) => sendAction('play_card', instanceId, undefined, sacrificeCount), [sendAction])
   const draftAction = useCallback(async (command: DraftCommand) => {
     const draft = snapshotRef.current?.draft
     if (!draft || pendingRef.current) return false

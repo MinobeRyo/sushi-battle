@@ -100,6 +100,7 @@
 .catalog-card h2 { margin: 5px 0 7px; font-size: 18px; line-height: 1.4; font-weight: 800; overflow-wrap: anywhere; }
 .catalog-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .catalog-card-tags span { padding: 2px 6px; border-radius: 4px; background: #eee6d9; color: #72583e; font-size: 11px; }
+.catalog-card-tags .catalog-generated-tag { background: #f5e0e5; color: #913c54; font-weight: 700; }
 .catalog-card-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 14px 0; padding: 10px 0; background: #f5eee2; border-radius: 8px; text-align: center; }
 .catalog-card-stats div + div { border-left: 1px solid #e1d4c1; }
 .catalog-card-stats dt { color: #7c6248; font-size: 11px; }

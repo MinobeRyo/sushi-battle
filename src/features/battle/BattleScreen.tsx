@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { calcFieldDmg, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
+import { calcFieldDmg, countNamahamu, getSacrificeLimit, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -84,13 +84,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus, kiretaStack: s.cKiretaStack,
     kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
     digestStopTurns: s.cDigestStopTurns, apNextBonus: s.cApNextBonus, thisTurnArch: s.cThisTurnArch,
-    sideMenu: s.cSideMenu,
+    sideMenu: s.cSideMenu, sacrificedThisTurn: s.cSacrificedThisTurn,
   } : {
     summonedIds: s.pSummonedIds, combosFired: s.pCombosFired, field: s.pField,
     attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus, kiretaStack: s.pKiretaStack,
     kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
     digestStopTurns: s.pDigestStopTurns, apNextBonus: s.pApNextBonus, thisTurnArch: s.pThisTurnArch,
-    sideMenu: s.pSideMenu,
+    sideMenu: s.pSideMenu, sacrificedThisTurn: s.pSacrificedThisTurn,
   }
 
   const playerStatus = {
@@ -98,20 +98,21 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus,
     kireta: s.pKiretaStack, kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
     thisTurnArch: s.pThisTurnArch,
-    sideMenu: s.pSideMenu,
+    sideMenu: s.pSideMenu, sacrificedThisTurn: s.pSacrificedThisTurn,
   }
   const opponentStatus = {
     summonedIds: s.cSummonedIds, combosFired: s.cCombosFired, field: s.cField,
     attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus,
     kireta: s.cKiretaStack, kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
     thisTurnArch: s.cThisTurnArch,
-    sideMenu: s.cSideMenu,
+    sideMenu: s.cSideMenu, sacrificedThisTurn: s.cSacrificedThisTurn,
   }
   const playBlockedReason = (card: Card) => {
     if (!isPlayerTurn) return s.phase === 'syncing' ? '通信を待っています' : '自分のターンに召喚できます'
-    if (s.pField.length >= FIELD_MAX) return '机がいっぱいです（8枚まで）'
     const currentCard = 'instanceId' in card ? s.pHand.find(item => item.instanceId === card.instanceId) : undefined
     if (!currentCard) return 'このカードは手札にありません'
+    const availableSacrifices = Math.min(getSacrificeLimit(currentCard), countNamahamu(s.pField))
+    if (s.pField.length - availableSacrifices >= FIELD_MAX) return '机がいっぱいです（8枚まで）'
     if (s.pAP < currentCard.cost) return `APがあと${currentCard.cost - s.pAP}必要です`
     return undefined
   }
@@ -227,10 +228,12 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       <AnimatePresence>
         {currentInspect && (
           <CardDetailSheet
+            key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
+            fieldCards={s.pField}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
-            onPlay={() => { if (currentInspect?.canPlay) playCard(currentInspect.card) }}
+            onPlay={count => { if (currentInspect?.canPlay) playCard(currentInspect.card, count) }}
             onClose={() => setInspect(null)}
           />
         )}

@@ -8,7 +8,7 @@ const BUILD_GUIDE = [
   { label: '巻物', color: '#16a34a', desc: '持続型を残し、机に枚数を揃えます。軍艦も巻物として数えます。' },
   { label: '光り物', color: '#2563eb', desc: 'サバ・アジなどで切れ味を貯め、攻撃を強化したり効果に使ったりします。' },
   { label: '海鮮', color: '#0891b2', desc: 'いか・たこ・えび系の召喚で、連鎖や海の幸三昧を狙います。' },
-  { label: '肉寿司', color: '#ea580c', desc: '相手のお腹が増えると攻撃が強まるカードが多く、終盤に力を発揮します。' },
+  { label: '肉寿司', color: '#ea580c', desc: '牛タン・ローストビーフで生ハムを作り、カルビ・和牛の生贄にして攻撃を強化します。' },
   { label: '汎用', color: '#78716c', desc: 'たまご・サーモンなどです。低コストの攻撃やドローでデッキを支えます。' },
 ]
 
@@ -43,9 +43,9 @@ const COMBO_GUIDE = [
   },
   {
     id: 'niku_matsuri', timing: '各ターンに1回',
-    cond: '同じターンに肉寿司を2枚召喚します。',
-    effect: 'そのターン、肉寿司の終盤強化ボーナス ×2',
-    note: '相手のお腹の量で増える分だけが2倍になります。',
+    cond: '同じターンに生ハムを合計2体生贄にします。',
+    effect: '即時5ダメージ',
+    note: 'カルビ・和牛で使った合計を数えます。同じターンには1回、次のターンには再び発動できます。',
   },
 ]
 
@@ -79,6 +79,12 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
           <p style={{ fontSize: 10, lineHeight: 1.75, marginTop: 5 }}>ラーメンはAPを使ってから、お腹＋5でAPを1回復。初めて使用したターンを含む自分の3ターンだけ使えます。</p>
         </section>
 
+        <section style={{ background: '#f7e8e1', border: '1px solid #ddbcab', borderRadius: 8, padding: '9px 10px', marginBottom: 12, color: '#783f2c' }}>
+          <h3 style={{ fontSize: 12, fontWeight: 800, marginBottom: 5 }}>肉寿司と生ハム</h3>
+          <p style={{ fontSize: 11, lineHeight: 1.75 }}>牛タン寿司は2AP・攻撃5で生ハムを1体、ローストビーフ寿司は4AP・攻撃10で2体生成します。生ハムは攻撃1・3ターン持続で、机の8枠を使います。購入はできず、机に空きがある分だけ生成されます。</p>
+          <p style={{ fontSize: 11, lineHeight: 1.75, marginTop: 5 }}>カルビ寿司は3AP・攻撃9で、生ハムを1体使うと攻撃＋7。和牛にぎりは4AP・攻撃12で、最大2体を1体につき＋8へ変えます。使う数は召喚時に選べ、使わずに出すこともできます。</p>
+        </section>
+
         <p style={{ fontSize: 11, fontWeight: 800, color: '#b45309', margin: '0 0 6px' }}>■ ビルド（アーキタイプ）とは</p>
         <p style={{ fontSize: 10, color: '#57534e', margin: '0 0 8px', lineHeight: 1.6 }}>
           同じ系統の寿司を集めるとデッキに軸ができます。系統はカード左上のラベルで確認できます。
@@ -94,7 +100,7 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
 
         <p style={{ fontSize: 11, fontWeight: 800, color: '#b45309', margin: '0 0 6px' }}>■ コンボ（役）</p>
         <p style={{ fontSize: 10, color: '#57534e', margin: '0 0 8px', lineHeight: 1.6 }}>
-          コンボごとに、累計の召喚数・机に同時にある枚数・同じターンの召喚数を確認します。条件と発動回数に合わせてカードを集めましょう。
+          コンボごとに、累計の召喚数・机に同時にある枚数・同じターンの生贄数などを確認します。条件と発動回数に合わせてカードを集めましょう。
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
           {COMBO_GUIDE.map((c) => (

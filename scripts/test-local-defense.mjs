@@ -246,4 +246,65 @@ test('防御中のサイドメニュー使用を止め、回答後の使用・�
   assert.equal(h.game.s.pSideMenu.status, 'ready')
 }, 'cpu', { sideMenu: 'miso' })
 
-console.log(`\nローカル防御: ${passed}件成功`)
+for (const sideMenu of ['karaage', 'fries', 'tempura', 'ramen', 'miso', 'chawanmushi']) {
+  test(`CPU戦の追加注文後も未使用の${sideMenu}を使用できる`, h => {
+    for (const player of Object.values(h.state.players)) {
+      player.hand = []
+      player.deck = []
+    }
+    h.game.endTurn()
+    h.advance(200 + 900)
+    assert.equal(h.game.s.phase, 'reorder')
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    assert.equal(h.game.s.phase, 'player')
+    assert.equal(h.game.s.pSideMenu.status, 'ready')
+    h.game.playCard(h.game.s.pHand[0])
+    h.game.useSideMenu()
+    assert.equal(h.game.s.pSideMenu.status,
+      ['karaage', 'chawanmushi'].includes(sideMenu) ? 'used' : 'active')
+  }, 'cpu', { sideMenu })
+
+  test(`同端末の追加注文と手渡し後も両者の${sideMenu}を使用できる`, h => {
+    for (const player of Object.values(h.state.players)) {
+      player.hand = []
+      player.deck = []
+      player.gari = 0
+    }
+    h.game.endTurn(); h.advance(200)
+    h.game.handlePassReady()
+    assert.equal(h.game.s.phase, 'reorder')
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    h.game.handlePassReady()
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    h.game.handlePassReady()
+    for (const playerId of [2, 1]) {
+      assert.equal(h.game.s.phase, 'player')
+      assert.equal(h.game.s.activePlayer, playerId)
+      h.game.playCard(h.game.s.pHand[0])
+      h.game.useSideMenu()
+      assert.equal(h.game.s.pSideMenu.status,
+        ['karaage', 'chawanmushi'].includes(sideMenu) ? 'used' : 'active')
+      if (playerId === 2) {
+        h.game.endTurn(); h.advance(200); h.game.handlePassReady()
+      }
+    }
+  }, 'two_player', { sideMenu, p2SideMenu: sideMenu })
+}
+
+test('ローカル召喚は選択した生贄数を適用し、肉祭り防御後も操作を続けられる', h => {
+  const player = h.state.players[1]
+  player.hand = ['roast_beef', 'wagyu'].map(id => cardInstance(id, 1))
+  player.ap = 8
+  h.game.playCard(player.hand[0])
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 2)
+  h.game.playCard(h.game.s.pHand[0], 2)
+  assert.equal(h.game.s.pSacrificedThisTurn, 2)
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 0)
+  assert.equal(h.game.s.phase, 'waiting')
+  h.advance(550)
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.game.s.pNikuMatsuri, true)
+  assert.equal(h.summonCount, 2, '生成だけでは召喚SEを重複させない')
+})
+
+console.log(`\nローカル防御・追加注文・肉寿司: ${passed}件成功`)
