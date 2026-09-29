@@ -1,4 +1,5 @@
 import type { Card } from '../../types'
+import type { SideMenuId } from '../../data/sideMenus'
 import { useEffect, useRef, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
@@ -12,21 +13,26 @@ import { BattleTable } from './BattleTable'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
 import { BattleStatusDialog } from './BattleStatusDialog'
+import { BattleSideMenuSlot } from '../side-menu/BattleSideMenuSlot'
 import type { BattleSideStatus } from './battleStatusModel'
 import './BattleScreen.css'
 
 export function BattleScreen({
   deck,
   p2Deck,
+  sideMenu,
+  p2SideMenu,
   mode = 'cpu',
   onBack,
 }: {
   deck: Card[]
   p2Deck?: Card[]
+  sideMenu?: SideMenuId | null
+  p2SideMenu?: SideMenuId | null
   mode?: 'cpu' | 'two_player'
   onBack?: () => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode={mode} onBack={onBack} />
 }
 
@@ -41,7 +47,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 }) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, endTurn, handlePassReady, handleReorderComplete, restart,
+    playCard, useSideMenu, endTurn, handlePassReady, handleReorderComplete, restart,
   } = game
   const handRef = useRef<HTMLElement>(null)
   const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
@@ -72,11 +78,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus, kiretaStack: s.cKiretaStack,
     kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
     digestStopTurns: s.cDigestStopTurns, apNextBonus: s.cApNextBonus, thisTurnArch: s.cThisTurnArch,
+    sideMenu: s.cSideMenu,
   } : {
     summonedIds: s.pSummonedIds, combosFired: s.pCombosFired, field: s.pField,
     attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus, kiretaStack: s.pKiretaStack,
     kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
     digestStopTurns: s.pDigestStopTurns, apNextBonus: s.pApNextBonus, thisTurnArch: s.pThisTurnArch,
+    sideMenu: s.pSideMenu,
   }
 
   const playerStatus = {
@@ -84,12 +92,14 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus,
     kireta: s.pKiretaStack, kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
     thisTurnArch: s.pThisTurnArch,
+    sideMenu: s.pSideMenu,
   }
   const opponentStatus = {
     summonedIds: s.cSummonedIds, combosFired: s.cCombosFired, field: s.cField,
     attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus,
     kireta: s.cKiretaStack, kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
     thisTurnArch: s.cThisTurnArch,
+    sideMenu: s.cSideMenu,
   }
   const playBlockedReason = (card: Card) => {
     if (!isPlayerTurn) return s.phase === 'syncing' ? '通信を待っています' : '自分のターンに召喚できます'
@@ -130,6 +140,11 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         </header>
 
         <div className="battle-arena" role="region" aria-label="机と手札" tabIndex={0}>
+          <div className="battle-side-menus">
+            <BattleSideMenuSlot label={opponentLabel} menu={s.cSideMenu} />
+            <BattleSideMenuSlot label={activeLabel} menu={s.pSideMenu} canAct={isPlayerTurn}
+              ap={s.pAP} maxAP={s.pMaxAP} onUse={useSideMenu} />
+          </div>
           <div className="battle-tables">
             <BattleTable label={opponentLabel} cards={s.cField} isEnemy
               attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} nikuMatsuri={s.cNikuMatsuri}

@@ -20,6 +20,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   draft_delivery_pending: '特急のお皿を受け取ってから次を注文してください。',
   draft_orders_used: '特急の注文は3回までです。',
   draft_no_delivery: '受け取れる特急のお皿はありません。',
+  draft_side_menu_disabled: 'サイドメニューは最初の購入時だけ注文できます。',
+  draft_side_menu_owned: 'サイドメニューは1試合に1品までです。',
+  draft_invalid_side_menu: 'このサイドメニューは注文できません。',
   already_in_room: 'すでに部屋に参加しています。現在の部屋を退出してからお試しください。',
   invalid_code: '部屋コードを半角数字6桁で入力してください。',
   room_not_found: 'この部屋は見つかりません。コードをご確認いただくか、新しい部屋を作成してください。',
@@ -37,6 +40,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   card_not_in_hand: 'このカードはすでに手札にありません。',
   insufficient_ap: '召喚に必要なAPが足りません。',
   field_full: '机が満杯です。',
+  side_menu_missing: 'サイドメニューを購入していません。',
+  side_menu_spent: 'このサイドメニューは使用済み、または効果が終了しています。',
+  side_menu_already_active: 'このサイドメニューの効果は発動中です。',
+  side_menu_used_this_turn: 'このターンはすでにラーメンを使用しています。',
+  side_menu_ap_full: 'APは満タンです。寿司を出してから使用してください。',
   game_over: 'この対戦は終了しています。',
   left: '参加者が退出したため、部屋を終了しました。',
   expired: '接続のない状態が続いたため、部屋が終了しました。',
@@ -291,6 +299,7 @@ export function useOnlineRoom() {
     return result?.ok === true
   }, [request, resumeRoom])
   const endTurn = useCallback(() => sendAction('end_turn'), [sendAction])
+  const useSideMenu = useCallback(() => sendAction('use_side_menu'), [sendAction])
   const rematch = useCallback(async () => {
     if (pendingRef.current) return
     const result = await request(
@@ -300,7 +309,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, rematch, draftAction, serverNow }
+  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, useSideMenu, rematch, draftAction, serverNow }
 }
 
 export type OnlineRoomController = ReturnType<typeof useOnlineRoom>

@@ -12,6 +12,7 @@ import { useOnlineComboAnnouncements } from './useOnlineComboAnnouncements'
 import { canPlayOnlineCard } from './onlineBattleActions'
 import { ComboCutIn } from '../battle/ComboCutIn'
 import { AnimatePresence } from 'framer-motion'
+import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
 
 const playSummonSound = () => playGameSound('cardPlay')
 
@@ -47,6 +48,7 @@ function OnlineDraftScreen({ room, snapshot, onBack }: {
       {draft.you.completed ? <div className="flex h-full flex-col items-center justify-center gap-4 px-5 text-center text-amber-100">
         <h1 className="text-2xl font-bold">購入が完了しました</h1>
         <p>{draft.you.deck.length}枚購入 · 残金 ¥{draft.you.budget.toLocaleString()}</p>
+        {draft.you.sideMenu && <p>サイドメニュー：{SIDE_MENU_BY_ID[draft.you.sideMenu].name}</p>}
         <p>相手の購入が終わると、{draft.mode === 'initial' ? '対戦が始まります。' : '対戦を再開します。'}</p>
         <p className="text-sm text-stone-400">制限時間になると自動で購入を締め切ります。</p>
       </div> : <DraftScreenThree playerNum={snapshot.playerId} mode={draft.mode}
@@ -82,6 +84,7 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
       void room.playCard(card.instanceId)
     },
     endTurn: () => { if (canAct) { setInspect(null); void room.endTurn() } },
+    useSideMenu: () => { if (canAct) { setInspect(null); void room.useSideMenu() } },
     restart: () => { void room.rematch() },
     handlePassReady: () => {}, handleReorderComplete: () => {},
   }

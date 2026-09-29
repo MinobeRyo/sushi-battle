@@ -1,4 +1,5 @@
 import type { Card } from '../../types'
+import type { SideMenuId } from '../../data/sideMenus'
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { createMatch, getCpuActions, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
@@ -8,12 +9,14 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, onSummon }: {
-  deck: Card[]; p2Deck?: Card[]; mode: MatchMode; onSummon?: () => void
+export function useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu, onSummon }: {
+  deck: Card[]; p2Deck?: Card[]; mode: MatchMode
+  sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
+  onSummon?: () => void
 }) {
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
-  if (matchRef.current === null) matchRef.current = createMatch({ deck, p2Deck, mode, matchId: 'local-0' })
+  if (matchRef.current === null) matchRef.current = createMatch({ deck, p2Deck, mode, sideMenu, p2SideMenu, matchId: 'local-0' })
   const view = useRef<{ viewer: PlayerId; phase: ViewPhase; busy: boolean }>({ viewer: 1, phase: 'player', busy: false })
   const [, tick] = useReducer(n => n + 1, 0)
   const [showLog, setShowLog] = useState(false)
@@ -128,6 +131,11 @@ export function useBattleGame({ deck, p2Deck, mode, onSummon }: {
     }, 200)
   }
 
+  const useSideMenu = () => {
+    if (view.current.busy || view.current.phase !== 'player') return
+    if (dispatch({ type: 'use_side_menu', playerId: view.current.viewer })) syncPhase()
+  }
+
   const handlePassReady = () => {
     if (view.current.phase !== 'pass') return
     view.current.viewer = matchRef.current!.activePlayerId
@@ -149,7 +157,7 @@ export function useBattleGame({ deck, p2Deck, mode, onSummon }: {
   const restart = () => {
     clearTimers()
     matchNumber.current += 1
-    matchRef.current = createMatch({ deck, p2Deck, mode, matchId: `local-${matchNumber.current}` })
+    matchRef.current = createMatch({ deck, p2Deck, mode, sideMenu, p2SideMenu, matchId: `local-${matchNumber.current}` })
     view.current = { viewer: 1, phase: 'player', busy: false }
     setShowLog(false)
     clearCombos()
@@ -163,5 +171,5 @@ export function useBattleGame({ deck, p2Deck, mode, onSummon }: {
   const s = toBattleView(match, view.current.viewer, view.current.phase, flash)
   const reorderStep = match.reorderPlayerId === null || match.reorderPlayerId === view.current.viewer ? 'p' : 'c'
   return { s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, endTurn, handlePassReady, handleReorderComplete, restart }
+    playCard, useSideMenu, endTurn, handlePassReady, handleReorderComplete, restart }
 }

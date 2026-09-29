@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { MAX_BELLY } from './battleEngine'
 import { battleStatusDetails } from './battleStatusModel'
 import type { FieldCard } from './types'
+import type { SideMenuState } from '../../game/types'
 import './PlayerStatusPanel.css'
 
 export type PlayerStatusProps = {
@@ -24,6 +25,7 @@ export type PlayerStatusProps = {
   summonedIds: string[]
   field: FieldCard[]
   thisTurnArch: Record<string, number>
+  sideMenu?: SideMenuState | null
 }
 
 type ActiveEffect = {
@@ -37,7 +39,7 @@ type ActiveEffect = {
 export function PlayerStatusPanel({
   label, isOpponent = false, belly, ap, maxAP, fieldDamage, handCount, deckCount,
   attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri,
-  digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch,
+  digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
   const headingId = useId()
   const effectsHeadingId = useId()
@@ -45,7 +47,7 @@ export function PlayerStatusPanel({
   const bellyLevel = bellyPercent >= 70 ? 'high' : bellyPercent >= 40 ? 'medium' : 'low'
   const effects: ActiveEffect[] = battleStatusDetails({
     summonedIds, combosFired, field, attackBuff, drawBonus,
-    kiretaStack: kireta, kiretaSpent, nikuMatsuri, digestStopTurns, apNextBonus, thisTurnArch,
+    kiretaStack: kireta, kiretaSpent, nikuMatsuri, digestStopTurns, apNextBonus, thisTurnArch, sideMenu,
   }).effects.map(effect => ({
     key: effect.id,
     label: effect.name,
