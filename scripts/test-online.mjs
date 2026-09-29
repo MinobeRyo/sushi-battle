@@ -131,7 +131,7 @@ function assertPrivate(snapshot) {
   const match = snapshot.match
   if (!match) return
   assert.deepEqual(Object.keys(match).sort(), [
-    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'you', 'opponent', 'log', 'comboEvents',
+    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'pendingAttack', 'you', 'opponent', 'log', 'comboEvents',
   ].sort(), '配信状態に内部試合データを追加してはいけません')
   assert.equal('deck' in match.you, false, '自分の山札の中身も未公開です')
   assert.equal('hand' in match.opponent, false, '相手の手札は送信しません')
@@ -285,8 +285,15 @@ try {
   })
 
   await test('ターン終了を相手へ渡し、対戦中の再戦要求を拒否する', async () => {
-    const snapshot = await acceptedAction(host, nextAction(host))
+    let snapshot = await acceptedAction(host, nextAction(host))
     await waitSnapshot(guest, state => state.match.revision === snapshot.match.revision)
+    assert.equal(snapshot.match.phase, 'defending')
+    assert.equal(snapshot.match.pendingAttack.defenderId, 2)
+    assert.deepEqual(guest.latest.match.pendingAttack, snapshot.match.pendingAttack)
+    snapshot = await acceptedAction(guest, nextAction(guest, { type: 'respond_defense', useGari: true }))
+    await waitSnapshot(host, state => state.match.revision === snapshot.match.revision)
+    assert.equal(snapshot.match.you.gari, 1)
+    assert.equal(snapshot.match.pendingAttack, null)
     assert.equal(guest.latest.match.activePlayerId, 2)
     assert.equal((await rpc(host, 'match:rematch')).ok, false)
     const guestEnd = await acceptedAction(guest, nextAction(guest))
@@ -334,14 +341,16 @@ try {
     while (host.latest.match.phase !== 'over' && actionCount < 500) {
       if (host.latest.draft) await finishBoth(host, guest)
       const current = host.latest.match
-      const client = current.activePlayerId === 1 ? host : guest
+      const client = (current.pendingAttack?.defenderId ?? current.activePlayerId) === 1 ? host : guest
       await waitSnapshot(client, state => state.match.revision >= current.revision)
       const match = client.latest.match
-      assert.equal(match.phase, 'playing')
+      assert.ok(match.phase === 'playing' || match.phase === 'defending')
       const card = match.you.field.length < 8
         ? [...match.you.hand].sort((a, b) => b.attack - a.attack).find(c => c.cost <= match.you.ap)
         : undefined
-      const action = nextAction(client, card ? { type: 'play_card', cardInstanceId: card.instanceId } : {})
+      const action = nextAction(client, match.phase === 'defending'
+        ? { type: 'respond_defense', useGari: match.you.gari > 0 }
+        : card ? { type: 'play_card', cardInstanceId: card.instanceId } : {})
       const snapshot = await acceptedAction(client, action)
       const other = client === host ? guest : host
       await waitSnapshot(other, state => state.match.revision >= snapshot.match.revision)

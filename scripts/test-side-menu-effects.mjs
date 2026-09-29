@@ -32,12 +32,18 @@ const step = (state, action) => {
   return result.state
 }
 const use = (state, id = state.activePlayerId) => step(state, { type: 'use_side_menu', playerId: id })
-const end = state => step(state, { type: 'end_turn', playerId: state.activePlayerId })
+const advance = (state, action) => {
+  const next = step(state, action)
+  return next.phase === 'defending'
+    ? step(next, { type: 'respond_defense', playerId: next.pendingAttack.defenderId, useGari: false })
+    : next
+}
+const end = state => advance(state, { type: 'end_turn', playerId: state.activePlayerId })
 const play = (state, cardId) => {
   const player = state.players[state.activePlayerId]
   const chosen = cardId ? player.hand.find(item => item.id === cardId) : player.hand[0]
   assert.ok(chosen)
-  return step(state, { type: 'play_card', playerId: player.id, cardInstanceId: chosen.instanceId })
+  return advance(state, { type: 'play_card', playerId: player.id, cardInstanceId: chosen.instanceId })
 }
 const reject = (state, error, playerId = state.activePlayerId) => {
   const before = structuredClone(state)
@@ -293,6 +299,58 @@ test('CPUは即死する唐揚げを使わず、苦しいときは茶碗蒸し�
   state.activePlayerId = 2
   state.players[2].belly = 50
   assert.equal(getCpuActions(state)[0].type, 'use_side_menu')
+})
+
+test('サイドメニューのお腹増減はガリ防御を要求せず、所持数も変えない', () => {
+  for (const [id, belly, expected] of [['karaage', 20, 35], ['ramen', 20, 25], ['chawanmushi', 20, 5]]) {
+    let state = make(id)
+    state.players[1].belly = belly
+    state.players[1].ap = 1
+    state = use(state)
+    assert.equal(state.players[1].belly, expected)
+    assert.equal(state.phase, 'playing')
+    assert.equal(state.pendingAttack, null)
+    assert.deepEqual([state.players[1].gari, state.players[2].gari], [2, 2])
+  }
+})
+
+test('ラーメンの残りターンと味噌汁の消化はガリ回答後に一度だけ進む', () => {
+  let state = make('ramen', { p2SideMenu: 'miso' })
+  state.players[1].ap = 1
+  state.players[1].field = [toField(card('maguro'), 'attacker')]
+  state.players[2].belly = 40
+  state.players[2].sideMenu.status = 'active'
+  state = use(state)
+  state = step(state, { type: 'end_turn', playerId: 1 })
+  assert.equal(state.phase, 'defending')
+  assert.equal(state.players[1].sideMenu.turnsLeft, 3)
+  assert.equal(state.players[2].belly, 40)
+  assert.equal(state.activePlayerId, 1)
+  reject(state, 'not_your_turn', 1)
+  reject(state, 'not_your_turn', 2)
+  state = step(state, { type: 'respond_defense', playerId: 2, useGari: true })
+  assert.equal(state.phase, 'playing')
+  assert.equal(state.players[1].sideMenu.turnsLeft, 2)
+  assert.equal(state.players[2].belly, 40, '攻撃12 - ガリ8 - 消化4')
+  assert.equal(state.players[2].gari, 1)
+  assert.equal(state.players[2].sideMenu.status, 'active')
+})
+
+test('天ぷらの攻撃増加は防御する攻撃へ含め、回答まで維持してから解除する', () => {
+  let state = make('tempura', { deck: copies('futomaki') })
+  state.players[1].ap = 10
+  state.players[2].belly = 20
+  state = play(use(state))
+  const total = calcFieldDmg(state.players[1].field, {})
+  assert.equal(state.players[1].field[0].turnAttackBonus, 3)
+  state = step(state, { type: 'end_turn', playerId: 1 })
+  assert.equal(state.pendingAttack.amount, total)
+  assert.equal(state.players[1].field[0].turnAttackBonus, 3)
+  assert.equal(state.players[2].belly, 20)
+  state = step(state, { type: 'respond_defense', playerId: 2, useGari: true })
+  assert.equal(state.players[1].field[0].turnAttackBonus, undefined)
+  assert.equal(state.players[2].belly, 20 + Math.max(0, total - 8) - 2)
+  assert.equal(state.players[1].sideMenu.status, 'active')
 })
 
 console.log(`サイドメニュー効果: ${passed}件成功`)

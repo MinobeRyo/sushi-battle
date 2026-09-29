@@ -2,8 +2,8 @@ import type { Card } from '../types'
 import { CARDS } from '../data/cards'
 import { isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
-import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, HAND_LIMIT, INIT_AP, MAX_BELLY, shuffled } from './battleRules'
+import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
+import { applySummon, calcFieldDmg, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, GARI_REDUCTION, getCpuDeck, getCpuReorderDeck, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -14,7 +14,7 @@ export type MatchOptions = {
 
 function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
   return {
-    id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP,
+    id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP, gari: INIT_GARI,
     summonedIds: [], summonedArch: {}, drawBonus: 0, attackBuff: {}, combosFired: [],
     kiretaStack: 0, thisTurnBases: [], thisTurnArch: {}, digestStopTurns: 0,
     apNextBonus: 0, nikuMatsuri: false, kiretaSpent: false,
@@ -36,7 +36,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const state: MatchState = {
     matchId: options.matchId ?? 'local', mode: options.mode,
     players: { 1: newPlayer(1, options.sideMenu), 2: newPlayer(2, options.p2SideMenu) }, activePlayerId: 1,
-    turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null,
+    turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null, pendingAttack: null,
     revision: 0, nextInstanceId: 1, log: ['バトル開始！'],
   }
   const fallback = CARDS.filter(card => card.lane === 'general').slice(0, 10)
@@ -65,8 +65,9 @@ function draw(player: MatchPlayer, count: number) {
 }
 
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
-  state.players[id].belly = Math.min(MAX_BELLY, state.players[id].belly + amount)
-  if (amount > 0) events.push({ type: 'damage', playerId: id, amount })
+  const dealt = Math.max(0, amount)
+  state.players[id].belly = Math.min(MAX_BELLY, state.players[id].belly + dealt)
+  if (dealt > 0) events.push({ type: 'damage', playerId: id, amount: dealt })
 }
 
 function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: PlayerId) {
@@ -76,8 +77,27 @@ function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: P
   state.winnerId = otherPlayer(loser)
   state.phase = 'over'
   state.reorderPlayerId = null
+  state.pendingAttack = null
   events.push({ type: 'game_over', winnerId: state.winnerId })
   return true
+}
+
+function resolveAttack(state: MatchState, attack: PendingAttack, amount: number, events: MatchEvent[]) {
+  state.pendingAttack = null
+  state.phase = 'playing'
+  damage(state, attack.defenderId, amount, events)
+  if (checkWin(state, events)) return
+  if (attack.source === 'end_turn') completeTurn(state, events)
+}
+
+function startAttack(state: MatchState, attack: PendingAttack, events: MatchEvent[]) {
+  if (attack.amount > 0 && state.players[attack.defenderId].gari > 0) {
+    state.pendingAttack = attack
+    state.phase = 'defending'
+    events.push({ type: 'defense_requested', attack: { ...attack } })
+    return
+  }
+  resolveAttack(state, attack, attack.amount, events)
 }
 
 function activeSideMenu(player: MatchPlayer, id: SideMenuId) {
@@ -174,8 +194,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
   events.push({ type: 'summon', playerId: id, cardInstanceId: card.instanceId, cardId: card.id })
   for (const combo of result.fired) events.push({ type: 'combo', playerId: id, comboId: combo.id })
-  damage(state, enemyId, result.extraDmg, events)
-  checkWin(state, events)
+  startAttack(state, { attackerId: id, defenderId: enemyId, amount: result.extraDmg, source: 'summon' }, events)
 }
 
 function finishTurn(state: MatchState, events: MatchEvent[]) {
@@ -185,9 +204,13 @@ function finishTurn(state: MatchState, events: MatchEvent[]) {
   const total = calcFieldDmg(player.field, player.attackBuff, player.kiretaStack,
     state.players[nextId].belly, { nikuMatsuri: player.nikuMatsuri })
   if (total > 0) addLog(state, `${label(state, id)}の攻撃: ${total} ダメージ！`)
-  damage(state, nextId, total, events)
-  if (checkWin(state, events)) return
+  startAttack(state, { attackerId: id, defenderId: nextId, amount: total, source: 'end_turn' }, events)
+}
 
+function completeTurn(state: MatchState, events: MatchEvent[]) {
+  const id = state.activePlayerId
+  const player = state.players[id]
+  const nextId = otherPlayer(id)
   player.field = player.field.map(card => {
     const { turnAttackBonus: _, ...persistentCard } = card
     return { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
@@ -254,6 +277,23 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   const reject = (error: string): MatchResult => ({ state, events: [], error })
   if (action.playerId !== 1 && action.playerId !== 2) return reject('unknown_player')
   if (state.phase === 'over') return reject('game_over')
+  if (action.type === 'respond_defense') {
+    if (state.phase !== 'defending' || !state.pendingAttack) return reject('not_defending')
+    if (action.playerId !== state.pendingAttack.defenderId) return reject('not_defender')
+    if (typeof action.useGari !== 'boolean') return reject('invalid_defense')
+    if (action.useGari && state.players[action.playerId].gari < 1) return reject('no_gari')
+    const next = structuredClone(state)
+    const attack = next.pendingAttack!
+    const reduction = action.useGari ? Math.min(attack.amount, GARI_REDUCTION) : 0
+    if (action.useGari) {
+      next.players[action.playerId].gari -= 1
+      addLog(next, `${label(next, action.playerId)}がガリを使用: ダメージ -${reduction}（残り${next.players[action.playerId].gari}個）`)
+    } else addLog(next, `${label(next, action.playerId)}はガリを温存`)
+    const events: MatchEvent[] = [{ type: 'defense_resolved', playerId: action.playerId, usedGari: action.useGari, reduction }]
+    resolveAttack(next, attack, Math.max(0, attack.amount - reduction), events)
+    next.revision += 1
+    return { state: next, events }
+  }
   if (action.type === 'complete_reorder') {
     if (state.phase !== 'reorder' || action.playerId !== state.reorderPlayerId) return reject('not_reordering')
     const next = structuredClone(state)
@@ -288,6 +328,18 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   else finishTurn(next, events)
   next.revision += 1
   return { state: next, events }
+}
+
+export function getCpuDefenseAction(state: MatchState): MatchAction | null {
+  const attack = state.pendingAttack
+  if (state.mode !== 'cpu' || state.phase !== 'defending' || attack?.defenderId !== 2) return null
+  const cpu = state.players[2]
+  const avoidsDefeat = cpu.belly + attack.amount >= MAX_BELLY
+    && cpu.belly + Math.max(0, attack.amount - GARI_REDUCTION) < MAX_BELLY
+  return {
+    type: 'respond_defense', playerId: 2,
+    useGari: cpu.gari > 0 && (attack.amount >= GARI_REDUCTION || avoidsDefeat),
+  }
 }
 
 /** 思考の方針は既存の攻撃力順。実際の処理は人間と同じ操作を使う。 */

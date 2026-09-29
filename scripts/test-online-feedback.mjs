@@ -128,19 +128,32 @@ test('実サーバーの両者コンボを同じ公開履歴に保持し、再�
     assert.ok(card)
     return battle(client, { type: 'play_card', cardInstanceId: card.instanceId })
   }
+  const defend = (client, source) => {
+    const before = read(client).match
+    assert.equal(before.phase, 'defending')
+    assert.equal(before.pendingAttack.source, source)
+    assert.equal(before.pendingAttack.defenderId, read(client).playerId)
+    battle(client, { type: 'respond_defense', useGari: false })
+    assert.deepEqual(read(client).match.comboEvents, before.comboEvents)
+    assert.equal(read(client).match.pendingAttack, null)
+  }
   buyPair()
   const initial = read(host)
   let cursor = consumeOnlineCombos(null, initial, true).cursor
   // 3APになるまで双方が手番を終え、いか＋たこを同じ机に揃える。
   battle(host); battle(guest)
   play(host, 'ika')
+  defend(guest, 'summon')
   const firstComboAction = play(host, 'takowasa')
   assert.deepEqual(read(host).match.comboEvents, [combo(1)])
   const beforeRetry = read(host).match
   assert.deepEqual(service.handle(host, 'match:action', firstComboAction), { ok: true })
   assert.deepEqual(read(host).match, beforeRetry)
+  defend(guest, 'summon')
+  assert.equal(read(host).match.activePlayerId, 1, '召喚コンボへの防御後は攻撃側の手番を続ける')
   battle(host)
-  play(guest, 'ika'); play(guest, 'takowasa')
+  defend(guest, 'end_turn')
+  play(guest, 'ika'); defend(host, 'summon'); play(guest, 'takowasa')
   const both = read(host)
   assert.deepEqual(both.match.comboEvents, [combo(1), combo(2, 2)])
   assert.deepEqual(read(guest).match.comboEvents, both.match.comboEvents)
@@ -149,7 +162,9 @@ test('実サーバーの両者コンボを同じ公開履歴に保持し、再�
   cursor = polled.cursor
   for (const event of both.match.comboEvents) assert.deepEqual(Object.keys(event).sort(), ['comboId', 'playerId', 'sequence'])
   assert.equal(JSON.stringify(both.match.comboEvents).includes('instanceId'), false)
+  defend(host, 'summon')
   battle(guest)
+  defend(host, 'end_turn')
   const reordering = read(host)
   assert.equal(reordering.draft.mode, 'reorder')
   cursor = consumeOnlineCombos(cursor, reordering, true).cursor
@@ -158,7 +173,7 @@ test('実サーバーの両者コンボを同じ公開履歴に保持し、再�
   assert.equal(resumed.match.matchId, initial.match.matchId)
   assert.deepEqual(resumed.match.comboEvents, both.match.comboEvents)
   assert.deepEqual(consumeOnlineCombos(cursor, resumed, true).events, [])
-  play(host, 'ika'); play(host, 'takowasa')
+  play(host, 'ika'); defend(guest, 'summon'); play(host, 'takowasa')
   assert.deepEqual(read(host).match.comboEvents, [combo(1), combo(2, 2), combo(3)])
   assert.deepEqual(consumeOnlineCombos(cursor, read(host), true).events, [combo(3)])
   // 再参加先も履歴を受信できるが、初回表示として過去の演出は再生しない。

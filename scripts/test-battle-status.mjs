@@ -33,6 +33,14 @@ const match = ids => {
 const step = (state, action) => {
   const result = transitionMatch(state, action, keepOrder)
   assert.equal(result.error, undefined)
+  // このテストは攻撃の解決後の状態表示を確認するため、防御は温存して進める。
+  if (result.state.phase === 'defending') {
+    const defended = transitionMatch(result.state, {
+      type: 'respond_defense', playerId: result.state.pendingAttack.defenderId, useGari: false,
+    }, keepOrder)
+    assert.equal(defended.error, undefined)
+    return defended.state
+  }
   return result.state
 }
 const play = (state, id) => step(state, {

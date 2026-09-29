@@ -1,8 +1,9 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
+import { useBattleHandNavigation } from './useBattleHandNavigation'
 import { calcFieldDmg, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
@@ -12,6 +13,7 @@ import { PlayerStatusPanel } from './PlayerStatusPanel'
 import { BattleTable } from './BattleTable'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
+import { DefensePrompt } from './DefensePrompt'
 import { BattleStatusDialog } from './BattleStatusDialog'
 import { BattleSideMenuSlot } from '../side-menu/BattleSideMenuSlot'
 import type { BattleSideStatus } from './battleStatusModel'
@@ -47,24 +49,28 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 }) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, handlePassReady, handleReorderComplete, restart,
+    playCard, useSideMenu, endTurn, respondDefense, handlePassReady, handleReorderComplete, restart,
   } = game
-  const handRef = useRef<HTMLElement>(null)
+  const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
   const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
   // 状態ダイアログより優先して、双方のコンボ演出を見せる。
   useEffect(() => { if (comboAnim) setStatusSide(null) }, [comboAnim])
+  useEffect(() => { if (s.pendingAttack) setStatusSide(null) }, [s.pendingAttack])
 
   // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
+  const isDefender = s.pendingAttack?.defenderId === s.activePlayer
   const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly, { nikuMatsuri: s.pNikuMatsuri })
   const opponentDmg = calcFieldDmg(s.cField, s.cAttackBuff, s.cKiretaStack, s.pBelly, { nikuMatsuri: s.cNikuMatsuri })
 
   const phaseLabel = s.phase === 'player' ? 'あなたのターン'
+    : s.phase === 'defending' ? '防御を選んでください'
     : s.phase === 'animating' ? '攻撃中…'
-    : s.phase === 'pass' ? 'ターン終了'
+    : s.phase === 'pass' ? 'プレイヤー交代'
     : s.phase === 'reorder' ? '追加注文中…'
-    : s.phase === 'waiting' ? '相手のターン'
     : s.phase === 'syncing' ? '通信待ち…'
+    : s.pendingAttack && !isDefender ? '相手が防御を選択中…'
+    : s.phase === 'waiting' ? '相手のターン'
     : s.phase === 'over' ? '対戦終了'
     : 'CPU思考中…'
 
@@ -120,7 +126,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   return (
     <div className="battle-viewport" onPointerDownCapture={prepareGameAudio} onKeyDownCapture={prepareGameAudio}>
     <div className="battle-board" style={{ background: C.bgMain, color: C.txtPri }}>
-      <div className="battle-layout">
+      <div className="battle-layout" ref={layoutRef} inert={s.phase === 'pass'}>
         <header className="battle-overview">
           <div className="battle-phase-bar">
             <span className="battle-turn-number">ターン {s.turn}</span>
@@ -129,17 +135,19 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </div>
           <div className="battle-status-grid">
             <PlayerStatusPanel label={`相手 · ${opponentLabel}`} isOpponent
+              gari={s.cGari}
               belly={s.cBelly} ap={s.cAP} maxAP={s.cMaxAP} fieldDamage={opponentDmg}
               handCount={s.cHandCount} deckCount={s.cDeckCount} {...opponentStatus}
               digestStopTurns={s.cDigestStopTurns} apNextBonus={s.cApNextBonus} />
             <PlayerStatusPanel label={mode === 'cpu' ? 'あなた' : `あなた · ${activeLabel}`}
+              gari={s.pGari}
               belly={s.pBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
               handCount={s.pHand.length} deckCount={s.pDeckCount} {...playerStatus}
               digestStopTurns={s.pDigestStopTurns} apNextBonus={s.pApNextBonus} />
           </div>
         </header>
 
-        <div className="battle-arena" role="region" aria-label="机と手札" tabIndex={0}>
+        <div className="battle-arena" ref={arenaRef} role="region" aria-label="机と手札" tabIndex={0}>
           <div className="battle-side-menus">
             <BattleSideMenuSlot label={opponentLabel} menu={s.cSideMenu} />
             <BattleSideMenuSlot label={activeLabel} menu={s.pSideMenu} canAct={isPlayerTurn}
@@ -164,7 +172,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <section className="battle-hand-section" ref={handRef} aria-label="手札エリア" tabIndex={-1}>
             <header className="battle-table-heading">
               <h2>あなたの手札 <span>{s.pHand.length}枚</span></h2>
-              <span>カードを押して召喚</span>
+              <span>{isPlayerTurn ? 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>
             </header>
             <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}>
               {s.pHand.length === 0
@@ -177,11 +185,10 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </section>
         </div>
 
-        <footer className="battle-actions">
-          <button className="battle-hand-jump" onClick={() => {
-            handRef.current?.scrollIntoView({ block: 'end', behavior: 'auto' })
-            handRef.current?.focus({ preventScroll: true })
-          }}>手札へ <strong>{s.pHand.length}枚</strong></button>
+        <footer className="battle-actions" ref={actionsRef}>
+          <button className="battle-hand-jump" onClick={toggleHand}>
+            {handInView ? '盤面へ戻る' : <>手札へ <strong>{s.pHand.length}枚</strong></>}
+          </button>
           <button className="battle-log-button" onClick={() => setShowLog(value => !value)} aria-expanded={showLog}>
             <span>ログ</span><span className="battle-log-preview">{s.log[0] ?? ''}</span>
           </button>
@@ -244,6 +251,12 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         {comboAnim && <ComboCutIn key={comboAnim.key} combo={comboAnim} />}
       </AnimatePresence>
 
+      {s.pendingAttack && isDefender && (s.phase === 'defending' || s.phase === 'syncing') && (
+        <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} gari={s.pGari}
+          ready={s.phase === 'defending'} onRespond={respondDefense}
+          onLeave={mode === 'online' ? onBack : undefined} />
+      )}
+
       {/* ══ パス画面（二人対戦） ══ */}
       <AnimatePresence>
         {s.phase === 'pass' && (
@@ -253,7 +266,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             exit={{ opacity: 0 }}
             style={{
               position: 'absolute', inset: 0, zIndex: 50,
-              background: 'rgba(0,0,0,0.88)',
+              background: '#1c130c',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 20,
             }}
@@ -265,10 +278,10 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             >
               <p style={{ fontSize: 'clamp(48px, 8vw, 80px)', marginBottom: 16 }}>🍣</p>
               <p style={{ fontSize: 'clamp(20px, 3.5vw, 32px)', fontWeight: 900, color: '#fde68a', marginBottom: 8 }}>
-                P{s.activePlayer === 1 ? 2 : 1} の番です
+                P{s.passToPlayerId} {s.pendingAttack ? 'の防御です' : 'の番です'}
               </p>
               <p style={{ fontSize: R.fmd, color: '#a8a29e', marginBottom: 32, lineHeight: 1.7 }}>
-                デバイスを P{s.activePlayer === 1 ? 2 : 1} に渡してください
+                デバイスを P{s.passToPlayerId} に渡してください
               </p>
               <motion.button
                 onClick={handlePassReady}
