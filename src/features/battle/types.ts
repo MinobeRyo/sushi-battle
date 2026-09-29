@@ -1,9 +1,9 @@
 import type { Card } from '../../types'
-import type { CardInstance, FieldCard, SideMenuState } from '../../game/types'
+import type { CardInstance, FieldCard, PendingAttack, PlayerId, SideMenuState } from '../../game/types'
 export type { FieldCard } from '../../game/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export type ViewPhase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder' | 'waiting' | 'syncing'
+export type ViewPhase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder' | 'waiting' | 'syncing' | 'defending'
 
 export type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 
@@ -17,7 +17,7 @@ export type BattleView = {
   cSideMenu: SideMenuState | null
   // この端末から見た自分側
   pHand: CardInstance[]; pField: FieldCard[]; pDeckCount: number
-  pBelly: number; pAP: number; pMaxAP: number
+  pBelly: number; pAP: number; pMaxAP: number; pGari: number
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>
   pDrawBonus: number
@@ -32,7 +32,7 @@ export type BattleView = {
   pKiretaSpent: boolean  // コハダで切れ味を使い切ったか（実際のリセットはターン終了時）
   // この端末から見た相手側（ローカル対戦用）
   cHandCount: number; cField: FieldCard[]; cDeckCount: number
-  cBelly: number; cAP: number; cMaxAP: number
+  cBelly: number; cAP: number; cMaxAP: number; cGari: number
   cSummonedIds: string[]
   cSummonedArch: Record<string, number>
   cThisTurnArch: Record<string, number>
@@ -46,6 +46,8 @@ export type BattleView = {
   cKiretaSpent: boolean
   // Game
   activePlayer: 1 | 2
+  pendingAttack: PendingAttack | null
+  passToPlayerId: PlayerId | null
   turn: number; phase: ViewPhase; winner: 'player' | 'cpu' | null
   log: string[]; flash: 'cpu' | 'player' | null
 }

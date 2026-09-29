@@ -43,7 +43,14 @@ function fixture() {
     assert.deepEqual(draft(guest, { type: 'complete' }), { ok: true })
   }
   const use = player => battle(player, { type: 'use_side_menu' })
-  const end = player => assert.deepEqual(battle(player, { type: 'end_turn' }), { ok: true })
+  const end = player => {
+    assert.deepEqual(battle(player, { type: 'end_turn' }), { ok: true })
+    const pending = read(player).match.pendingAttack
+    if (pending) {
+      const defender = pending.defenderId === 1 ? host : guest
+      assert.deepEqual(battle(defender, { type: 'respond_defense', useGari: false }), { ok: true })
+    }
+  }
   return { service, host, guest, created, joined, peer, read, draftAction, draft, battleAction, battle, buy, finish, use, end }
 }
 

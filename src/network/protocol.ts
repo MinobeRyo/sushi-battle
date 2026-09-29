@@ -1,4 +1,4 @@
-import type { MatchPlayer, PlayerId } from '../game/types'
+import type { MatchPlayer, PendingAttack, PlayerId } from '../game/types'
 import type { DraftState } from '../features/draft/draftEngine'
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../game/draftOffers'
 import type { SideMenuId } from '../data/sideMenus'
@@ -31,7 +31,8 @@ export type PublicMatch = {
   revision: number
   activePlayerId: PlayerId
   turn: number
-  phase: 'playing' | 'reorder' | 'over'
+  phase: 'playing' | 'defending' | 'reorder' | 'over'
+  pendingAttack: PendingAttack | null
   winnerId: PlayerId | null
   you: Omit<MatchPlayer, 'deck'> & { deckCount: number }
   opponent: Omit<MatchPlayer, 'hand' | 'deck'> & { handCount: number; deckCount: number }
@@ -55,8 +56,9 @@ export type OnlineAction = {
   matchId: string
   actionId: string
   expectedRevision: number
-  type: 'play_card' | 'end_turn' | 'use_side_menu'
+  type: 'play_card' | 'end_turn' | 'use_side_menu' | 'respond_defense'
   cardInstanceId?: string
+  useGari?: boolean
 }
 
 export interface ServerToClientEvents {

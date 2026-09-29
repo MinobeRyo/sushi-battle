@@ -91,7 +91,7 @@
 .battle-hand { min-height: calc(var(--battle-hand-height) + 22px); }
 .battle-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px)); background: #f7f0e3; border-top: 1px solid #c3af90; box-shadow: 0 -3px 12px #3323160d; }
 .battle-actions button { min-height: 48px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
-.battle-hand-jump { flex-shrink: 0; padding: 8px 12px; background: #e7dbc7; border: 1px solid #b9a485; color: #4c3925; }
+.battle-hand-jump { flex-shrink: 0; min-width: 118px; padding: 8px 12px; background: #e7dbc7; border: 1px solid #b9a485; color: #4c3925; }
 .battle-hand-jump strong { margin-left: 4px; }
 .battle-log-button { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 8px; text-align: left; color: #6b533b; border: 1px solid transparent; }
 .battle-log-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; font-weight: 400; }

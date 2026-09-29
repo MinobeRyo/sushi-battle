@@ -181,19 +181,72 @@ try {
     assert.equal((await guest.request()).snapshot.match.revision, retry.snapshot.match.revision)
   })
 
+  await test('HTTPの防御待ちを再接続で引き継ぎ、応答消失後もガリを一度だけ消費する', async () => {
+    const left = client(server), right = client(server)
+    const created = await left.request('room:create')
+    const joined = await right.request('room:join', { code: created.reply.session.code })
+    assert.equal(joined.reply.ok, true)
+    const draft = (await left.request()).snapshot.draft
+    assert.deepEqual((await left.request('draft:action', {
+      draftId: draft.draftId, expectedRevision: draft.revision, actionId: `gari-draft-${++nextActionId}`,
+      type: 'order', cardId: 'salmon',
+    })).reply, { ok: true })
+    await finishBoth(left, right, false)
+    let before = (await left.request()).snapshot
+    const salmon = before.match.you.hand.find(card => card.id === 'salmon')
+    assert.ok(salmon)
+    const played = await left.request('match:action', action(before, {
+      type: 'play_card', cardInstanceId: salmon.instanceId,
+    }))
+    assert.deepEqual(played.reply, { ok: true })
+    const attack = await left.request('match:action', action(played.snapshot))
+    assert.deepEqual(attack.reply, { ok: true })
+    assert.equal(attack.snapshot.match.phase, 'defending')
+    assert.deepEqual(attack.snapshot.match.pendingAttack, { attackerId: 1, defenderId: 2, amount: 8, source: 'end_turn' })
+    before = (await right.request()).snapshot
+    assert.equal(before.match.you.gari, 2)
+    assert.equal(before.match.you.belly, 0)
+    assert.deepEqual(before.match.pendingAttack, attack.snapshot.match.pendingAttack)
+    const resumed = client(server)
+    const resume = await resumed.request('room:resume', joined.reply.session)
+    assert.equal(resume.reply.ok, true)
+    assert.deepEqual(resume.snapshot.match, before.match)
+    assert.deepEqual(await right.request(), { closed: 'replaced' })
+    const defense = action(resume.snapshot, { type: 'respond_defense', useGari: true })
+    await resumed.dropReply('match:action', defense)
+    const retry = await resumed.request('match:action', defense)
+    assert.deepEqual(retry.reply, { ok: true })
+    const after = retry.snapshot.match
+    assert.equal(after.revision, before.match.revision + 1)
+    assert.equal(after.you.gari, 1)
+    assert.equal(after.you.belly, 0, 'ガリ1個で8の攻撃をすべて軽減する')
+    assert.equal(after.pendingAttack, null)
+    assert.equal(after.activePlayerId, 2)
+    assert.equal(after.phase, 'playing')
+    assert.deepEqual((await resumed.request('match:action', { ...defense, useGari: false })).reply,
+      { ok: false, error: 'action_id_conflict' })
+    assert.deepEqual((await resumed.request('match:action', { ...defense, actionId: `stale-defense-${++nextActionId}` })).reply,
+      { ok: false, error: 'stale_revision' })
+    assert.deepEqual((await resumed.request()).snapshot.match, after)
+    assert.equal((await left.request()).snapshot.match.opponent.gari, 1)
+    privateSnapshot(retry.snapshot)
+    await left.request('room:leave')
+  })
+
   await test('HTTPだけで2人の対戦を完走し、双方の同意で再戦する', async () => {
     let snapshot = (await host.request()).snapshot
     let steps = 0
     while (snapshot.match.phase !== 'over' && steps++ < 500) {
       if (snapshot.draft) await finishBoth(host, guest)
-      const active = snapshot.match.activePlayerId === 1 ? host : guest
+      const active = (snapshot.match.pendingAttack?.defenderId ?? snapshot.match.activePlayerId) === 1 ? host : guest
       snapshot = (await active.request()).snapshot
       const match = snapshot.match
       const card = match.you.field.length < 8
         ? [...match.you.hand].sort((a, b) => b.attack - a.attack).find(card => card.cost <= match.you.ap)
         : undefined
-      const result = await active.request('match:action', action(snapshot, card
-        ? { type: 'play_card', cardInstanceId: card.instanceId } : {}))
+      const result = await active.request('match:action', action(snapshot, match.phase === 'defending'
+        ? { type: 'respond_defense', useGari: match.you.gari > 0 }
+        : card ? { type: 'play_card', cardInstanceId: card.instanceId } : {}))
       assert.deepEqual(result.reply, { ok: true })
       snapshot = result.snapshot
       privateSnapshot(snapshot)

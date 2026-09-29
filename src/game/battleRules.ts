@@ -11,6 +11,10 @@ export const FIELD_MAX = 8
 
 export const INIT_AP = 2
 
+export const INIT_GARI = 2
+
+export const GARI_REDUCTION = 8
+
 const DIGESTION_MAX = 5
 
 const CHAIN_BONUS = 3

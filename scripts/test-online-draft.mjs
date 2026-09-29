@@ -40,6 +40,24 @@ async function test(name, run) {
   finally { for (const service of services.splice(0)) service.close() }
 }
 
+function battleAction(f, peer, command = {}) {
+  const match = f.read(peer).match
+  return { matchId: match.matchId, expectedRevision: match.revision,
+    actionId: `battle-${++actionId}`, type: 'end_turn', ...command }
+}
+
+function defenseFixture() {
+  const f = fixture()
+  assert.deepEqual(f.send(f.host, { type: 'order', cardId: 'tamago' }), { ok: true })
+  f.finish()
+  assert.deepEqual(f.service.handle(f.host, 'match:action', battleAction(f, f.host, {
+    type: 'play_card', cardInstanceId: f.read(f.host).match.you.hand[0].instanceId,
+  })), { ok: true })
+  const beforeAttack = f.read(f.host).match
+  assert.deepEqual(f.service.handle(f.host, 'match:action', battleAction(f, f.host)), { ok: true })
+  return { ...f, beforeAttack }
+}
+
 try {
   await test('初回購入は両者90秒・3000円で同時開始し、相手の購入内容は送信しない', () => {
     const f = fixture()
@@ -278,6 +296,8 @@ try {
     for (const peer of [f.host, f.guest]) {
       battle(peer, { type: 'play_card', cardInstanceId: f.read(peer).match.you.hand[0].instanceId })
       battle(peer, { type: 'end_turn' })
+      const defender = peer === f.host ? f.guest : f.host
+      battle(defender, { type: 'respond_defense', useGari: false })
     }
     const before = f.read(f.host)
     assert.equal(before.match.phase, 'reorder')
@@ -296,5 +316,99 @@ try {
     assert.deepEqual(after.match.you.field, before.match.you.field)
     assert.equal(after.match.you.belly, before.match.you.belly)
   })
+
+  await test('攻撃を両者へ保留状態で公開し、防御側以外の回答と回答中の通常操作を拒否する', () => {
+    const f = defenseFixture()
+    const host = f.read(f.host).match, guest = f.read(f.guest).match
+    assert.equal(host.phase, 'defending')
+    assert.deepEqual(host.pendingAttack, { attackerId: 1, defenderId: 2, amount: 4, source: 'end_turn' })
+    assert.deepEqual(guest.pendingAttack, host.pendingAttack)
+    assert.equal(host.you.gari, 2)
+    assert.equal(host.opponent.gari, 2)
+    assert.equal(guest.you.gari, 2)
+    assert.equal(host.opponent.belly, f.beforeAttack.opponent.belly)
+    assert.deepEqual(host.you.field, f.beforeAttack.you.field)
+    assert.equal(host.activePlayerId, 1)
+    assert.equal(host.turn, f.beforeAttack.turn)
+    assert.equal('hand' in host.opponent, false)
+    assert.equal('deck' in guest.you, false)
+    for (const peer of [f.host, f.guest]) {
+      assert.equal(f.service.handle(peer, 'match:action', battleAction(f, peer)).ok, false)
+      assert.deepEqual(f.service.handle(peer, 'match:action', battleAction(f, peer, {
+        type: 'use_side_menu',
+      })), { ok: false, error: 'not_your_turn' })
+    }
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+      type: 'play_card', cardInstanceId: guest.you.hand[0].instanceId,
+    })), { ok: false, error: 'not_your_turn' })
+    assert.deepEqual(f.service.handle(f.host, 'match:action', battleAction(f, f.host, {
+      type: 'respond_defense', useGari: true, playerId: 2,
+    })), { ok: false, error: 'not_defender' })
+    for (const useGari of [undefined, null, 1, 'true']) {
+      assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+        type: 'respond_defense', useGari,
+      })), { ok: false, error: 'invalid_action' })
+    }
+    assert.deepEqual(f.read(f.host).match, host)
+  })
+
+  await test('ガリの回答を一度だけ反映し、同じ回答の再送・別回答への改変・古い状態で二重消費しない', () => {
+    const f = defenseFixture()
+    const before = f.read(f.guest).match
+    const response = battleAction(f, f.guest, { type: 'respond_defense', useGari: true })
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', response), { ok: true })
+    const after = f.read(f.guest).match
+    assert.equal(after.you.gari, 1)
+    assert.equal(after.you.belly, 0)
+    assert.equal(after.revision, before.revision + 1)
+    assert.equal(after.phase, 'playing')
+    assert.equal(after.pendingAttack, null)
+    assert.equal(after.activePlayerId, 2)
+    assert.equal(f.read(f.host).match.opponent.gari, 1)
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', response), { ok: true })
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', { ...response, useGari: false }),
+      { ok: false, error: 'action_id_conflict' })
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', { ...response, actionId: 'stale-defense' }),
+      { ok: false, error: 'stale_revision' })
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+      type: 'respond_defense', useGari: true,
+    })), { ok: false, error: 'not_defending' })
+    assert.deepEqual(f.read(f.guest).match, after)
+  })
+
+  await test('温存を選ぶとガリを減らさず着弾してから次のターンの消化を進める', () => {
+    const f = defenseFixture()
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+      type: 'respond_defense', useGari: false,
+    })), { ok: true })
+    const after = f.read(f.guest).match
+    assert.equal(after.you.gari, 2)
+    assert.equal(after.you.belly, 2, 'たまごの4ダメージが確定した後、次のターン開始時に2消化する')
+    assert.equal(after.activePlayerId, 2)
+    assert.equal(after.pendingAttack, null)
+  })
+
+  await test('防御待ちの切断・再接続で攻撃とガリを保持し、復帰した本人だけが回答できる', () => {
+    const f = defenseFixture()
+    const before = f.read(f.guest).match
+    f.service.disconnect(f.guest)
+    assert.deepEqual(f.service.handle(f.host, 'match:action', battleAction(f, f.host, {
+      type: 'respond_defense', useGari: true,
+    })), { ok: false, error: 'players_disconnected' })
+    const resumed = f.peer('resumed-guest')
+    f.service.connect(resumed)
+    const reply = f.service.handle(resumed, 'room:resume', f.joined.session)
+    assert.equal(reply.ok, true)
+    assert.deepEqual(reply.snapshot.match, before)
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', {
+      matchId: before.matchId, expectedRevision: before.revision, actionId: 'old-peer-defense',
+      type: 'respond_defense', useGari: true,
+    }), { ok: false, error: 'not_in_room' })
+    assert.deepEqual(f.service.handle(resumed, 'match:action', battleAction(f, resumed, {
+      type: 'respond_defense', useGari: true,
+    })), { ok: true })
+    assert.equal(f.read(f.host).match.opponent.gari, 1)
+    assert.equal(f.read(resumed).match.pendingAttack, null)
+  })
 } finally { Date.now = realNow }
-console.log(`\nオンライン購入: ${passed}件成功`)
+console.log(`\nオンライン購入・防御: ${passed}件成功`)

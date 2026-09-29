@@ -34,7 +34,7 @@ function publicMatch(match: MatchState, playerId: PlayerId, comboEvents: PublicC
   const { hand: opponentHand, deck: opponentDeck, ...opponent } = match.players[otherPlayer(playerId)]
   return {
     matchId: match.matchId, revision: match.revision, activePlayerId: match.activePlayerId,
-    turn: match.turn, phase: match.phase, winnerId: match.winnerId,
+    turn: match.turn, phase: match.phase, pendingAttack: match.pendingAttack, winnerId: match.winnerId,
     you: { ...you, deckCount: deck.length },
     opponent: { ...opponent, handCount: opponentHand.length, deckCount: opponentDeck.length },
     log: match.log,
@@ -58,7 +58,8 @@ function validAction(value: unknown): value is OnlineAction {
   return typeof action.actionId === 'string' && action.actionId.length > 0 && action.actionId.length <= 128
     && typeof action.matchId === 'string' && action.matchId.length > 0 && action.matchId.length <= 128
     && Number.isSafeInteger(action.expectedRevision) && action.expectedRevision! >= 0
-    && (action.type === 'end_turn' || action.type === 'use_side_menu' || (action.type === 'play_card'
+    && (action.type === 'end_turn' || action.type === 'use_side_menu'
+      || (action.type === 'respond_defense' && typeof action.useGari === 'boolean') || (action.type === 'play_card'
       && typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200))
 }
 
@@ -263,7 +264,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         const action = payload
         if (!validAction(action)) return { ok: false, error: 'invalid_action' }
         const key = `${playerId}:${action.actionId}`
-        const fingerprint = JSON.stringify([action.matchId, action.expectedRevision, action.type, action.cardInstanceId ?? null])
+        const fingerprint = JSON.stringify([action.matchId, action.expectedRevision, action.type,
+          action.cardInstanceId ?? null, action.useGari ?? null])
         const previous = room.processed.get(key)
         if (previous) {
           sendState(room)
@@ -277,6 +279,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         }
         const result = transitionMatch(room.match, action.type === 'play_card'
           ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId! }
+          : action.type === 'respond_defense'
+            ? { type: 'respond_defense', playerId, useGari: action.useGari! }
           : { type: action.type, playerId }, random)
         if (result.error) return { ok: false, error: result.error }
         room.match = result.state

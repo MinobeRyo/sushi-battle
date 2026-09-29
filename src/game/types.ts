@@ -22,6 +22,7 @@ export type MatchPlayer = {
   belly: number
   ap: number
   maxAP: number
+  gari: number
   summonedIds: string[]
   summonedArch: Record<string, number>
   drawBonus: number
@@ -40,6 +41,13 @@ export type MatchPlayer = {
   skippedDigestionThisTurn: number
 }
 
+export type PendingAttack = {
+  attackerId: PlayerId
+  defenderId: PlayerId
+  amount: number
+  source: 'summon' | 'end_turn'
+}
+
 // 通信・保存できるデータだけを持つ。演出、React、待ち時間は含めない。
 export type MatchState = {
   matchId: string
@@ -47,9 +55,10 @@ export type MatchState = {
   players: Record<PlayerId, MatchPlayer>
   activePlayerId: PlayerId
   turn: number
-  phase: 'playing' | 'reorder' | 'over'
+  phase: 'playing' | 'defending' | 'reorder' | 'over'
   winnerId: PlayerId | null
   reorderPlayerId: PlayerId | null
+  pendingAttack: PendingAttack | null
   revision: number
   nextInstanceId: number
   log: string[]
@@ -59,12 +68,15 @@ export type MatchAction =
   | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string }
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
+  | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。
   | { type: 'complete_reorder'; playerId: PlayerId; cards: Card[] }
 
 export type MatchEvent =
   | { type: 'summon'; playerId: PlayerId; cardInstanceId: string; cardId: string }
   | { type: 'damage'; playerId: PlayerId; amount: number }
+  | { type: 'defense_requested'; attack: PendingAttack }
+  | { type: 'defense_resolved'; playerId: PlayerId; usedGari: boolean; reduction: number }
   | { type: 'combo'; playerId: PlayerId; comboId: string }
   | { type: 'turn_started'; playerId: PlayerId }
   | { type: 'reorder_started'; playerId: PlayerId }

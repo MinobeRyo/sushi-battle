@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
-const { createMatch, transitionMatch, getCpuActions } = loadTs('src/game/matchEngine.ts')
+const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction } = loadTs('src/game/matchEngine.ts')
+const { INIT_GARI, GARI_REDUCTION } = loadTs('src/game/battleRules.ts')
 const byId = id => {
   const card = CARDS.find(c => c.id === id)
   assert.ok(card, `カードが見つかりません: ${id}`)
@@ -40,6 +41,13 @@ const step = (state, action) => {
   assert.deepEqual(clone(result.state), result.state, '状態はJSONで往復できる必要があります')
   return result.state
 }
+const advance = (state, action) => {
+  const next = step(state, action)
+  return next.phase === 'defending'
+    ? step(next, { type: 'respond_defense', playerId: next.pendingAttack.defenderId, useGari: false })
+    : next
+}
+const defend = (state, useGari, playerId = state.pendingAttack?.defenderId) => ({ type: 'respond_defense', playerId, useGari })
 const reject = (state, action) => {
   const before = clone(state)
   const result = transitionMatch(deepFreeze(state), action, keepOrder)
@@ -80,6 +88,8 @@ test('同じカードの複数枚と両プレイヤーに、異なる個体IDを
   assert.equal(new Set(ids).size, 20)
   assert.deepEqual([state.players[1].hand.length, state.players[1].deck.length], [5, 5])
   assert.deepEqual([state.activePlayerId, state.turn, state.phase], [1, 1, 'playing'])
+  assert.deepEqual([state.players[1].gari, state.players[2].gari], [2, 2])
+  assert.equal(state.pendingAttack, null)
 })
 test('初回に両者が0枚で終了した場合は、汎用カード10枚ずつで開始する', () => {
   const state = make({ deck: [], p2Deck: [] })
@@ -92,12 +102,12 @@ test('JSONから復元したカードを個体IDで召喚し、同じ種類の�
   let state = clone(make({ deck: copies('tamago', 2) }))
   const [first, second] = state.players[1].hand
   const action = { type: 'play_card', playerId: 1, cardInstanceId: first.instanceId }
-  state = step(state, action)
+  state = advance(state, action)
   assert.deepEqual(state.players[1].hand.map(c => c.instanceId), [second.instanceId])
   assert.deepEqual(state.players[1].field.map(c => c.fid), [first.instanceId])
   assert.equal(state.players[1].ap, 1)
   reject(state, action)
-  state = step(state, play(state, 'tamago'))
+  state = advance(state, play(state, 'tamago'))
   assert.equal(state.players[1].field.length, 2)
   assert.equal(state.players[1].ap, 0)
 })
@@ -135,7 +145,7 @@ test('手札7枚の終了時ドローは山札を減らさない', () => {
   const state = make()
   state.players[1].hand.push(...state.players[1].deck.splice(0, 2))
   const deckBefore = clone(state.players[1].deck)
-  const next = step(state, end(state))
+  const next = advance(state, end(state))
   assert.equal(next.players[1].hand.length, 7)
   assert.deepEqual(next.players[1].deck, deckBefore)
 })
@@ -145,7 +155,7 @@ test('明太子の2枚ドローは空き1枠だけ引き、溢れる1枚は山�
   player.hand.push(...player.deck.splice(0, 2))
   player.ap = 3
   const deckBefore = player.deck.map(c => c.instanceId)
-  const next = step(state, play(state, 'mentaiko'))
+  const next = advance(state, play(state, 'mentaiko'))
   assert.equal(next.players[1].hand.length, 7)
   assert.deepEqual(next.players[1].deck.map(c => c.instanceId), deckBefore.slice(1))
   assert.ok(next.players[1].hand.some(c => c.instanceId === deckBefore[0]))
@@ -157,54 +167,54 @@ test('2Pの攻撃・消化・持続減衰は本人の手番に各1回だけ解�
   state.players[2].belly = 10
   putOnField(state, 1, 'tamago', 1)
   putOnField(state, 2, 'natto_maki', 4)
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.activePlayerId, state.turn, state.players[2].ap], [2, 2, 2])
   assert.deepEqual([state.players[1].belly, state.players[2].belly], [10, 12])
   assert.equal(state.players[1].field.length, 0)
   assert.equal(state.players[2].field[0].turnsLeft, 4)
   const firstEnd = state
   reject(firstEnd, end(firstEnd, 1))
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.activePlayerId, state.turn, state.players[1].ap], [1, 3, 3])
   assert.deepEqual([state.players[1].belly, state.players[2].belly], [11, 12])
   assert.equal(state.players[2].field[0].turnsLeft, 3)
 })
 test('CPUモードは双方の終了で1ラウンド進み、それぞれのAPを回復する', () => {
   let state = make({ mode: 'cpu' })
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.activePlayerId, state.turn, state.players[2].ap], [2, 1, 3])
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.activePlayerId, state.turn, state.players[1].ap], [1, 2, 3])
 })
 test('消化停止は次の本人の開始時だけ消費され、その次は消化が再開する', () => {
   let state = make()
   state.players[2].belly = 10
   state.players[2].digestStopTurns = 1
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.players[2].belly, state.players[2].digestStopTurns], [10, 0])
-  state = step(state, end(state))
-  state = step(state, end(state))
+  state = advance(state, end(state))
+  state = advance(state, end(state))
   assert.equal(state.players[2].belly, 7)
 })
 test('次ターンAPボーナスは本人の開始時だけ使い、永続しない', () => {
   let state = make({ deck: [byId('inari'), ...copies('tamago', 9)] })
-  state = step(state, play(state, 'inari'))
+  state = advance(state, play(state, 'inari'))
   assert.equal(state.players[1].apNextBonus, 1)
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.equal(state.players[1].apNextBonus, 1)
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.deepEqual([state.players[1].ap, state.players[1].apNextBonus], [4, 0])
-  state = step(state, end(state))
-  state = step(state, end(state))
+  state = advance(state, end(state))
+  state = advance(state, end(state))
   assert.equal(state.players[1].ap, 4)
 })
 test('コハダは追加ダメージと机の攻撃に切れ味を使ってからリセットする', () => {
   let state = make({ deck: [byId('kohada'), ...copies('tamago', 5)] })
   state.players[1].ap = 4
   state.players[1].kiretaStack = 6
-  state = step(state, play(state, 'kohada'))
+  state = advance(state, play(state, 'kohada'))
   assert.deepEqual([state.players[2].belly, state.players[1].kiretaStack], [18, 6])
-  state = step(state, end(state))
+  state = advance(state, end(state))
   assert.equal(state.players[2].belly, 22) // 追加18 + 机6 - 消化2
   assert.deepEqual([state.players[1].kiretaStack, state.players[1].kiretaSpent], [0, false])
 })
@@ -213,8 +223,8 @@ console.log('\n[試合エンジン] 勝敗・追加注文')
 test('攻撃で満腹になった時点で終了し、消化で勝敗が取り消されない', () => {
   let state = make()
   state.players[2].belly = 98
-  state = step(state, play(state, 'tamago'))
-  state = step(state, end(state))
+  state = advance(state, play(state, 'tamago'))
+  state = advance(state, end(state))
   assert.deepEqual([state.phase, state.winnerId, state.players[2].belly], ['over', 1, 100])
   reject(state, end(state))
   reject(state, play(state, 'tamago'))
@@ -225,16 +235,16 @@ test('召喚時の追加ダメージで満腹になってもその場で勝敗�
   state.players[1].ap = 4
   state.players[1].kiretaStack = 6
   state.players[2].belly = 90
-  const next = step(state, play(state, 'kohada'))
+  const next = advance(state, play(state, 'kohada'))
   assert.deepEqual([next.phase, next.winnerId, next.players[2].belly], ['over', 1, 100])
 })
 test('P2が勝っても固定のプレイヤーIDを保持する', () => {
   let state = make()
-  state = step(state, end(state))
+  state = advance(state, end(state))
   state = clone(state)
   state.players[1].belly = 98
-  state = step(state, play(state, 'tamago'))
-  state = step(state, end(state))
+  state = advance(state, play(state, 'tamago'))
+  state = advance(state, end(state))
   assert.deepEqual([state.phase, state.winnerId, state.players[1].id, state.players[2].id], ['over', 2, 1, 2])
 })
 const exhaust = mode => {
@@ -243,8 +253,8 @@ const exhaust = mode => {
     player.hand = []
     player.deck = []
   }
-  state = step(state, end(state))
-  if (state.phase !== 'reorder') state = step(state, end(state))
+  state = advance(state, end(state))
+  if (state.phase !== 'reorder') state = advance(state, end(state))
   assert.equal(state.phase, 'reorder')
   return state
 }
@@ -257,19 +267,22 @@ test('2P追加注文は指定プレイヤー順で進み、補充後も既存の
   state.players[firstId].kiretaStack = 3
   state.players[firstId].attackBuff = { 'マグロ': 2 }
   state.players[firstId].combosFired = ['maki_comp_3']
+  state.players[firstId].gari = 0
+  state.players[secondId].gari = 1
   const oldNextId = state.nextInstanceId
   const oldIds = allInstanceIds(make())
   reject(state, { type: 'complete_reorder', playerId: secondId, cards: copies('tamago', 2) })
   reject(state, end(state))
-  state = step(state, { type: 'complete_reorder', playerId: firstId, cards: copies('tamago', 7) })
+  state = advance(state, { type: 'complete_reorder', playerId: firstId, cards: copies('tamago', 7) })
   assert.equal(state.phase, 'reorder')
   assert.equal(state.reorderPlayerId, secondId)
   reject(state, { type: 'complete_reorder', playerId: firstId, cards: copies('tamago', 7) })
-  state = step(state, { type: 'complete_reorder', playerId: secondId, cards: copies('cheese', 3) })
+  state = advance(state, { type: 'complete_reorder', playerId: secondId, cards: copies('cheese', 3) })
   assert.equal(state.phase, 'playing')
   assert.equal(state.reorderPlayerId, null)
   assert.deepEqual([state.players[firstId].hand.length, state.players[firstId].deck.length], [5, 2])
   assert.equal(state.players[secondId].hand.length, 3)
+  assert.deepEqual([state.players[firstId].gari, state.players[secondId].gari], [0, 1])
   const ids = allInstanceIds(state)
   assert.equal(new Set(ids).size, 10)
   assert.ok(ids.every(id => !oldIds.includes(id)), '補充カードは消費済みカードのIDを再利用しません')
@@ -282,18 +295,233 @@ test('2P追加注文は指定プレイヤー順で進み、補充後も既存の
 })
 test('CPUの追加注文はP1完了時にCPUも補充して再開する', () => {
   let state = exhaust('cpu')
+  state.players[1].gari = 0
+  state.players[2].gari = 1
   assert.equal(state.reorderPlayerId, 1)
-  state = step(state, { type: 'complete_reorder', playerId: 1, cards: copies('tamago', 2) })
+  state = advance(state, { type: 'complete_reorder', playerId: 1, cards: copies('tamago', 2) })
   assert.equal(state.phase, 'playing')
   assert.equal(state.players[1].hand.length, 2)
   assert.ok(state.players[2].hand.length > 0)
+  assert.deepEqual([state.players[1].gari, state.players[2].gari], [0, 1])
 })
 test('2P追加注文の0枚は無料補充せず、両者の完了後に対戦を再開する', () => {
   let state = exhaust('two_player')
-  state = step(state, { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: [] })
-  state = step(state, { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: [] })
+  state = advance(state, { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: [] })
+  state = advance(state, { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: [] })
   assert.equal(state.phase, 'playing')
   assert.equal(allInstanceIds(state).length, 0)
+})
+
+console.log('\n[試合エンジン] ガリによる防御割り込み')
+test('ガリは全員2個で開始し、1回の軽減量は8である', () => {
+  assert.equal(INIT_GARI, 2)
+  assert.equal(GARI_REDUCTION, 8)
+  for (const mode of ['two_player', 'cpu']) {
+    assert.deepEqual(Object.values(make({ mode }).players).map(player => player.gari), [2, 2])
+  }
+})
+test('通常攻撃を保留し、ガリで致死を回避してから消化とターン交代を行う', () => {
+  let state = make({ deck: [byId('maguro'), ...copies('tamago', 9)] })
+  state.players[2].belly = 90
+  state.players[2].ap = 0
+  putOnField(state, 1, 'maguro', 1)
+  const fieldBefore = clone(state.players[1].field)
+  state = step(state, end(state))
+  assert.deepEqual(state.pendingAttack, { attackerId: 1, defenderId: 2, amount: 12, source: 'end_turn' })
+  assert.deepEqual([state.phase, state.winnerId, state.activePlayerId, state.turn], ['defending', null, 1, 1])
+  assert.equal(state.players[2].belly, 90, '選択前にダメージを与えてはいけません')
+  assert.deepEqual(state.players[1].field, fieldBefore)
+  state = step(clone(state), defend(state, true))
+  assert.deepEqual([state.phase, state.winnerId, state.activePlayerId, state.turn], ['playing', null, 2, 2])
+  assert.equal(state.players[2].belly, 92) // 90 + (12 - 8) - 消化2
+  assert.equal(state.players[2].gari, 1)
+  assert.equal(state.pendingAttack, null)
+})
+test('致死攻撃に温存を選ぶと決着し、終了後の寿命・ドロー・消化を実行しない', () => {
+  let state = make({ deck: [byId('maguro'), ...copies('tamago', 9)] })
+  state.players[2].belly = 90
+  putOnField(state, 1, 'maguro', 1)
+  state = step(state, end(state))
+  const attackerBefore = clone(state.players[1])
+  const result = transitionMatch(deepFreeze(state), defend(state, false), keepOrder)
+  assert.equal(result.error, undefined)
+  assert.deepEqual([result.state.phase, result.state.winnerId, result.state.players[2].belly], ['over', 1, 100])
+  assert.equal(result.state.players[2].gari, 2)
+  assert.deepEqual(result.state.players[1], attackerBefore)
+  assert.equal(result.state.pendingAttack, null)
+  assert.equal(result.events.filter(event => event.type === 'game_over').length, 1)
+  assert.ok(!result.events.some(event => event.type === 'turn_started'))
+  reject(result.state, defend(state, true))
+})
+test('召喚時コンボも防御可能で、回答後は同じ攻撃者が残りAPで召喚できる', () => {
+  let state = make({ deck: [byId('otoro'), ...copies('tamago', 9)] })
+  state.players[1].ap = 10
+  state.players[1].summonedIds = ['maguro', 'chutoro']
+  state.players[2].belly = 94
+  state.players[2].ap = 0
+  state = step(state, play(state, 'otoro'))
+  const apAfterSummon = state.players[1].ap
+  assert.deepEqual(state.pendingAttack, { attackerId: 1, defenderId: 2, amount: 10, source: 'summon' })
+  assert.equal(state.players[2].belly, 94)
+  assert.ok(state.players[1].combosFired.includes('akami_mori'))
+  state = step(clone(state), defend(state, true))
+  assert.deepEqual([state.activePlayerId, state.turn, state.phase], [1, 1, 'playing'])
+  assert.equal(state.players[2].belly, 96)
+  assert.equal(state.players[2].ap, 0, 'ガリはAPを消費しません')
+  assert.equal(state.players[2].gari, 1)
+  assert.equal(state.players[1].ap, apAfterSummon)
+  state = step(state, play(state, 'tamago'))
+  assert.equal(state.players[1].field.length, 2)
+  assert.equal(state.players[1].ap, apAfterSummon - 1)
+})
+test('8未満の召喚ダメージを防いでも回復や負ダメージにはならない', () => {
+  let state = make({ deck: [byId('kohada')] })
+  state.players[1].ap = 4
+  state.players[1].kiretaStack = 1
+  state.players[2].belly = 20
+  state = step(state, play(state, 'kohada'))
+  assert.equal(state.pendingAttack.amount, 3)
+  const result = transitionMatch(deepFreeze(state), defend(state, true), keepOrder)
+  assert.equal(result.error, undefined)
+  assert.deepEqual([result.state.players[2].belly, result.state.players[2].gari], [20, 1])
+  assert.ok(!result.events.some(event => event.type === 'damage'))
+  assert.deepEqual(result.events.find(event => event.type === 'defense_resolved'), {
+    type: 'defense_resolved', playerId: 2, usedGari: true, reduction: 3,
+  })
+})
+test('防御中は攻撃者・第三者の回答と召喚・終了・追加注文を拒否する', () => {
+  let state = make()
+  putOnField(state, 1, 'tamago', 1)
+  state = step(state, end(state))
+  reject(state, defend(state, true, 1))
+  reject(state, defend(state, true, 3))
+  reject(state, defend(state, 'true'))
+  reject(state, { type: 'respond_defense', playerId: 2 })
+  reject(state, play(state, 'tamago', 1))
+  reject(state, play(state, 'tamago', 2))
+  reject(state, end(state, 1))
+  reject(state, end(state, 2))
+  reject(state, { type: 'complete_reorder', playerId: 2, cards: [] })
+})
+test('回答前は後処理を保留し、JSON復元後の回答で寿命・ドロー・交代を1回だけ行う', () => {
+  let state = make({ deck: [byId('natto_maki'), ...copies('tamago', 9)] })
+  putOnField(state, 1, 'natto_maki', 4)
+  Object.assign(state.players[1], {
+    drawBonus: 1, kiretaSpent: true, kiretaStack: 3,
+    nikuMatsuri: true, thisTurnBases: ['納豆'], thisTurnArch: { makimono: 1 },
+  })
+  Object.assign(state.players[2], { belly: 20, ap: 0, apNextBonus: 2, digestStopTurns: 1 })
+  const playersBefore = clone(state.players)
+  state = step(state, end(state))
+  assert.deepEqual(state.players, playersBefore)
+  const answer = defend(state, false)
+  const restored = deepFreeze(clone(state))
+  const result = transitionMatch(restored, answer, keepOrder)
+  assert.equal(result.error, undefined)
+  assert.deepEqual(restored, state)
+  state = result.state
+  assert.deepEqual([state.activePlayerId, state.turn, state.players[1].field[0].turnsLeft], [2, 2, 3])
+  assert.equal(state.players[1].hand.length, playersBefore[1].hand.length + 2)
+  assert.equal(state.players[1].deck.length, playersBefore[1].deck.length - 2)
+  assert.deepEqual([state.players[1].kiretaStack, state.players[1].kiretaSpent, state.players[1].nikuMatsuri], [0, false, false])
+  assert.deepEqual([state.players[1].thisTurnBases, state.players[1].thisTurnArch], [[], {}])
+  assert.deepEqual([state.players[2].belly, state.players[2].digestStopTurns, state.players[2].ap, state.players[2].apNextBonus], [23, 0, 4, 0])
+  assert.equal(result.events.filter(event => event.type === 'damage').length, 1)
+  assert.equal(result.events.filter(event => event.type === 'turn_started').length, 1)
+  assert.equal(result.events.filter(event => event.type === 'defense_resolved').length, 1)
+  reject(state, answer)
+})
+test('ガリ使用は1攻撃1個までで、重複回答は追加消費せず拒否する', () => {
+  let state = make({ deck: [byId('kohada'), ...copies('tamago', 9)] })
+  state.players[1].ap = 4
+  state.players[1].kiretaStack = 4
+  state = step(state, play(state, 'kohada'))
+  const answer = defend(state, true)
+  state = step(state, answer)
+  assert.equal(state.players[2].gari, 1)
+  assert.equal(state.players[2].belly, 4)
+  reject(state, answer)
+  state = step(state, end(state))
+  assert.equal(state.phase, 'defending', '別の攻撃では残り1個を使用できます')
+  state = step(state, defend(state, true))
+  assert.equal(state.players[2].gari, 0)
+  reject(state, answer)
+})
+test('ガリが残り0なら攻撃は自動確定し、防御画面で停止しない', () => {
+  let state = make({ deck: [byId('kohada'), ...copies('tamago', 9)] })
+  state.players[1].ap = 4
+  state.players[1].kiretaStack = 4
+  state.players[2].gari = 0
+  state = step(state, play(state, 'kohada'))
+  assert.deepEqual([state.phase, state.pendingAttack, state.players[2].belly], ['playing', null, 12])
+  state = step(state, end(state))
+  assert.deepEqual([state.phase, state.activePlayerId, state.players[2].belly], ['playing', 2, 14])
+})
+test('ダメージ0ではガリがあっても防御を要求せず、消費もしない', () => {
+  let state = make({ deck: [byId('kohada'), ...copies('tamago', 9)] })
+  state.players[1].ap = 4
+  state = step(state, play(state, 'kohada'))
+  assert.equal(state.phase, 'playing')
+  assert.equal(state.pendingAttack, null)
+  state = step(state, end(state))
+  assert.deepEqual([state.phase, state.activePlayerId, state.players[2].gari], ['playing', 2, 2])
+})
+test('防御中のガリ不足と、防御外の回答を拒否する', () => {
+  let state = make()
+  reject(state, defend(state, true, 2))
+  putOnField(state = clone(state), 1, 'tamago', 1)
+  state = clone(step(state, end(state)))
+  state.players[2].gari = 0
+  reject(state, defend(state, true))
+  state = step(state, defend(state, false))
+  assert.equal(state.players[2].gari, 0)
+  reject(exhaust('two_player'), defend(state, false, 2))
+})
+test('終了攻撃への回答後に追加注文へ進んでも、ガリ数は保持する', () => {
+  let state = make()
+  putOnField(state, 1, 'tamago', 1)
+  for (const player of Object.values(state.players)) {
+    player.hand = []
+    player.deck = []
+  }
+  state = step(state, end(state))
+  assert.equal(state.phase, 'defending')
+  state = step(state, defend(state, true))
+  assert.equal(state.phase, 'reorder')
+  assert.equal(state.reorderPlayerId, 2)
+  assert.equal(state.players[2].gari, 1)
+  assert.equal(state.pendingAttack, null)
+})
+test('CPUは8以上の攻撃か軽減で致死回避できる攻撃にガリを使い、小さい攻撃には温存する', () => {
+  for (const [cardId, belly, expected] of [['maguro', 0, true], ['tamago', 98, true], ['tamago', 20, false]]) {
+    let state = make({ mode: 'cpu', deck: [byId(cardId), ...copies('tamago', 9)] })
+    putOnField(state, 1, cardId, 1)
+    state.players[2].belly = belly
+    state = step(state, end(state))
+    const before = clone(state)
+    const action = getCpuDefenseAction(deepFreeze(state))
+    assert.deepEqual(action, { type: 'respond_defense', playerId: 2, useGari: expected })
+    assert.deepEqual(state, before)
+    state = step(state, action)
+    assert.equal(state.players[2].gari, expected ? 1 : 2)
+    assert.equal(state.phase, 'playing')
+  }
+})
+test('CPUの防御操作は通常時・人間の防御待ち・2人対戦では生成しない', () => {
+  assert.equal(getCpuDefenseAction(make({ mode: 'cpu' })), null)
+  let state = make({ mode: 'cpu' })
+  state.activePlayerId = 2
+  const card = state.players[2].hand.find(card => card.attack > 0)
+  assert.ok(card)
+  putOnField(state, 2, card.id, 1)
+  state = step(state, end(state))
+  assert.equal(state.pendingAttack.defenderId, 1)
+  assert.equal(getCpuDefenseAction(state), null)
+  state = make()
+  putOnField(state, 1, 'tamago', 1)
+  state = step(state, end(state))
+  assert.equal(getCpuDefenseAction(state), null)
+  assert.deepEqual(getCpuActions(state), [])
 })
 
 console.log('\n[試合エンジン] 再現性・画面なしの対戦')
@@ -307,7 +535,7 @@ test('同じ乱数列と入力で、CPU山札と試合開始状態を再現で�
 })
 test('CPUが返す操作は入力状態を変更せず、個体IDで1枚ずつ実行できる', () => {
   let state = make({ mode: 'cpu' })
-  state = step(state, end(state))
+  state = advance(state, end(state))
   const before = clone(state)
   const actions = getCpuActions(deepFreeze(state))
   assert.deepEqual(state, before)
@@ -316,7 +544,7 @@ test('CPUが返す操作は入力状態を変更せず、個体IDで1枚ずつ�
   for (const action of actions) {
     assert.equal(action.type, 'play_card')
     assert.equal(action.playerId, 2)
-    state = step(state, action)
+    state = advance(state, action)
     if (state.phase === 'over') break
   }
 })
@@ -330,7 +558,9 @@ for (const mode of ['two_player', 'cpu']) {
     let actionCount = 0
     while (state.phase !== 'over' && actionCount < 500) {
       let action
-      if (state.phase === 'reorder') {
+      if (state.phase === 'defending') {
+        action = getCpuDefenseAction(state) ?? defend(state, true)
+      } else if (state.phase === 'reorder') {
         action = { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: copies('maguro', 5) }
       } else {
         const player = state.players[state.activePlayerId]
@@ -349,6 +579,7 @@ for (const mode of ['two_player', 'cpu']) {
         assert.ok(player.hand.length <= 7)
         assert.ok(player.field.length <= 8)
         assert.ok(player.ap >= 0)
+        assert.ok(player.gari >= 0 && player.gari <= INIT_GARI)
         assert.ok(player.belly >= 0 && player.belly <= 100)
       }
       const ids = allInstanceIds(state)

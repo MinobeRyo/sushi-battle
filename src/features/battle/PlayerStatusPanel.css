@@ -41,6 +41,11 @@
   overflow-wrap: anywhere;
 }
 
+.player-status-panel__title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 6px; }
+.player-status-panel__gari { flex-shrink: 0; padding: 1px 6px; border: 1px solid #d8b4a1; border-radius: 5px; background: #fbe9df; color: #713b2e; font-size: 12px; white-space: nowrap; }
+.player-status-panel__gari strong { font-size: 14px; }
+.player-status-panel__gari[data-empty="true"] { background: #eee8de; border-color: #cfc3b2; color: #72685b; }
+
 .player-status-panel__belly { --belly-color: #3d7051; }
 .player-status-panel__belly[data-level="medium"] { --belly-color: #9d6017; }
 .player-status-panel__belly[data-level="high"] { --belly-color: #b53025; }
