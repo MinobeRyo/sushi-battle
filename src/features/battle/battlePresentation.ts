@@ -24,9 +24,9 @@ export const R = {
   hw: 'clamp(84px, 7.5vw, 140px)', hh: 'clamp(126px, 11.5vw, 210px)',
   gap: 'clamp(6px, 0.65vw, 12px)',
   fe: 'clamp(28px, 2.9vw, 52px)', he: 'clamp(32px, 3.3vw, 60px)',
-  f2xs: 'clamp(8px, 0.75vw, 11px)', fxs: 'clamp(9px, 0.9vw, 13px)',
-  fsm: 'clamp(11px, 1.1vw, 16px)', fmd: 'clamp(13px, 1.3vw, 19px)',
-  flg: 'clamp(16px, 1.6vw, 24px)', fxl: 'clamp(20px, 2.2vw, 32px)',
+  f2xs: 'clamp(12px, 0.75vw, 14px)', fxs: 'clamp(13px, 0.9vw, 15px)',
+  fsm: 'clamp(14px, 1.1vw, 17px)', fmd: 'clamp(16px, 1.3vw, 20px)',
+  flg: 'clamp(18px, 1.6vw, 24px)', fxl: 'clamp(22px, 2.2vw, 32px)',
   dot: 'clamp(9px, 1vw, 15px)', gauge: 'clamp(10px, 1.1vh, 16px)',
   counter: 'clamp(46px, 5.5vh, 68px)', hand: 'clamp(152px, 15.5vw, 284px)',
 }

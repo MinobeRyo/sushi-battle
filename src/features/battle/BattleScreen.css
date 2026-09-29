@@ -3,84 +3,138 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  container: battle-viewport / size;
+  container: battle / inline-size;
 }
 
 .battle-board {
-  display: flex;
-  flex-direction: column;
+  /* 寿司の絵と文字の領域は、画面の高さで縮めない。 */
+  --battle-field-width: 144px;
+  --battle-field-height: 190px;
+  --battle-hand-width: 144px;
+  --battle-hand-height: 222px;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  font-size: 14px;
+  user-select: none;
 }
 
-.battle-side {
-  flex: 5 1 0;
+.battle-layout { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; }
+.battle-overview {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  max-height: 45%;
+  padding: 0 12px 10px;
+  background: #f5edde;
+  border-bottom: 1px solid #c8b89e;
+  box-shadow: 0 2px 10px #3323160d;
+  z-index: 2;
+}
+.battle-phase-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 9px 0; font-size: 14px; flex-shrink: 0; }
+.battle-phase-bar strong { color: #803610; }
+.battle-turn-number { font-weight: 800; font-variant-numeric: tabular-nums; }
+.battle-phase-hint { margin-left: auto; font-size: 13px; color: #695745; }
+.battle-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-height: 0; }
+
+.battle-arena {
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scroll-padding-block: 12px;
+  padding: 12px;
+}
+.battle-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.battle-table {
   position: relative;
-}
-
-.battle-opponent {
-  padding: clamp(10px, 1.5vh, 20px) clamp(12px, 2vw, 28px) clamp(8px, 1vh, 14px);
-}
-
-.battle-player {
-  padding: clamp(8px, 1vh, 14px) clamp(12px, 2vw, 28px) clamp(6px, 0.8vh, 12px);
-}
-
-.battle-status {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 1.5vw, 20px);
-  flex-shrink: 0;
-}
-
-.battle-opponent-status { margin-bottom: clamp(8px, 1.2vh, 14px); }
-.battle-player-status { margin-top: clamp(8px, 1.2vh, 14px); }
-
-.battle-opponent-effects {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 8px;
-  margin: -2px 0 7px;
   min-width: 0;
+  padding: 12px 0;
+  border: 1px solid #b8c7b0;
+  border-radius: 14px;
+  background: #fffdf7;
+}
+.battle-table--opponent { border-color: #d6b7a7; background: #fffaf5; }
+.battle-table-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 0 12px 8px; }
+.battle-table-heading h2 { font-size: 16px; font-weight: 800; color: #382c22; }
+.battle-table-heading > span, .battle-table-heading h2 span { color: #6d5945; font-size: 13px; }
+.battle-field-cards, .battle-hand {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #b29a7c transparent;
+  scroll-padding-inline: 12px;
+  scroll-snap-type: x proximity;
+}
+/* 自動余白で、少数は中央、多数は先頭から横送りにする。 */
+.battle-field-cards > :first-child, .battle-hand > :first-child { margin-left: auto; }
+.battle-field-cards > :last-child, .battle-hand > :last-child { margin-right: auto; }
+.battle-field-cards > button, .battle-hand > button { scroll-snap-align: start; }
+.battle-field-cards { min-height: calc(var(--battle-field-height) + 22px); }
+.battle-empty-field { align-self: center; color: #76624d; padding: 24px 8px; font-size: 14px; }
+.battle-combo-progress { padding: 8px 12px 0; border-top: 1px solid #e4d8c5; }
+.battle-combo-progress h3 { color: #69543e; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.battle-combo-progress > div { justify-content: flex-start !important; }
+.battle-hand-section { margin-top: 14px; padding: 12px 0 0; border: 1px solid #c7b394; border-radius: 14px; background: #eee0cb; scroll-margin-top: 12px; }
+.battle-hand { min-height: calc(var(--battle-hand-height) + 22px); }
+.battle-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px)); background: #f7f0e3; border-top: 1px solid #c3af90; box-shadow: 0 -3px 12px #3323160d; }
+.battle-actions button { min-height: 48px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.battle-hand-jump { flex-shrink: 0; padding: 8px 12px; background: #e7dbc7; border: 1px solid #b9a485; color: #4c3925; }
+.battle-hand-jump strong { margin-left: 4px; }
+.battle-log-button { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 8px; text-align: left; color: #6b533b; border: 1px solid transparent; }
+.battle-log-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; font-weight: 400; }
+.battle-end-turn { flex-shrink: 0; padding: 10px 24px; background: #a7471f; border: 1px solid #7a3216; color: #fff; box-shadow: 0 2px 5px #71301726; }
+.battle-end-turn:disabled { background: #e1d5c2; border-color: #c1ad8e; color: #65513b; cursor: default; box-shadow: none; }
+.battle-board button:focus-visible, .battle-board [tabindex]:focus-visible { outline: 3px solid #2469a0; outline-offset: -3px; }
+.battle-damage-float { position: absolute; top: 40%; left: 45%; font-size: 32px; font-weight: 900; color: #b62a22; pointer-events: none; z-index: 3; }
+.battle-damage-flash { position: absolute; inset: 0; border-radius: 14px; background: #dc2626; pointer-events: none; z-index: 2; }
+.battle-result { padding: 20px; overflow-y: auto; }
+.battle-result > div { width: min(100%, 760px); margin-block: auto; }
+.battle-result-actions { flex-wrap: wrap; }
+.battle-result-actions button { min-height: 48px; max-width: 100%; overflow-wrap: anywhere; }
+.battle-result-actions button:disabled { opacity: 0.7; cursor: default !important; }
+.online-screen { min-width: 0; overflow: hidden; }
+.online-room-bar, .online-notice { flex-shrink: 0; }
+.online-room-bar { font-size: 13px; }
+.online-room-bar > span { min-width: 0; overflow-wrap: anywhere; }
+.online-room-bar button, .online-room-bar a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.online-room-bar > button { flex-shrink: 0; }
+
+@container battle (max-width: 820px) {
+  .battle-overview { padding-inline: 8px; }
+  .battle-status-grid { gap: 8px; }
+  .battle-tables { grid-template-columns: minmax(0, 1fr); }
+  .battle-arena { padding: 10px 8px; }
+  .battle-actions { padding-inline: 8px; }
+  .battle-phase-hint { display: none; }
+  .battle-log-preview { display: none; }
+  .battle-end-turn { padding-inline: 16px; }
 }
 
-.battle-kireta-stock {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  flex-shrink: 0;
-  border: 1px solid #c7bda9;
-  border-radius: 7px;
-  padding: 2px 9px;
-  background: #fffaf1;
-  color: #62594c;
-  font-size: 11px;
-  white-space: nowrap;
+@media (max-height: 740px) {
+  /* Safariのツールバーや横向きで高さが減っても、カードを縮めず全体を送る。 */
+  .battle-layout { overflow-y: auto; scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .battle-overview { max-height: none; min-height: 0; }
+  .battle-status-grid { min-height: 180px; }
+  .battle-arena { flex: 0 0 auto; overflow: visible; }
+  .battle-actions { position: sticky; bottom: 0; z-index: 5; }
 }
 
-.battle-kireta-stock strong { font-size: 17px; font-variant-numeric: tabular-nums; }
-.battle-kireta-stock small { font-size: 10px; }
-.battle-kireta-stock[data-active='true'] { color: #68439a; border-color: #b59bcf; background: #f2eafb; }
-.battle-opponent-combos { flex: 1; min-width: 0; overflow: hidden; }
-
-.battle-status-open {
-  flex-shrink: 0;
-  min-height: 30px;
-  padding: 3px 9px;
-  border: 1px solid #cbb795;
-  border-radius: 7px;
-  background: #faf3e4;
-  color: #6f4b25;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
+@media (prefers-reduced-motion: reduce) {
+  .battle-arena, .battle-field-cards, .battle-hand { scroll-behavior: auto; }
 }
-.battle-status-open:hover { background: #eee0c5; }
-.battle-status-open:focus-visible { outline: 2px solid #a15b2d; outline-offset: 2px; }
 
 .battle-status-dialog {
   width: min(680px, calc(100vw - 24px));
@@ -133,160 +187,13 @@
 .battle-combos-list dt span { color: #8b4c24; text-align: right; }
 .battle-combos-list dd { margin-top: 3px; }
 
-.battle-field {
-  flex: 1;
-  min-width: 0;
-  min-height: clamp(90px, 10vh, 150px);
-  border-radius: clamp(12px, 1.2vw, 18px);
-  padding: clamp(8px, 1vw, 16px);
-  display: flex;
-  justify-content: center;
-  gap: clamp(6px, 0.65vw, 12px);
-  flex-wrap: wrap;
-  position: relative;
-}
-
-.battle-opponent-field { align-items: flex-end; }
-.battle-player-field { align-items: flex-start; }
-
-.battle-counter {
-  flex-shrink: 0;
-  height: clamp(46px, 5.5vh, 68px);
-  display: flex;
-  align-items: center;
-  padding: 0 clamp(14px, 2vw, 30px);
-  gap: clamp(8px, 1vw, 16px);
-}
-
-.battle-actions {
-  flex-shrink: 0;
-  padding: clamp(5px, 0.8vh, 10px) clamp(12px, 2vw, 28px);
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 1vw, 16px);
-}
-
-.battle-hand {
-  flex-shrink: 0;
-  height: clamp(152px, 15.5vw, 284px);
-  padding: clamp(10px, 1.2vh, 18px) clamp(12px, 2vw, 28px) clamp(14px, 2vh, 24px);
-  display: flex;
-  gap: clamp(6px, 0.65vw, 12px);
-  overflow-x: auto;
-  align-items: flex-end;
-  /* Overflow must start at the first card, even when the hand grows. */
-  justify-content: safe center;
-}
-
-.battle-card-detail {
-  max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Measure the board, not the window: the online room bar consumes height too. */
-@container battle-viewport (max-height: 520px) {
-  .battle-board {
-    --battle-hand-height: clamp(90px, 27cqh, 126px);
-    --battle-hand-card-height: calc(var(--battle-hand-height) - 14px);
-    --battle-hand-width: clamp(72px, 11cqw, 88px);
-    --battle-field-width: clamp(66px, 10cqw, 82px);
-    --battle-field-height: clamp(66px, calc(100cqh - 260px), 98px);
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) 32px 44px var(--battle-hand-height);
-    grid-template-areas: 'opponent player' 'counter counter' 'actions actions' 'hand hand';
-  }
-
-  .battle-opponent { grid-area: opponent; }
-  .battle-player { grid-area: player; }
-
-  .battle-side {
-    padding: 6px 8px;
-    overflow: hidden;
-  }
-
-  .battle-status {
-    gap: 6px;
-    margin: 0 0 4px;
-    min-height: 30px;
-  }
-
-  .battle-player-status { order: -1; }
-  .battle-avatar, .battle-counter-label { display: none; }
-  .battle-opponent-effects { gap: 5px; margin: 0 0 4px; }
-  .battle-kireta-stock { gap: 5px; padding: 1px 6px; }
-  .battle-kireta-stock strong { font-size: 14px; }
-  .battle-status-open { min-height: 27px; padding: 3px 6px; font-size: 10px; }
-  .battle-player-status-open { padding-inline: 5px; }
-
-  .battle-field {
-    min-height: 0;
-    padding: 22px 6px 6px;
-    border-radius: 10px;
-    flex-wrap: nowrap;
-    justify-content: safe center;
-    align-items: safe center;
-    gap: 6px;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-
-  .battle-field-card {
-    padding: 3px !important;
-    gap: 2px !important;
-    max-height: 100%;
-  }
-
-  .battle-field-art {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .battle-field-art svg, .battle-hand-art svg {
-    height: 100% !important;
-    max-height: 100%;
-  }
-
-  /* The numeric ×N remains visible; the duplicate dots cost valuable height. */
-  .battle-field-duration { display: none !important; }
-
-  .battle-counter {
-    grid-area: counter;
-    min-width: 0;
-    height: auto;
-    padding: 0 8px;
-    gap: 6px;
-    white-space: nowrap;
-  }
-
-  .battle-actions {
-    grid-area: actions;
-    min-width: 0;
-    padding: 2px 8px;
-    gap: 8px;
-  }
-
-  .battle-end-turn {
-    min-height: 42px;
-    padding: 8px 18px !important;
-  }
-
-  .battle-hand {
-    grid-area: hand;
-    min-width: 0;
-    height: auto;
-    padding: 6px 10px;
-    gap: 6px;
-    align-items: center;
-    overscroll-behavior: contain;
-  }
-
-  /* Full effects stay available in the card detail sheet. */
-  .battle-hand-effect { display: none; }
-}
-
 @media (max-width: 440px) {
   .battle-status-dialog-content { padding-inline: 15px; }
   .battle-effects-list { grid-template-columns: 1fr; }
 }
+
+.battle-combo-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.battle-status-open { min-height: 44px; padding: 8px 10px; border: 1px solid #cbb795; border-radius: 8px; color: #6f4b25; background: #faf3e4; font-size: 13px; font-weight: 700; cursor: pointer; }
+.battle-status-dialog header button { min-height: 44px; }
+.battle-status-dialog header p, .battle-status-dialog h3, .battle-effects-list dt { font-size: 13px; }
+.battle-effects-list p, .battle-combos-list dd { font-size: 14px; }

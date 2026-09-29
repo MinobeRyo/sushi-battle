@@ -49,11 +49,16 @@ interface BeltPlate3DProps {
   speed: number
   wrapWidth: number
   paused: boolean
+  hideLabels?: boolean
+  portraitLabels?: boolean
+  onlinePositionScale?: number
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, paused }: BeltPlate3DProps) {
+function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, paused, hideLabels = false, portraitLabels = false, onlinePositionScale = 1 }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const labelRef = useRef<HTMLButtonElement>(null)
+  const labelPosition = useMemo(() => new THREE.Vector3(), [])
   const posX = useRef(initialX)
   const slotId = useId()
   const generationRef = useRef(0)
@@ -73,27 +78,54 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
     document.body.style.cursor = 'auto'
   }, [])
 
-  useFrame((_, delta) => {
+  const select = () => {
+    if (offer && elapsed) {
+      if (offer.sold || onlinePlatePosition(offer.lane, offer.slot, elapsed()).generation !== offer.generation) return
+      clearHover()
+      onSelect(offer.card, () => true, offer.id)
+      return
+    }
+    if (soldRef.current || generationRef.current !== generation) return
+    clearHover()
+    onSelect(card, () => {
+      if (soldRef.current || generationRef.current !== generation) return false
+      soldRef.current = true
+      clearHover()
+      setSold(true)
+      return true
+    }, `${slotId}:${generation}`)
+  }
+
+  useFrame(({ camera, size }, delta) => {
     if (offer && elapsed) {
       const position = onlinePlatePosition(offer.lane, offer.slot, elapsed())
       if (groupRef.current) {
-        groupRef.current.position.x = position.x
+        // 表示間隔だけを広げる。時刻・周回・購入できる皿の判定はサーバーと共通。
+        groupRef.current.position.x = position.x * onlinePositionScale
         groupRef.current.visible = position.generation === offer.generation
       }
-      return
-    }
-    if (!paused) posX.current -= speed * Math.min(delta, 0.1)
-    if (posX.current < LEFT_EDGE) {
-      // 右端へ戻し、バッグから新しいカードを補充
-      posX.current += wrapWidth
-      generationRef.current += 1
-      soldRef.current = false
-      setCard({ card: drawCard(), generation: generationRef.current })
-      setSold(false)
+    } else {
+      if (!paused) posX.current -= speed * Math.min(delta, 0.1)
+      if (posX.current < LEFT_EDGE) {
+        // 右端へ戻し、バッグから新しいカードを補充
+        posX.current += wrapWidth
+        generationRef.current += 1
+        soldRef.current = false
+        setCard({ card: drawCard(), generation: generationRef.current })
+        setSold(false)
+      }
+
+      if (groupRef.current) groupRef.current.position.x = posX.current
     }
 
-    if (groupRef.current) {
-      groupRef.current.position.x = posX.current
+    if (portraitLabels && groupRef.current && labelRef.current) {
+      groupRef.current.updateWorldMatrix(true, false)
+      labelPosition.set(-1.5, 0.1, 0).applyMatrix4(groupRef.current.matrixWorld).project(camera)
+      const y = (1 - labelPosition.y) * size.height / 2
+      const visible = groupRef.current.visible && Math.abs(labelPosition.x) < 1 && y >= 24 && y <= size.height - 24
+      // 画面外や期限切れの皿は、ラベルからも選択・Tab移動できない。
+      labelRef.current.inert = !visible
+      labelRef.current.style.visibility = visible ? 'visible' : 'hidden'
     }
   })
 
@@ -128,21 +160,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
       <PlateHitTarget
         onClick={(e) => {
           e.stopPropagation()
-          if (offer && elapsed) {
-            if (offer.sold || onlinePlatePosition(offer.lane, offer.slot, elapsed()).generation !== offer.generation) return
-            clearHover()
-            onSelect(offer.card, () => true, offer.id)
-            return
-          }
-          if (soldRef.current || generationRef.current !== generation) return
-          clearHover()
-          onSelect(card, () => {
-            if (soldRef.current || generationRef.current !== generation) return false
-            soldRef.current = true
-            clearHover()
-            setSold(true)
-            return true
-          }, `${slotId}:${generation}`)
+          select()
         }}
         onPointerOver={(e) => {
           e.stopPropagation()
@@ -169,15 +187,26 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
             <ringGeometry args={[0.84, 0.9, 40]} />
             <meshBasicMaterial color="#fbbf24" />
           </mesh>
-          <Html center position={[0, 1.2, 0]} zIndexRange={[8, 0]} style={{ pointerEvents: 'none' }}>
+          {!portraitLabels && <Html center position={[0, 1.2, 0]} zIndexRange={[8, 0]} style={{ pointerEvents: 'none' }}>
             <div style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #d9a55e', background: '#2c1006ee', color: '#fff2d9', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
               {card.name} <span style={{ color: '#fcd34d' }}>¥{card.price}</span>
             </div>
-          </Html>
+          </Html>}
         </>
       )}
+      {portraitLabels && <Html center position={[-1.5, 0.1, 0]} zIndexRange={[3, 0]} style={{ pointerEvents: 'none' }}>
+        <button type="button" ref={labelRef} className="vd-three-plate-label" style={{ pointerEvents: 'auto', visibility: 'hidden' }}
+          onClick={event => { event.stopPropagation(); select() }}
+          onPointerEnter={event => { if (event.pointerType !== 'touch') setHovered(true) }}
+          onPointerLeave={clearHover}
+          onFocus={() => setHovered(true)} onBlur={clearHover}
+          aria-label={`${card.name}、${card.price}円。詳細を見る`}
+        >
+          <span>{card.name}</span><strong>¥{card.price.toLocaleString()}</strong>
+        </button>
+      </Html>}
       {/* Card name */}
-      <Text
+      {!hideLabels && <Text
         position={[0, 0.14, 0.58]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={0.09}
@@ -187,7 +216,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         maxWidth={1.2}
       >
         {card.name.length > 7 ? card.name.slice(0, 7) + '…' : card.name}
-      </Text>
+      </Text>}
     </group>
   )
 }
@@ -202,13 +231,17 @@ interface BeltLane3DProps {
   laneZ: number
   isShinkansen?: boolean
   paused?: boolean
+  hideLabels?: boolean
+  portraitLabels?: boolean
+  plateSpacing?: number
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false }: BeltLane3DProps) {
+export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false, hideLabels = false, portraitLabels = false, plateSpacing = SPACING }: BeltLane3DProps) {
   // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
   const slotCount = supply?.offers.length ?? Math.min(cards.length, 12)
-  const wrapWidth = slotCount * SPACING
+  const onlinePositionScale = plateSpacing / SPACING
+  const wrapWidth = slotCount * plateSpacing
   const speed = duration > 0 ? wrapWidth / duration : 0
   const railColor = isShinkansen ? '#ca8a04' : '#57534e'
   const beltColor = isShinkansen ? '#0f0d0b' : '#1c1917'
@@ -221,9 +254,11 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
   }
 
   const initialXs = useMemo(
-    () => Array.from({ length: slotCount }, (_, i) => LEFT_EDGE + 1 + i * SPACING),
+    () => Array.from({ length: slotCount }, (_, i) => supply
+      ? (LEFT_EDGE + 1 + i * SPACING) * onlinePositionScale
+      : LEFT_EDGE + 1 + i * plateSpacing),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slotCount]
+    [slotCount, Boolean(supply), plateSpacing, onlinePositionScale]
   )
 
   return (
@@ -241,7 +276,7 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
         </mesh>
       ))}
       {/* Lane label */}
-      <Text
+      {!hideLabels && <Text
         position={[-11.5, 0.35, laneZ - 0.7]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={0.2}
@@ -250,7 +285,7 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
         anchorY="middle"
       >
         {label}
-      </Text>
+      </Text>}
       {/* Plates（スロット式：右端に戻るたびシャッフルバッグから補充） */}
       {initialXs.map((x, i) => (
         <BeltPlate3D
@@ -263,6 +298,9 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
           speed={speed}
           wrapWidth={wrapWidth}
           paused={paused}
+          hideLabels={hideLabels}
+          portraitLabels={portraitLabels}
+          onlinePositionScale={onlinePositionScale}
           onSelect={onSelect}
         />
       ))}

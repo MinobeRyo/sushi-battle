@@ -30,15 +30,15 @@ function OnlineDraftScreen({ room, snapshot, onBack }: {
   const draft = snapshot.draft!
   const connected = room.status === 'connected'
   const opponentConnected = snapshot.connected[snapshot.playerId === 1 ? 2 : 1]
-  return <div className="flex h-full flex-col bg-stone-950">
-    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs text-amber-100">
+  return <div className="online-screen flex h-full flex-col bg-stone-950">
+    <div className="online-room-bar flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs text-amber-100">
       <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · {draft.mode === 'initial' ? 'デッキ構築' : '追加注文'}</span>
       <span role="status">{!connected ? '再接続中です。制限時間は進みます。' : room.pending ? '購入内容を確認中…'
         : !opponentConnected ? '相手が再接続中です。購入は続けられます。'
           : draft.opponentCompleted ? '相手は購入を完了しています' : 'それぞれのレーンで同時に購入できます'}</span>
       <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>
     </div>
-    {room.error && <p role="alert" className="bg-red-950 px-4 py-2 text-sm text-red-100">{room.error}</p>}
+    {room.error && <p role="alert" className="online-notice bg-red-950 px-4 py-2 text-sm text-red-100">{room.error}</p>}
     <div className="relative min-h-0 flex-1">
       {draft.you.completed ? <div className="flex h-full flex-col items-center justify-center gap-4 px-5 text-center text-amber-100">
         <h1 className="text-2xl font-bold">購入が完了しました</h1>
@@ -81,16 +81,16 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
     handlePassReady: () => {}, handleReorderComplete: () => {},
   }
   return (
-    <div className="flex h-full flex-col bg-stone-950">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs text-amber-100">
+    <div className="online-screen flex h-full flex-col bg-stone-950">
+      <div className="online-room-bar flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs text-amber-100">
         <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · オンライン対戦</span>
         <span role="status">{match.phase === 'over' ? '対戦終了' : !ready ? '再接続を待っています（操作を一時停止中）'
           : room.pending ? '操作を確認中…' : yourTurn ? 'あなたのターン' : '相手のターン'}</span>
         <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>
       </div>
-      {room.error && <p role="alert" className="bg-red-950 px-4 py-2 text-sm text-red-100">{room.error}</p>}
-      {opponentRequested && <p className="bg-amber-950 px-4 py-2 text-center text-sm text-amber-100">相手が再戦を希望しています。</p>}
-      <div className="min-h-0 flex-1">
+      {room.error && <p role="alert" className="online-notice bg-red-950 px-4 py-2 text-sm text-red-100">{room.error}</p>}
+      {opponentRequested && <p className="online-notice bg-amber-950 px-4 py-2 text-center text-sm text-amber-100">相手が再戦を希望しています。</p>}
+      <div className="min-h-0 min-w-0 flex-1">
         <BattleBoard game={game} mode="online" onBack={onBack}
           canRestart={ready && !room.pending && !requested}
           restartLabel={requested ? '相手の再戦希望を待っています' : '再戦を希望する'} />

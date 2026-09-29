@@ -9,10 +9,13 @@ import type { Phase, Card } from './types'
 
 type GameMode = 'cpu' | 'two_player'
 const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
+const VerticalDraftDemo = lazy(() => import('./features/demo/VerticalDraftDemo'))
+const CardCatalogScreen = lazy(() => import('./features/catalog/CardCatalogScreen').then(module => ({ default: module.CardCatalogScreen })))
 
 export default function App() {
   const [isMobileDemo] = useState(() => window.location.hash === '#mobile-demo')
-  const [phase, setPhase] = useState<Phase | 'online'>(() => window.location.hash === '#online' ? 'online' : 'title')
+  const [isVerticalDemo] = useState(() => window.location.hash === '#vertical-draft-demo')
+  const [phase, setPhase] = useState<Phase | 'online' | 'catalog'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
@@ -62,11 +65,17 @@ export default function App() {
   }
 
   if (isMobileDemo) return <Suspense fallback={<div style={{ padding: 32 }}>デモを準備しています…</div>}><MobileDraftDemo /></Suspense>
+  if (isVerticalDemo) return <Suspense fallback={<div style={{ padding: 32 }} role="status">縦レーンのデモを準備しています…</div>}><VerticalDraftDemo /></Suspense>
 
   return (
     <div className="w-full h-full relative">
       {phase === 'title' && (
-        <TitleScreen onPlay={() => setPhase('mode_select')} />
+        <TitleScreen onPlay={() => setPhase('mode_select')} onOpenCatalog={() => setPhase('catalog')} />
+      )}
+      {phase === 'catalog' && (
+        <Suspense fallback={<div className="p-8" role="status">カード図鑑を開いています…</div>}>
+          <CardCatalogScreen onBack={() => setPhase('title')} />
+        </Suspense>
       )}
       {phase === 'mode_select' && (
         <ModeSelectScreen
