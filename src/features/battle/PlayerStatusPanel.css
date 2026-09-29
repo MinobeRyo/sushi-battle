@@ -1,0 +1,151 @@
+.player-status-panel {
+  --status-accent: #41453a;
+  --status-tint: #f0f0e8;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #cfbfaa;
+  border-top: 4px solid var(--status-accent);
+  border-radius: 12px;
+  background: #fffaf0;
+  box-shadow: 0 2px 8px #3d2b1f0d;
+  color: #332b23;
+  font-size: 13px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.player-status-panel--opponent {
+  --status-accent: #a73b2c;
+  --status-tint: #f9ede5;
+}
+
+.player-status-panel__summary {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 4px 8px 5px;
+}
+
+.player-status-panel__heading {
+  margin: 0 0 2px;
+  color: var(--status-accent);
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.player-status-panel__belly { --belly-color: #3d7051; }
+.player-status-panel__belly[data-level="medium"] { --belly-color: #9d6017; }
+.player-status-panel__belly[data-level="high"] { --belly-color: #b53025; }
+
+.player-status-panel__belly-numbers {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1px 6px;
+  font-weight: 700;
+}
+
+.player-status-panel__belly-numbers p { margin: 0; white-space: nowrap; }
+.player-status-panel__belly-numbers strong { color: var(--belly-color); font-size: 28px; line-height: 1; font-weight: 800; }
+.player-status-panel__belly-numbers p span { color: #665444; font-weight: 500; }
+
+.player-status-panel__gauge {
+  height: 8px;
+  margin-top: 3px;
+  overflow: hidden;
+  border: 1px solid #cabba5;
+  border-radius: 5px;
+  background: #e6dccb;
+}
+
+.player-status-panel__gauge > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--belly-color);
+  transition: width 180ms ease-out;
+}
+
+.player-status-panel__metrics {
+  display: grid;
+  /* AP 10 / 10 の実際の文字幅を確保し、残りを攻撃・山札に渡す。 */
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 8px;
+  margin: 4px 0 0;
+}
+
+.player-status-panel__metrics > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1px 3px;
+  min-width: 0;
+}
+.player-status-panel__metrics dt { color: #65503d; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.player-status-panel__metrics > div:first-child { flex-wrap: nowrap; }
+.player-status-panel__metrics dd { margin: 0; line-height: 1.1; white-space: nowrap; }
+.player-status-panel__metrics dd strong { font-size: 20px; font-weight: 800; }
+.player-status-panel__metrics dd span { color: #65503d; font-size: 13px; }
+.player-status-panel__card-count dd strong { font-size: 18px; }
+.player-status-panel__damage { color: #ac3425; }
+
+.player-status-panel__details {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 9px 10px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top: 1px solid #dacbb5;
+  background: var(--status-tint);
+  scrollbar-width: thin;
+  scrollbar-color: #af9e86 transparent;
+}
+
+.player-status-panel__details--empty { padding-block: 6px; }
+.player-status-panel__details:focus-visible { outline: 2px solid #9b5532; outline-offset: -3px; }
+.player-status-panel__effects-heading { margin: 0 0 6px; color: #584633; font-size: 13px; font-weight: 700; }
+.player-status-panel__empty { margin: 0; color: #65503d; font-size: 13px; }
+
+.player-status-panel__effects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player-status-panel__effects li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1px 5px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #cfbda1;
+  border-radius: 6px;
+  background: #fffaf0;
+  color: #493a29;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.player-status-panel__effects li strong { font-size: 14px; font-weight: 800; }
+.player-status-panel__effects li small { flex-basis: 100%; color: #66513c; font-size: 13px; }
+.player-status-panel__effects li.is-caution { border-color: #be8270; background: #fff0e9; color: #8c2d20; }
+
+@media (prefers-reduced-motion: reduce) {
+  .player-status-panel__gauge > span { transition: none; }
+}

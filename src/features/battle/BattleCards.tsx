@@ -1,11 +1,34 @@
+import { useEffect, useRef } from 'react'
 import type { Inspect, FieldCard } from './types'
-import { EFFECT_FULL, R, C, ARCH_LABEL } from './battlePresentation'
+import { EFFECT_FULL, C, ARCH_LABEL } from './battlePresentation'
 import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
+import './BattleCards.css'
 
-// ── CardDetailSheet ──────────────────────────────────────────────────────────
+const EFFECT_SHORT: Record<string, string> = {
+  self_digest_5: '自分のお腹 −5',
+  digest_boost_2: '毎ターンの消化 +2',
+  digest_stop_1t: '相手の消化を1ターン停止',
+  kireta_stack: '切れ味 +1',
+  kireta_consume_x3: '切れ味全消費 ×3攻撃',
+  kireta_consume_2_draw_2: '切れ味2で2枚引く',
+  belly_boost_70: '相手お腹70以上で攻撃 +8',
+  belly_boost_60: '相手お腹60以上で攻撃 +5',
+  belly_boost_65: '相手お腹65以上で攻撃 +6',
+  belly_boost_persist_50: '相手お腹50以上で攻撃 +2',
+  chain_on_kaisen_summon: '海鮮召喚で連鎖攻撃',
+  draw_1: '召喚時に1枚引く',
+  draw_2: '召喚時に2枚引く',
+  ap_next_1: '次のターン AP +1',
+  multi_base: 'マグロ・えびも兼ねる',
+}
+
+function shortEffect(card: Card) {
+  return card.effect ? EFFECT_SHORT[card.effect] ?? '特殊効果あり・詳細を確認' : '特殊効果なし'
+}
+
 export function CardDetailSheet({
   inspect, attackBuff, kiretaStack, onPlay, onClose,
 }: {
@@ -16,229 +39,144 @@ export function CardDetailSheet({
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const isField = remainingTurns !== undefined
+  const showActualAttack = isField && inspect.actualAttack !== undefined
   const effectDesc = card.effect ? EFFECT_FULL[card.effect] : null
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeButtonRef.current?.focus({ preventScroll: true })
+    return () => previousFocus?.focus({ preventScroll: true })
+  }, [])
 
   return (
     <motion.div
+      className="battle-detail-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={onClose}
-      style={{
-        position: 'absolute', inset: 0, zIndex: 40,
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex', alignItems: 'flex-end',
+      onKeyDown={event => {
+        if (event.key === 'Escape') {
+          event.stopPropagation()
+          onClose()
+        }
+        if (event.key !== 'Tab') return
+        const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
+        const first = buttons?.[0]
+        const last = buttons?.[buttons.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last?.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first?.focus()
+        }
       }}
     >
       <motion.div
-        className="battle-card-detail"
+        ref={dialogRef}
+        className="battle-detail-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${card.name}の詳細`}
+        data-card-type={card.type}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          background: 'linear-gradient(180deg,#faf6ef,#f3ebe0)',
-          borderRadius: 'clamp(16px, 2vw, 28px) clamp(16px, 2vw, 28px) 0 0',
-          padding: 'clamp(16px, 2.5vh, 32px) clamp(16px, 3vw, 36px) clamp(20px, 3vh, 40px)',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.2)',
-        }}
+        onClick={event => event.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'clamp(12px, 2vh, 20px)' }}>
+        <div className="battle-detail-heading">
           <div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
-              <span style={{
-                fontSize: R.f2xs, fontWeight: 700, color: '#fff',
-                background: isPersist ? C.persBorder : C.instBorder,
-                borderRadius: 6, padding: '2px 8px',
-              }}>
-                {isPersist ? '🔄 持続型' : '⚡ 即時型'}
-              </span>
-              {card.archetype.map(a => (
-                <span key={a} style={{
-                  fontSize: R.f2xs, fontWeight: 600, color: C.txtSec,
-                  background: 'rgba(0,0,0,0.07)', borderRadius: 6, padding: '2px 8px',
-                }}>
-                  {ARCH_LABEL[a]}
-                </span>
-              ))}
+            <div className="battle-detail-tags">
+              <span className="battle-detail-type">{isPersist ? '持続型' : '即時型'}</span>
+              {card.archetype.map(archetype => <span key={archetype}>{ARCH_LABEL[archetype]}</span>)}
             </div>
-            <p style={{ fontSize: R.fxl, fontWeight: 800, color: C.txtPri }}>{card.name}</p>
+            <h2>{card.name}</h2>
           </div>
-          <button onClick={onClose} style={{
-            fontSize: R.flg, color: C.txtMut, background: 'none', border: 'none',
-            cursor: 'pointer', padding: '4px 8px', flexShrink: 0,
-          }}>✕</button>
+          <button ref={closeButtonRef} type="button" className="battle-detail-dismiss" onClick={onClose} aria-label="カード詳細を閉じる">✕</button>
         </div>
 
-        <div style={{ display: 'flex', gap: 'clamp(16px, 3vw, 32px)', alignItems: 'center' }}>
-          <div style={{
-            flexShrink: 0,
-            width: 'clamp(72px, 9vw, 140px)', height: 'clamp(72px, 9vw, 140px)',
-            borderRadius: 'clamp(12px, 1.2vw, 20px)',
-            background: isPersist ? C.persBg : C.instBg,
-            border: `2px solid ${isPersist ? C.persBorder : C.instBorder}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <SushiArt card={card} size="86%" />
+        <div className="battle-detail-body">
+          <div className="battle-detail-art" aria-hidden="true">
+            <SushiArt card={card} size="92%" />
           </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', marginBottom: 'clamp(8px, 1.5vh, 14px)', flexWrap: 'wrap' }}>
-              <div>
-                <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>コスト</p>
-                <p style={{
-                  fontSize: R.flg, fontWeight: 800,
-                  color: '#fff', background: isPersist ? C.persBorder : C.instBorder,
-                  borderRadius: 8, padding: '2px 12px', display: 'inline-block',
-                }}>{card.cost}</p>
-              </div>
-              <div>
-                <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>攻撃力</p>
-                <p style={{ fontSize: R.flg, fontWeight: 800, color: C.atk }}>
-                  ⚔ {card.attack}
-                  {buff > 0 && <span style={{ color: C.ap, fontSize: R.fsm }}> +{buff}</span>}
-                  {kBonus > 0 && <span style={{ color: C.kireta, fontSize: R.fsm }}> +{kBonus}✂</span>}
-                </p>
-              </div>
-              {isPersist && (
-                <div>
-                  <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>
-                    {isField ? '残りターン' : '持続ターン'}
-                  </p>
-                  <p style={{ fontSize: R.flg, fontWeight: 800, color: C.persBorder }}>
-                    {isField ? `${remainingTurns}T` : `${card.fullness}T`}
-                  </p>
-                </div>
-              )}
-              <div>
-                <p style={{ fontSize: R.fxs, color: C.txtMut, marginBottom: 2 }}>ドラフト価格</p>
-                <p style={{ fontSize: R.flg, fontWeight: 700, color: C.txtSec }}>¥{card.price}</p>
-              </div>
+          <dl className="battle-detail-stats">
+            <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
+            <div>
+              <dt>{showActualAttack ? '現在の攻撃力' : '攻撃力'}</dt>
+              <dd className="battle-detail-attack">
+                {showActualAttack ? inspect.actualAttack : card.attack}
+                {!showActualAttack && buff > 0 && <span> +{buff}</span>}
+                {!showActualAttack && kBonus > 0 && <span> +{kBonus}（切れ味）</span>}
+              </dd>
             </div>
-
-            <div style={{
-              background: effectDesc ? 'rgba(251,191,36,0.14)' : 'transparent',
-              borderRadius: 10, padding: effectDesc ? 'clamp(8px, 1vh, 14px)' : 0,
-              border: effectDesc ? '1px solid rgba(217,119,6,0.25)' : 'none',
-            }}>
-              {effectDesc
-                ? <p style={{ fontSize: R.fsm, color: '#78530a', fontWeight: 600, lineHeight: 1.5 }}>
-                    ✦ {effectDesc}
-                  </p>
-                : <p style={{ fontSize: R.fsm, color: C.txtMut }}>効果なし</p>
-              }
-            </div>
-          </div>
+            {isPersist && <div><dt>{isField ? '残りターン' : '持続ターン'}</dt><dd>{isField ? remainingTurns : card.fullness}ターン</dd></div>}
+            <div><dt>ドラフト価格</dt><dd>¥{card.price}</dd></div>
+          </dl>
+        </div>
+        <div className="battle-detail-effect">
+          <h3>特殊効果</h3>
+          <p>{effectDesc ?? '特殊効果なし'}</p>
         </div>
 
-        {!isField && (
-          <div style={{ display: 'flex', gap: 12, marginTop: 'clamp(14px, 2.5vh, 24px)' }}>
-            <button onClick={onClose}
-              style={{
-                flex: 1, padding: 'clamp(10px, 1.5vh, 18px)', borderRadius: 999,
-                fontSize: R.fsm, fontWeight: 700, background: '#e8dfd0',
-                color: C.txtSec, border: '1px solid #d4c4ae', cursor: 'pointer',
-              }}>
-              キャンセル
-            </button>
+        <div className="battle-detail-actions">
+          <button type="button" className="battle-detail-cancel" onClick={onClose}>{isField ? '閉じる' : 'キャンセル'}</button>
+          {!isField && (
             <motion.button
+              type="button"
+              className="battle-detail-play"
               onClick={canPlay && isPresent ? onPlay : undefined}
               disabled={!canPlay || !isPresent}
               whileTap={canPlay ? { scale: 0.95 } : {}}
               whileHover={canPlay ? { scale: 1.02 } : {}}
-              style={{
-                flex: 2, padding: 'clamp(10px, 1.5vh, 18px)', borderRadius: 999,
-                fontSize: R.fsm, fontWeight: 800,
-                background: canPlay ? C.btnEnd : '#d4c4ae',
-                color: canPlay ? '#fff' : C.txtMut,
-                border: `1.5px solid ${canPlay ? C.btnEndBorder : '#c4b4a0'}`,
-                cursor: canPlay ? 'pointer' : 'not-allowed',
-                boxShadow: canPlay ? `0 0 20px ${C.btnEndGlow}` : 'none',
-              }}
             >
-              {canPlay ? `⚔ 召喚する（AP -${card.cost}）` : 'AP不足'}
+              {canPlay ? `召喚する（AP −${card.cost}）` : inspect.playBlockedReason ?? '召喚できません'}
             </motion.button>
-          </div>
-        )}
-        {isField && (
-          <div style={{ marginTop: 'clamp(14px, 2.5vh, 24px)' }}>
-            <button onClick={onClose}
-              style={{
-                width: '100%', padding: 'clamp(10px, 1.5vh, 18px)', borderRadius: 999,
-                fontSize: R.fsm, fontWeight: 700, background: '#e8dfd0',
-                color: C.txtSec, border: '1px solid #d4c4ae', cursor: 'pointer',
-              }}>
-              閉じる
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </motion.div>
     </motion.div>
   )
 }
 
-// ── FieldSushi ────────────────────────────────────────────────────────────────
-export function FieldSushi({ card, isEnemy = false, onSelect }: {
-  card: FieldCard; isEnemy?: boolean; onSelect: () => void
+export function FieldSushi({ card, isEnemy = false, actualAttack, onSelect }: {
+  card: FieldCard; isEnemy?: boolean; actualAttack?: number; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
-  const maxT = isPersist ? Math.max(card.fullness, 2) : 1
   return (
-    <motion.div
+    <motion.button
+      type="button"
       className="battle-field-card"
+      data-card-type={card.type}
+      aria-label={`${card.name}、攻撃力${actualAttack ?? card.attack}${isPersist ? `、残り${card.turnsLeft}ターン` : ''}の詳細`}
       layout
       initial={{ scale: 0, y: isEnemy ? -24 : 24, opacity: 0 }}
       animate={{ scale: 1, y: 0, opacity: 1 }}
       exit={{ scale: 0, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 360, damping: 26 }}
       onClick={onSelect}
-      whileHover={{ scale: 1.06, boxShadow: `0 6px 20px ${isPersist ? C.persGlow : C.instGlow}` }}
+      whileHover={{ scale: 1.03, boxShadow: `0 6px 20px ${isPersist ? C.persGlow : C.instGlow}` }}
       whileTap={{ scale: 0.96 }}
-      style={{
-        flexShrink: 0, cursor: 'pointer',
-        width: `var(--battle-field-width, ${R.fw})`, height: `var(--battle-field-height, ${R.fh})`,
-        borderRadius: 'clamp(10px, 1vw, 16px)',
-        background: isPersist ? C.persBg : C.instBg,
-        border: `2px solid ${isPersist ? C.persBorder : C.instBorder}`,
-        boxShadow: `0 4px 16px ${isPersist ? C.persGlow : C.instGlow}, 0 1px 3px rgba(0,0,0,0.12)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: 'clamp(5px, 0.6vw, 10px) clamp(3px, 0.4vw, 7px) clamp(4px, 0.5vw, 8px)',
-        gap: 'clamp(2px, 0.3vw, 5px)', overflow: 'hidden',
-      }}
     >
-      <div className="battle-field-art" style={{ width: '82%', display: 'flex', justifyContent: 'center' }}>
-        <SushiArt card={card} size="100%" />
+      <div className="battle-field-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit /></div>
+      <p className="battle-field-card-name">{card.name}</p>
+      <div className="battle-field-card-stats">
+        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}</span>
+        <span className="battle-field-card-turns">{isPersist ? `残り${card.turnsLeft}T` : '即時'}</span>
       </div>
-      <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', lineHeight: 1.2, maxWidth: '90%' }}>
-        {card.name.slice(0, 6)}
-      </p>
-      <div style={{ display: 'flex', gap: 'clamp(3px, 0.4vw, 6px)', alignItems: 'center' }}>
-        <span style={{ fontSize: R.fxs, color: C.atk, fontWeight: 700 }}>⚔ {card.attack}</span>
-        {isPersist && <span style={{ fontSize: R.fxs, color: C.persBorder, fontWeight: 700 }}>×{card.turnsLeft}</span>}
-      </div>
-      {isPersist && (
-        <div className="battle-field-duration" style={{ display: 'flex', gap: 3 }}>
-          {Array.from({ length: maxT }, (_, i) => (
-            <div key={i} style={{
-              width: R.dot, height: R.dot, maxWidth: 12, maxHeight: 12, borderRadius: '50%',
-              background: i < card.turnsLeft ? '#16a34a' : C.apEmpty,
-              border: `1px solid ${i < card.turnsLeft ? '#15803d' : '#c4b4a0'}`,
-            }} />
-          ))}
-        </div>
-      )}
-    </motion.div>
+      <p className="battle-field-card-effect">{shortEffect(card)}</p>
+    </motion.button>
   )
 }
 
-// ── HandSushi ─────────────────────────────────────────────────────────────────
 export function HandSushi({
   card, canPlay, attackBuff, kiretaStack, isSelected, onSelect,
 }: {
@@ -248,67 +186,31 @@ export function HandSushi({
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
-  const effectLabel = card.effect
-    ? (EFFECT_FULL[card.effect]?.slice(0, 14) + '…')
-    : null
-
-  const bgGrad = canPlay ? (isPersist ? C.persBg : C.instBg) : '#f0e8dc'
-  const borderColor = isSelected
-    ? '#1d4ed8'
-    : canPlay ? (isPersist ? C.persBorder : C.instBorder) : '#d4c4ae'
-  const glow = canPlay
-    ? `0 8px 24px ${isPersist ? C.persGlow : C.instGlow}, 0 2px 6px rgba(0,0,0,0.1)`
-    : '0 1px 4px rgba(0,0,0,0.08)'
 
   return (
     <motion.button
+      type="button"
       className="battle-hand-card"
+      data-card-type={card.type}
+      data-playable={canPlay}
+      data-selected={isSelected}
+      aria-label={`${card.name}、消費AP${card.cost}の詳細${canPlay ? '、召喚可能' : ''}`}
       onClick={onSelect}
-      whileHover={{ y: -20, scale: 1.06 }}
+      whileHover={{ y: -6, scale: 1.02 }}
       whileTap={{ scale: 0.93, y: -6 }}
       transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-      style={{
-        flexShrink: 0,
-        width: `var(--battle-hand-width, ${R.hw})`, height: `var(--battle-hand-card-height, ${R.hh})`,
-        borderRadius: 'clamp(12px, 1.2vw, 20px)',
-        background: bgGrad, border: `2px solid ${borderColor}`,
-        opacity: canPlay ? 1 : 0.45,
-        cursor: 'pointer',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: isSelected ? `0 0 0 3px #3b82f6, ${glow}` : glow,
-        outline: 'none',
-      }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'clamp(5px, 0.6vw, 9px) clamp(6px, 0.7vw, 10px) 0' }}>
-        <span style={{
-          fontSize: R.fsm, fontWeight: 800, color: '#fff',
-          background: isPersist ? C.persBorder : C.instBorder,
-          borderRadius: 6, padding: '1px 6px', lineHeight: 1.4,
-        }}>{card.cost}</span>
-        <span style={{ fontSize: R.fxs }}>{isPersist ? '🔄' : '⚡'}</span>
+      <div className="battle-hand-card-heading">
+        <span className="battle-hand-card-cost">AP {card.cost}</span>
+        <span className="battle-hand-card-type">{isPersist ? '持続' : '即時'}</span>
       </div>
-      <div className="battle-hand-art" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '0 4px' }}>
-        <SushiArt card={card} size="88%" />
+      <div className="battle-hand-card-art" aria-hidden="true"><SushiArt card={card} size="96%" fit /></div>
+      <p className="battle-hand-card-name">{card.name}</p>
+      <div className="battle-hand-card-stats">
+        <span className="battle-hand-card-attack">攻撃 {card.attack + buff + kBonus}</span>
+        {isPersist && <span className="battle-hand-card-turns">{card.fullness}T</span>}
       </div>
-      <p style={{ fontSize: R.fxs, color: C.txtPri, fontWeight: 700, textAlign: 'center', padding: '0 4px', lineHeight: 1.25 }}>
-        {card.name.slice(0, 8)}
-      </p>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 5, padding: 'clamp(2px, 0.3vw, 4px) 4px' }}>
-        <span style={{ fontSize: R.fsm, color: C.atk, fontWeight: 800 }}>
-          ⚔ {card.attack}
-          {buff > 0 && <span style={{ color: C.ap, fontSize: R.fxs }}>+{buff}</span>}
-          {kBonus > 0 && <span style={{ color: C.kireta, fontSize: R.fxs }}>+{kBonus}</span>}
-        </span>
-        {isPersist && <span style={{ fontSize: R.fxs, color: C.persBorder, fontWeight: 700 }}>{card.fullness}T</span>}
-      </div>
-      <p className="battle-hand-effect" style={{
-        fontSize: R.f2xs, color: effectLabel ? '#78530a' : 'transparent',
-        textAlign: 'center', padding: 'clamp(1px, 0.2vw, 3px) 4px clamp(4px, 0.5vw, 8px)',
-        lineHeight: 1.2, minHeight: 'clamp(14px, 1.4vw, 20px)',
-        background: effectLabel ? 'rgba(251,191,36,0.18)' : 'transparent',
-      }}>
-        {effectLabel ?? '　'}
-      </p>
+      <p className="battle-hand-card-effect">{shortEffect(card)}</p>
     </motion.button>
   )
 }

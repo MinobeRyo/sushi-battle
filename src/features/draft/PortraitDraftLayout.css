@@ -1,0 +1,75 @@
+.draft-portrait { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; isolation: isolate; color: #35271d; background: #f7f2e9; font-size: 14px; line-height: 1.5; }
+.draft-portrait button { min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pd-content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.pd-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: 0 0 45px; padding: 0 14px; }
+.pd-header h1 { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; }
+.pd-header h1 span { padding: 2px 6px; border: 1px solid #bfa88c; border-radius: 4px; color: #7e5f3b; font-size: 12px; }
+.pd-header > button { padding: 0 6px; color: #6c543f; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.pd-status { display: grid; grid-template-columns: 1.1fr 1fr 1fr; flex: 0 0 auto; gap: 10px; padding: 7px 14px; color: #fff8e9; background: #3e3228; }
+.pd-status > div { display: flex; flex-direction: column; }
+.pd-status > div + div { padding-left: 12px; border-left: 1px solid #81705c; }
+.pd-status span { color: #e1cdb5; font-size: 12px; }
+.pd-status strong { margin-top: 1px; font-size: 22px; font-weight: 750; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pd-status small { color: #e1cdb5; font-size: 14px; }
+.pd-status > div:first-child strong { color: #ffdb8e; }
+.pd-status > div[data-urgent=true] strong { color: #ffb8a5; }
+.pd-toolbar { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 7px 10px; }
+.pd-order-button { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 7px 12px; border: 1px solid #b58a45; border-radius: 9px; color: #604018; background: #f5e5bd; }
+.pd-order-button strong { font-size: 15px; }
+.pd-order-button span { font-size: 13px; white-space: nowrap; }
+.pd-order-button:disabled { color: #776a55; background: #ece5d7; border-color: #c5bba8; }
+.pd-tap-hint { flex: 0 0 auto; color: #796149; font-size: 12px; line-height: 1.4; text-align: center; }
+.pd-lane-headings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 0 0 auto; }
+.pd-lane-headings h2 { display: flex; align-items: center; justify-content: space-between; padding: 6px 14px; border-top: 3px solid #36726b; background: #dcebe4; font-size: 14px; font-weight: 800; }
+.pd-lane-headings h2 + h2 { border-color: #945044; background: #efdeda; }
+.pd-lane-headings h2 span { color: #6f7360; }
+.pd-stage { position: relative; flex: 1; min-height: 120px; overflow: hidden; isolation: isolate; background: #3d1a08; }
+.pd-main-canvas { position: absolute !important; inset: 0; }
+.pd-stage canvas { display: block; touch-action: manipulation; }
+.pd-delivery { position: absolute; right: 8px; bottom: 8px; left: 8px; z-index: 20; display: flex; align-items: center; gap: 8px; min-height: 96px; padding: 6px 10px 6px 0; border: 2px solid #c28f33; border-radius: 14px; background: #fff1cf; box-shadow: 0 6px 24px #160b06a0, inset 0 0 0 3px #fffae6; }
+.pd-delivery-art { flex: 0 0 104px; width: 104px; height: 90px; }
+.pd-delivery-description { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 4px; }
+.pd-delivery-description > span { color: #94651c; font-size: 12px; }
+.pd-delivery-description > strong { color: #4f3515; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.pd-delivery button { padding: 8px 12px; border: 1px solid #9b671c; border-radius: 8px; background: #8c581c; color: #fff9ed; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.pd-footer { flex: 0 0 auto; padding: 6px 12px max(10px, env(safe-area-inset-bottom, 0px)); border-top: 3px solid #a57f50; background: #f3e7d2; }
+.pd-notice { min-height: 20px; margin-bottom: 6px; color: #69533c; font-size: 12px; line-height: 1.45; }
+.pd-footer-actions { display: grid; grid-template-columns: 1fr 126px; gap: 9px; }
+.pd-footer-actions button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 9px 12px; border: 1px solid #4b4235; border-radius: 10px; background: #4b4235; color: #fffaf0; font-size: 15px; font-weight: 700; }
+.pd-footer-actions strong { padding: 2px 8px; border-radius: 5px; background: #71604a; font-variant-numeric: tabular-nums; }
+.pd-footer-actions .pd-finish { justify-content: center; border-color: #9e4329; background: #ad4d2e; }
+.pd-footer-actions button:disabled { opacity: .55; }
+
+.pd-overlays { position: absolute; inset: 0; z-index: 40; color: #fff7e5; }
+.draft-portrait .restaurant-sheet-backdrop { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 12px 8px 0; }
+.draft-portrait .restaurant-deck-sheet { width: 100%; max-height: calc(100% - 12px); border-radius: 18px 18px 0 0; }
+.draft-portrait .restaurant-deck-sheet > header { align-items: center; gap: 10px; padding: 12px; }
+.draft-portrait .restaurant-deck-sheet > header h2 { font-size: 21px; }
+.draft-portrait .restaurant-deck-sheet > header button { min-height: 44px; font-size: 13px; }
+.draft-portrait .restaurant-deck-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+.draft-portrait .restaurant-deck-grid article { min-height: 156px; }
+.draft-portrait .restaurant-deck-grid article > svg { height: 94px !important; }
+.draft-portrait .restaurant-deck-grid article > strong { font-size: 14px; }
+.draft-portrait .restaurant-deck-grid article > span { font-size: 13px; }
+.draft-portrait .restaurant-deck-sheet > footer { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px max(14px, env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+.draft-portrait .restaurant-empty-deck { padding: 28px 16px; font-size: 14px; line-height: 1.8; }
+/* 本番の既存モーダルも、同じ縦画面では文字とタップ領域を確保する。 */
+.draft-portrait .order-menu-header > button, .draft-portrait .order-menu-tabs > button, .draft-portrait .order-menu-pager > button { min-height: 44px; font-size: 13px; }
+.draft-portrait .order-menu-product-info > strong { font-size: 14px; }
+.draft-portrait .order-menu-products { grid-auto-rows: 160px; }
+.draft-portrait .order-menu-product-info b { font-size: 19px; }
+.draft-portrait .order-menu-heading > span, .draft-portrait .order-menu-footer > span { font-size: 12px; }
+.draft-portrait .order-menu-heading > span { max-width: 140px; }
+.draft-portrait .order-menu-heading p { font-size: 12px; }
+.draft-portrait .portrait-purchase-dialog .w-72 { width: min(360px, calc(100% - 24px)); }
+.draft-portrait .portrait-purchase-dialog .text-xs { font-size: 13px; }
+.draft-portrait .portrait-purchase-dialog .text-\[10px\] { font-size: 12px; }
+.draft-portrait .portrait-help-dialog p, .draft-portrait .portrait-help-dialog span { font-size: 13px !important; line-height: 1.6 !important; }
+.draft-portrait .portrait-help-dialog button { width: 44px !important; height: 44px !important; }
+@media (max-width: 360px) {
+  .pd-status { gap: 8px; padding-inline: 10px; }
+  .pd-status > div + div { padding-left: 8px; }
+  .pd-tap-hint { display: none; }
+  .pd-delivery-art { flex-basis: 86px; width: 86px; }
+  .pd-footer-actions { grid-template-columns: 1fr 112px; }
+}

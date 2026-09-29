@@ -9,6 +9,8 @@ import { PurchaseModal } from './PurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import type { OrderCategory } from './ShinkansenOrderModal'
 import { DraftDeckSheet, DraftRestaurantLayout } from './DraftRestaurantLayout'
+import { PortraitDraftLayout } from './PortraitDraftLayout'
+import { VerticalDraftScene } from '../demo/VerticalDraftScene'
 import { StaffHelpModal } from './StaffHelpModal'
 import {
   completeDraft as finishDraft, createDraftState, draftSecondsLeft, DRAFT_MAX_CARDS,
@@ -23,6 +25,7 @@ import { onlineLaneElapsed } from '../../game/draftOffers'
 const DRAFT_SECONDS = 90
 
 const INITIAL_BUDGET = 3000
+const PORTRAIT_QUERY = '(max-width: 700px) and (orientation: portrait)'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -47,6 +50,7 @@ export function DraftScreenThree({
   seconds = DRAFT_SECONDS,
   mode = 'initial',
 }: Props) {
+  const [portrait, setPortrait] = useState(() => window.matchMedia(PORTRAIT_QUERY).matches)
   const [localDraft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now()))
   const draft = online ? { ...online.draft.you, purchasedIds: [] } : localDraft
   const { budget, deck, shinkansenLeft, shinkansenPlate } = draft
@@ -66,6 +70,18 @@ export function DraftScreenThree({
   onlineRef.current = online
   const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
+
+  useEffect(() => {
+    const media = window.matchMedia(PORTRAIT_QUERY)
+    const update = () => {
+      setPortrait(media.matches)
+      // 向きを変えると表示中の皿が組み直されるため、以前の選択は閉じる。
+      selectedRef.current = null; setSelected(null)
+      if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
+    }
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
 
   const completeDraft = useCallback(() => {
     if (onlineRef.current) {
@@ -183,38 +199,41 @@ export function DraftScreenThree({
   const emptyDeckHint = mode === 'reorder'
     ? '0枚で終了すると、補充なしでバトルを再開します。'
     : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
+  const Layout = portrait ? PortraitDraftLayout : DraftRestaurantLayout
+  const onlineSupply = online && {
+    offers: online.draft.offers,
+    elapsed: (lane: 'general' | 'build') => onlineLaneElapsed(online.draft.startedAt, online.draft.laneClocks[lane], online.now()),
+  }
 
   return (
-    <DraftRestaurantLayout
+    <Layout
+      shinkansenPlate={shinkansenPlate} onPickup={handleShinkansenPickup}
       timeLeft={timeLeft} budget={budget} deckCount={deck.length} maxCards={DRAFT_MAX_CARDS}
       playerNum={playerNum} canOrder={canOrder} delivering={Boolean(shinkansenPlate)} remaining={shinkansenLeft}
       disabled={online?.disabled}
       overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
       onOrder={() => { setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
-      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : 'お会計・バトルへ'}
-      hint={shinkansenPlate ? '奥の金色のお皿をタップしてお受け取りください。' : online ? 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
+      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : portrait ? 'バトルへ' : 'お会計・バトルへ'}
+      hint={shinkansenPlate ? portrait ? '下の特急トレイからお受け取りください。' : '奥の金色のお皿をタップしてお受け取りください。' : online ? portrait ? 'オンラインでは詳細表示中も皿と時間が進みます。' : 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : portrait ? 'お皿か名前をタップして、効果を確認' : '寿司もお皿もタップで選べます。'}
       notice={purchaseNotice}
       overlays={<>
         {handOpen && <DraftDeckSheet deck={deck} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}
-        {selected && <div role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') handleModalClose() }}>
+        {selected && <div className="portrait-purchase-dialog" role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') handleModalClose() }}>
           <PurchaseModal card={selected.card} displayPrice={selected.card.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
         </div>}
         {showShinkansenModal && <ShinkansenOrderModal initialCategory={orderCategory} budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)} />}
         <AnimatePresence>
-          {showHelp && <div role="dialog" aria-modal="true" aria-label="店員さんの解説" onKeyDown={event => { if (event.key === 'Escape') setShowHelp(false) }}>
+          {showHelp && <div className="portrait-help-dialog" role="dialog" aria-modal="true" aria-label="店員さんの解説" onKeyDown={event => { if (event.key === 'Escape') setShowHelp(false) }}>
             <StaffHelpModal onClose={() => setShowHelp(false)} />
           </div>}
         </AnimatePresence>
       </>}
     >
-      <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+      <Canvas className={portrait ? 'pd-main-canvas' : undefined} orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          <Scene
-            onlineSupply={online && {
-              offers: online.draft.offers,
-              elapsed: lane => onlineLaneElapsed(online.draft.startedAt, online.draft.laneClocks[lane], online.now()),
-            }}
+          {portrait ? <VerticalDraftScene onlineSupply={onlineSupply} generalCards={generalCards} buildCards={buildCards} onBeltSelect={handleBeltSelect} paused={Boolean(selected || showShinkansenModal || showHelp || handOpen)} /> : <Scene
+            onlineSupply={onlineSupply}
             generalCards={generalCards}
             buildCards={buildCards}
             shinkansenPlate={shinkansenPlate}
@@ -222,9 +241,9 @@ export function DraftScreenThree({
             onShinkansenPickup={handleShinkansenPickup}
             paused={Boolean(selected || showShinkansenModal || showHelp)}
             sevenPlates
-          />
+          />}
         </Suspense>
       </Canvas>
-    </DraftRestaurantLayout>
+    </Layout>
   )
 }

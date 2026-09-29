@@ -9,7 +9,7 @@ export type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 
 export type ComboAnim = { key: number; name: string; desc: string; playerLabel: string }
 
-export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number; owner?: 'player' | 'opponent' }
+export type Inspect = { card: Card; canPlay: boolean; remainingTurns?: number; owner?: 'player' | 'opponent'; playBlockedReason?: string; actualAttack?: number }
 
 // 既存の画面部品へ渡す投影。対戦の正本は game/types.ts の MatchState。
 export type BattleView = {
