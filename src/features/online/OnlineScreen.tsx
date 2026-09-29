@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { playGameSound } from '../../audio/gameSounds'
+import { useOnlineSummonSound } from '../../audio/useOnlineSummonSound'
 import type { PublicMatch, RoomSnapshot } from '../../network/protocol'
 import { BattleBoard, type BattleController } from '../battle/BattleScreen'
 import type { ComboAnim, Inspect } from '../battle/types'
@@ -11,6 +13,8 @@ import { canPlayOnlineCard } from './onlineBattleActions'
 import { ComboCutIn } from '../battle/ComboCutIn'
 import { AnimatePresence } from 'framer-motion'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
+
+const playSummonSound = () => playGameSound('cardPlay')
 
 export function OnlineScreen({ onBack }: { onBack: () => void }) {
   const room = useOnlineRoom()
@@ -60,6 +64,7 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
   const [showLog, setShowLog] = useState(false)
   const [inspect, setInspect] = useState<Inspect | null>(null)
   const ready = room.status === 'connected' && snapshot.connected[1] && snapshot.connected[2]
+  useOnlineSummonSound(match, ready, playSummonSound)
   const yourTurn = match.activePlayerId === snapshot.playerId
   const canAct = ready && !room.pending && yourTurn && match.phase === 'playing'
   const phase = match.phase === 'over' ? 'over' : canAct ? 'player'

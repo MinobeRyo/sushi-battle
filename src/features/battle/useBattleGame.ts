@@ -9,9 +9,10 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu }: {
+export function useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu, onSummon }: {
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
+  onSummon?: () => void
 }) {
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
@@ -52,7 +53,9 @@ export function useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu }: {
 
   const showEvents = (events: MatchEvent[]) => {
     for (const event of events) {
-      if (event.type === 'damage') {
+      if (event.type === 'summon') {
+        onSummon?.()
+      } else if (event.type === 'damage') {
         const target = event.playerId === view.current.viewer ? 'player' : 'cpu'
         const id = ++floatId.current
         setFloats(current => [...current, { id, dmg: event.amount, target }])

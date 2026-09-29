@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber'
 import { PCFShadowMap } from 'three'
 import { Scene } from './scene/DraftScene'
 import { AnimatePresence } from 'framer-motion'
+import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { PurchaseModal } from './PurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import type { OrderCategory } from './ShinkansenOrderModal'
@@ -145,7 +146,10 @@ export function DraftScreenThree({
     if (!item || item.card.id !== card.id) return
     if (online) {
       if (!online.disabled) {
-        void online.send({ type: 'buy', offerId: item.offerId })
+        prepareGameAudio()
+        void online.send({ type: 'buy', offerId: item.offerId }).then(accepted => {
+          if (accepted) playGameSound('dishPickup')
+        }).catch(() => { /* 購入が確定しなかったときは取得音を鳴らさない。 */ })
         handleModalClose()
       }
       return
@@ -156,7 +160,10 @@ export function DraftScreenThree({
       return
     }
     // レーンが一周して別の皿に替わっていたら、古い選択からは購入しない。
-    if (item.markSold()) updateDraft(result.state)
+    if (item.markSold()) {
+      updateDraft(result.state)
+      playGameSound('dishPickup')
+    }
     else setPurchaseNotice('このお皿は流れていきました。別のお皿を選んでください。')
     clearAutoClose()
     selectedRef.current = null
@@ -168,7 +175,10 @@ export function DraftScreenThree({
   const handleShinkansenOrder = (card: Card) => {
     if (online) {
       if (!online.disabled) {
-        void online.send({ type: 'order', cardId: card.id })
+        prepareGameAudio()
+        void online.send({ type: 'order', cardId: card.id }).then(accepted => {
+          if (accepted) playGameSound('expressOrder')
+        }).catch(() => { /* 通信失敗時は確定音を鳴らさない。 */ })
         setShowShinkansenModal(false)
       }
       return
@@ -180,16 +190,25 @@ export function DraftScreenThree({
     }
     orderIdRef.current += 1
     updateDraft(result.state)
+    playGameSound('expressOrder')
     setShowShinkansenModal(false)
   }
 
   const handleShinkansenPickup = () => {
     if (online) {
-      if (!online.disabled) void online.send({ type: 'pickup' })
+      if (!online.disabled) {
+        prepareGameAudio()
+        void online.send({ type: 'pickup' }).then(accepted => {
+          if (accepted) playGameSound('dishPickup')
+        }).catch(() => { /* 受け取りが確定しなかったときは取得音を鳴らさない。 */ })
+      }
       return
     }
     const result = pickupShinkansen(draftRef.current)
-    if (result.accepted) updateDraft(result.state)
+    if (result.accepted) {
+      updateDraft(result.state)
+      playGameSound('dishPickup')
+    }
   }
 
   const handleSideMenuOrder = (id: SideMenuId) => {
@@ -225,9 +244,9 @@ export function DraftScreenThree({
       playerNum={playerNum} canOrder={canOrder} delivering={Boolean(shinkansenPlate)} remaining={shinkansenLeft}
       disabled={online?.disabled}
       sideMenu={draft.sideMenu} sideMenuEnabled={draft.sideMenuEnabled}
-      onSideMenu={() => { setOrderCategory('side_menu'); setShowShinkansenModal(true) }}
+      onSideMenu={() => { playGameSound('tabletTouch'); setOrderCategory('side_menu'); setShowShinkansenModal(true) }}
       overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
-      onOrder={() => { setOrderCategory('all'); setShowShinkansenModal(true) }}
+      onOrder={() => { playGameSound('tabletTouch'); setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
       finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : portrait ? 'バトルへ' : 'お会計・バトルへ'}
       hint={shinkansenPlate ? portrait ? '下の特急トレイからお受け取りください。' : '奥の金色のお皿をタップしてお受け取りください。' : online ? portrait ? 'オンラインでは詳細表示中も皿と時間が進みます。' : 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : portrait ? 'お皿か名前をタップして、効果を確認' : '寿司もお皿もタップで選べます。'}

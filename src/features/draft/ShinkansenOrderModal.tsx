@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CARDS } from '../../data/cards'
 import { SushiArt } from '../../components/SushiArt'
+import { playGameSound } from '../../audio/gameSounds'
 import type { Card, Archetype } from '../../types'
 import { SIDE_MENUS, SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
 import { SideMenuCard } from '../side-menu/SideMenuCard'
@@ -58,6 +59,10 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
 
   return <motion.div className="order-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
     <motion.div className="order-menu-device" role="dialog" aria-modal="true" aria-labelledby="order-menu-heading"
+      onClickCapture={event => {
+        const button = event.target instanceof Element ? event.target.closest('button') : null
+        if (button && !button.disabled) playGameSound('tabletTouch')
+      }}
       initial={{ scale: .94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
       onKeyDown={event => {
