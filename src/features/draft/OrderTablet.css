@@ -123,3 +123,28 @@
   .order-menu-budget > p { display: none; }
   .order-menu-footer { padding-block: 4px; }
 }
+
+/* 専用の一皿は特急の受付状況にかかわらず確認できる。 */
+.order-home-side-menu { display: flex; align-items: center; gap: 5px; min-height: 27px; flex-shrink: 0; padding: 1px 6px; background: #e7eddd; border: 1px solid #a6b395; border-radius: 3px; color: #41563d; }
+.order-home-side-menu > svg { width: 31px; height: 23px; }
+.order-home-side-menu > span { display: flex; flex-direction: column; text-align: left; }
+.order-home-side-menu strong { font-size: 8px; line-height: 1.25; }
+.order-home-side-menu small { font-size: 6px; }
+.order-home-side-menu > b { margin-left: auto; white-space: nowrap; font-size: 7px; }
+.order-side-notice { flex-shrink: 0; border-left: 3px solid #768863; background: #e8ecdf; padding: 8px 10px; color: #4a5e41; font-size: 11px; line-height: 1.6; }
+.order-side-products { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 10px; padding: 2px 3px 10px; align-content: start; scrollbar-width: thin; }
+.order-side-products .side-menu-card__artwork { height: 105px; }
+.order-side-products .side-menu-card__body { padding: 10px 12px; gap: 5px; }
+.order-side-products .side-menu-card__name { font-size: 16px; }
+.order-side-products .side-menu-card__effect { font-size: 11px; line-height: 1.65; }
+.order-side-products .side-menu-card__footer { padding: 0 10px 10px; }
+.order-side-guide { flex: 1; min-height: 0; overflow: auto; padding: 16px 12px; background: #e3e7d7; border: 1px solid #aeb89a; color: #4b5c41; }
+.order-side-guide > span { display: block; font-size: 9px; letter-spacing: .15em; }
+.order-side-guide > strong { display: block; margin: 16px 0; font-family: 'Sushi Brush', serif; font-size: 27px; line-height: 1.4; font-weight: 400; }
+.order-side-guide > p { margin: 12px 0; font-size: 11px; line-height: 1.8; }
+.order-side-guide > b { display: block; padding-top: 12px; border-top: 1px solid #bfc7b0; font-size: 10px; }
+.order-menu-tabs { overflow-y: auto; }
+@media (max-width: 480px) {
+  .order-side-products { gap: 8px; grid-template-columns: 1fr; }
+  .order-side-notice { padding: 6px 8px; font-size: 10px; }
+}

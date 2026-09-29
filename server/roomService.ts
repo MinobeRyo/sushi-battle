@@ -58,7 +58,7 @@ function validAction(value: unknown): value is OnlineAction {
   return typeof action.actionId === 'string' && action.actionId.length > 0 && action.actionId.length <= 128
     && typeof action.matchId === 'string' && action.matchId.length > 0 && action.matchId.length <= 128
     && Number.isSafeInteger(action.expectedRevision) && action.expectedRevision! >= 0
-    && (action.type === 'end_turn' || (action.type === 'play_card'
+    && (action.type === 'end_turn' || action.type === 'use_side_menu' || (action.type === 'play_card'
       && typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200))
 }
 
@@ -109,7 +109,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     if (!draft || !draft.players[1].state.completed || !draft.players[2].state.completed) return
     if (draft.mode === 'initial') {
       room.match = createMatch({ mode: 'two_player', matchId: randomUUID(),
-        deck: draft.players[1].state.deck, p2Deck: draft.players[2].state.deck }, random)
+        deck: draft.players[1].state.deck, p2Deck: draft.players[2].state.deck,
+        sideMenu: draft.players[1].state.sideMenu, p2SideMenu: draft.players[2].state.sideMenu }, random)
     } else if (room.match) {
       // 購入は同時進行。共通エンジンへの反映だけ、要求される手番順に行う。
       while (room.match.phase === 'reorder' && room.match.reorderPlayerId) {
@@ -237,7 +238,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         const action = payload
         const key = `draft:${playerId}:${action.actionId}`
         const fingerprint = JSON.stringify([action.draftId, action.expectedRevision, action.type,
-          action.type === 'buy' ? action.offerId : action.type === 'order' ? action.cardId : null])
+          action.type === 'buy' ? action.offerId : action.type === 'order' ? action.cardId
+            : action.type === 'buy_side_menu' ? action.sideMenuId : null])
         const previous = room.processed.get(key)
         refreshDraft(room)
         if (previous) {
@@ -275,7 +277,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         }
         const result = transitionMatch(room.match, action.type === 'play_card'
           ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId! }
-          : { type: 'end_turn', playerId }, random)
+          : { type: action.type, playerId }, random)
         if (result.error) return { ok: false, error: result.error }
         room.match = result.state
         // HTTPのpoll間に複数操作があっても発動を取りこぼさない。再送は上の処理済み判定で除外する。

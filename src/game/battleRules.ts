@@ -124,7 +124,7 @@ export function calcFieldDmg(
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
     const baseBuff = [c.base, ...(c.subBases ?? [])]
       .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
-    const base = c.attack + baseBuff
+    const base = c.attack + baseBuff + (c.turnAttackBonus ?? 0)
     const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack : 0
     let effectBonus = 0
     switch (c.effect) {
@@ -160,6 +160,7 @@ type SummonInput = {
   nikuMatsuri: boolean
   kiretaSpent: boolean
   enemyBelly: number
+  turnAttackBonus?: number
 }
 
 type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId'> & {
@@ -244,7 +245,9 @@ export function applySummon(input: SummonInput): SummonResult {
       break
   }
 
-  let field = [...input.field, toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)]
+  const summonedCard = toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)
+  if (input.turnAttackBonus) summonedCard.turnAttackBonus = input.turnAttackBonus
+  let field = [...input.field, summonedCard]
 
   // このカードが名乗る base 一覧（太巻きは subBases も含む）
   const cardBases = [card.base, ...(card.subBases ?? [])]

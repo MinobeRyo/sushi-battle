@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import { CARDS } from '../../data/cards'
 import { SushiArt } from '../../components/SushiArt'
 import type { OrderCategory } from './ShinkansenOrderModal'
+import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
+import { SideMenuArt } from '../side-menu/SideMenuArt'
 import './OrderTablet.css'
 
 const CATEGORIES: { id: OrderCategory; label: string; cardName: string }[] = [
@@ -10,7 +12,7 @@ const CATEGORIES: { id: OrderCategory; label: string; cardName: string }[] = [
   { id: 'kaisen', label: '海鮮', cardName: 'サーモン' },
   { id: 'hikari', label: '光り物', cardName: 'アジ' },
   { id: 'niku', label: '肉寿司', cardName: '和牛にぎり' },
-  { id: 'general', label: 'サイド', cardName: 'たまご' },
+  { id: 'general', label: '汎用寿司', cardName: 'たまご' },
 ]
 
 type Props = {
@@ -21,18 +23,20 @@ type Props = {
   deckCount: number
   remaining: number
   playerNum?: number
+  sideMenu?: SideMenuId | null
+  sideMenuEnabled?: boolean
   onOpenCategory: (category: OrderCategory) => void
   onHelp: () => void
   onFinish: () => void
 }
 
-export function OrderTablet({ canOrder, delivering, budget, spent, deckCount, remaining, playerNum, onOpenCategory, onHelp, onFinish }: Props) {
+export function OrderTablet({ canOrder, delivering, budget, spent, deckCount, remaining, playerNum, sideMenu, sideMenuEnabled = false, onOpenCategory, onHelp, onFinish }: Props) {
   return <div className="draft-tablet-station">
     <div className="draft-tablet-mount">
       <motion.div className="order-tablet" initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }}>
         <div className="order-tablet-camera" />
         <div className="draft-tablet-display order-home">
-          <header className="order-home-header"><strong>すしバトル</strong><span>特急ご注文メニュー</span><b>お席 {String(playerNum ?? 1).padStart(2, '0')}</b></header>
+          <header className="order-home-header"><strong>すしバトル</strong><span>ご注文メニュー</span><b>お席 {String(playerNum ?? 1).padStart(2, '0')}</b></header>
           <div className="order-home-body">
             <div className="order-home-menu">
               <button className="order-home-feature" disabled={!canOrder} onClick={() => onOpenCategory('all')} aria-label="おすすめの特急メニューを開く"><strong>本日のおすすめ</strong><span>旬の一皿を特急でお届け ›</span></button>
@@ -44,6 +48,11 @@ export function OrderTablet({ canOrder, delivering, budget, spent, deckCount, re
                   </button>
                 })}
               </div>
+              <button className="order-home-side-menu" onClick={() => onOpenCategory('side_menu')} aria-label="サイドメニューを開く">
+                <SideMenuArt id={sideMenu ?? 'ramen'} />
+                <span><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'}</strong><small>{sideMenu ? '購入済み・専用スロットへ' : sideMenuEnabled ? '全6品 · 1試合に1品' : '初期購入で注文できます'}</small></span>
+                <b>{sideMenu ? '確認 ›' : '見る ›'}</b>
+              </button>
             </div>
             <aside className="order-home-status">
               <h3>ご注文状況</h3>

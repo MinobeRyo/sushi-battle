@@ -1,4 +1,6 @@
 import type { Card } from '../../types'
+import { isSideMenuId, SIDE_MENU_BY_ID } from '../../data/sideMenus'
+import type { SideMenuId } from '../../data/sideMenus'
 
 export const DRAFT_MAX_CARDS = 20
 export const SHINKANSEN_TOTAL = 3
@@ -11,16 +13,34 @@ export type DraftState = {
   purchasedIds: string[]
   deadlineAt: number
   completed: boolean
+  sideMenu: SideMenuId | null
+  sideMenuEnabled: boolean
 }
 
 type Rejection = 'completed' | 'expired' | 'duplicate' | 'full' | 'budget' | 'delivery_pending' | 'orders_used' | 'no_delivery'
-type DraftChange = { state: DraftState; accepted: boolean; reason?: Rejection }
+  | 'side_menu_disabled' | 'side_menu_owned' | 'invalid_side_menu'
+export type DraftChange = { state: DraftState; accepted: boolean; reason?: Rejection }
 
 // 時刻は呼び出し側から受け取る。ブラウザにも将来の対戦サーバーにも依存しない。
-export function createDraftState(budget: number, seconds: number, now: number): DraftState {
+export function createDraftState(budget: number, seconds: number, now: number, sideMenuEnabled = true): DraftState {
   return {
     budget, deck: [], shinkansenLeft: SHINKANSEN_TOTAL, shinkansenPlate: null,
     purchasedIds: [], deadlineAt: now + Math.max(0, seconds) * 1000, completed: false,
+    sideMenu: null, sideMenuEnabled,
+  }
+}
+
+export function purchaseSideMenu(state: DraftState, id: SideMenuId, now: number): DraftChange {
+  if (state.completed) return reject(state, 'completed')
+  if (now >= state.deadlineAt) return reject(state, 'expired')
+  if (!state.sideMenuEnabled) return reject(state, 'side_menu_disabled')
+  if (!isSideMenuId(id)) return reject(state, 'invalid_side_menu')
+  if (state.sideMenu !== null) return reject(state, 'side_menu_owned')
+  const menu = SIDE_MENU_BY_ID[id]
+  if (state.budget < menu.price) return reject(state, 'budget')
+  return {
+    accepted: true,
+    state: { ...state, budget: state.budget - menu.price, sideMenu: id },
   }
 }
 

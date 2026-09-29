@@ -2,14 +2,14 @@ import {
   CARD_BY_ID, digestBonus, GUNKAN_BOOST, HAND_LIMIT, makimonoCount,
   MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED,
 } from '../../game/battleRules'
-import type { MatchPlayer } from '../../game/types'
+import type { MatchPlayer, SideMenuState } from '../../game/types'
 import type { Card } from '../../types'
 
 // すべて相手にも公開済みの情報。手札の内容や山札の順番には触れない。
 export type BattleSideStatus = Pick<MatchPlayer,
   'summonedIds' | 'combosFired' | 'field' | 'attackBuff' | 'drawBonus'
   | 'kiretaStack' | 'kiretaSpent' | 'nikuMatsuri' | 'digestStopTurns'
-  | 'apNextBonus' | 'thisTurnArch'>
+  | 'apNextBonus' | 'thisTurnArch'> & { sideMenu?: SideMenuState | null }
 
 export type BattleStatusItem = {
   id: string
@@ -29,7 +29,9 @@ export function battleStatusDetails(st: BattleSideStatus): {
   combos: BattleStatusItem[]
 } {
   const maki = makimonoCount(st.field)
-  const digestion = digestBonus(st.field)
+  const fieldDigestion = digestBonus(st.field)
+  const sideDigestion = st.sideMenu?.id === 'miso' && st.sideMenu.status === 'active' ? 2 : 0
+  const digestion = fieldDigestion + sideDigestion
   const effects: BattleStatusItem[] = [{
     id: 'kireta', name: '切れ味',
     value: st.kiretaSpent ? `${st.kiretaStack}（ターン終了後0）` : `${st.kiretaStack}`,
@@ -55,11 +57,13 @@ export function battleStatusDetails(st: BattleSideStatus): {
   })
   if (st.digestStopTurns > 0) effects.push({
     id: 'digest-stop', name: '消化停止', value: `次の${st.digestStopTurns}回`,
-    description: `このプレイヤーのターン開始時の消化を、次の${st.digestStopTurns}回スキップします。机のカードによる追加消化も発生しません。`,
+    description: `このプレイヤーのターン開始時の消化を、次の${st.digestStopTurns}回スキップします。机のカードとサイドメニューによる追加消化も発生しません。`,
   })
   if (digestion > 0) effects.push({
     id: 'digest-boost', name: '追加消化', value: `+${digestion}`,
-    description: `机のカードが残っている間、自分のターン開始時の消化量 +${digestion}。消化停止中は適用されません。`,
+    description: sideDigestion > 0
+      ? `自分のターン開始時の消化量 +${digestion}（机のカード +${fieldDigestion}・あおさの味噌汁 +${sideDigestion}）。味噌汁の効果は試合中持続し、机のカードがなくなっても残ります。消化停止中は適用されません。`
+      : `机のカードが残っている間、自分のターン開始時の消化量 +${digestion}。消化停止中は適用されません。`,
   })
   if (maki >= MAKI_COMP_5) effects.push({
     id: 'gunkan', name: '軍艦の攻撃', value: `×${GUNKAN_BOOST}`,

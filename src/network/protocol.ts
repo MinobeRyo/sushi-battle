@@ -1,6 +1,7 @@
 import type { MatchPlayer, PlayerId } from '../game/types'
 import type { DraftState } from '../features/draft/draftEngine'
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../game/draftOffers'
+import type { SideMenuId } from '../data/sideMenus'
 
 export type PublicDraft = {
   draftId: string
@@ -16,6 +17,7 @@ export type PublicDraft = {
 export type DraftCommand =
   | { type: 'buy'; offerId: string }
   | { type: 'order'; cardId: string }
+  | { type: 'buy_side_menu'; sideMenuId: SideMenuId }
   | { type: 'pickup' }
   | { type: 'complete' }
 export type OnlineDraftAction = DraftCommand & { draftId: string; actionId: string; expectedRevision: number }
@@ -53,7 +55,7 @@ export type OnlineAction = {
   matchId: string
   actionId: string
   expectedRevision: number
-  type: 'play_card' | 'end_turn'
+  type: 'play_card' | 'end_turn' | 'use_side_menu'
   cardInstanceId?: string
 }
 

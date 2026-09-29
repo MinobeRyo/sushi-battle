@@ -73,6 +73,12 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} aria-label="店員さんの解説を閉じる" style={{ border: 'none', background: '#e7e2d8', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: '#78716c', fontWeight: 800 }}>✕</button>
         </div>
 
+        <section style={{ background: '#e9eedf', border: '1px solid #b5c4a4', borderRadius: 8, padding: '9px 10px', marginBottom: 12, color: '#415438' }}>
+          <h3 style={{ fontSize: 12, fontWeight: 800, marginBottom: 5 }}>サイドメニューは専用の1枠</h3>
+          <p style={{ fontSize: 11, lineHeight: 1.75 }}>最初の注文タブレットで、全6品から300円で1品だけ購入できます。寿司20枚や特急3回の枠は使いません。対戦中の自分のターンに0APで使用・設置します。使用後の追加購入や交換はできません。</p>
+          <p style={{ fontSize: 10, lineHeight: 1.75, marginTop: 5 }}>ラーメンはAPを使ってから、お腹＋5でAPを1回復。初めて使用したターンを含む自分の3ターンだけ使えます。</p>
+        </section>
+
         <p style={{ fontSize: 11, fontWeight: 800, color: '#b45309', margin: '0 0 6px' }}>■ ビルド（アーキタイプ）とは</p>
         <p style={{ fontSize: 10, color: '#57534e', margin: '0 0 8px', lineHeight: 1.6 }}>
           同じ系統の寿司を集めるとデッキに軸ができます。系統はカード左上のラベルで確認できます。

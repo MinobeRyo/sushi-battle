@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { CARDS, getCardsByLane } from '../src/data/cards'
+import { isSideMenuId } from '../src/data/sideMenus'
 import { shuffled } from '../src/game/battleRules'
 import { DRAFT_HOVER_LEASE_MS, ONLINE_LANES, onlineLaneElapsed, onlinePlatePosition } from '../src/game/draftOffers'
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../src/game/draftOffers'
 import type { PlayerId, RandomSource } from '../src/game/types'
 import type { Card } from '../src/types'
-import { completeDraft, createDraftState, orderShinkansen, pickupShinkansen, purchaseBeltCard } from '../src/features/draft/draftEngine'
+import { completeDraft, createDraftState, orderShinkansen, pickupShinkansen, purchaseBeltCard, purchaseSideMenu } from '../src/features/draft/draftEngine'
 import type { DraftState } from '../src/features/draft/draftEngine'
 import type { OnlineDraftAction, OnlineDraftHover, PublicDraft, Reply } from '../src/network/protocol'
 
@@ -21,7 +22,7 @@ export type OnlineDraft = {
 export function createOnlineDraft(mode: OnlineDraft['mode'], now: number, random: RandomSource): OnlineDraft {
   const initialBudget = mode === 'initial' ? 3000 : 1500
   const player = (): DraftPlayer => ({
-    state: createDraftState(initialBudget, mode === 'initial' ? 90 : 45, now), revision: 0,
+    state: createDraftState(initialBudget, mode === 'initial' ? 90 : 45, now, mode === 'initial'), revision: 0,
     offers: [], bags: { general: [], build: [] },
     laneClocks: {
       general: { pausedMs: 0, pausedAt: null, pauseUntil: null },
@@ -130,6 +131,7 @@ export function validDraftAction(value: unknown): value is OnlineDraftAction {
   return validId(action.draftId) && validId(action.actionId)
     && Number.isSafeInteger(action.expectedRevision) && Number(action.expectedRevision) >= 0
     && (action.type === 'complete' || action.type === 'pickup'
+      || (action.type === 'buy_side_menu' && isSideMenuId(action.sideMenuId))
       || (action.type === 'buy' && validId(action.offerId)) || (action.type === 'order' && validId(action.cardId)))
 }
 
@@ -152,6 +154,7 @@ export function applyDraftAction(draft: OnlineDraft, id: PlayerId, action: Onlin
       result = orderShinkansen(player.state, action.actionId, card, now)
       break
     }
+    case 'buy_side_menu': result = purchaseSideMenu(player.state, action.sideMenuId, now); break
     case 'pickup': result = pickupShinkansen(player.state); break
     case 'complete': result = completeDraft(player.state); break
   }
