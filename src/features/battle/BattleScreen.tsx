@@ -1,5 +1,6 @@
 import type { Card } from '../../types'
 import { useEffect, useRef, useState } from 'react'
+import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { calcFieldDmg, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
@@ -25,7 +26,7 @@ export function BattleScreen({
   mode?: 'cpu' | 'two_player'
   onBack?: () => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode })
+  const game = useBattleGame({ deck, p2Deck, mode, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode={mode} onBack={onBack} />
 }
 
@@ -107,7 +108,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     : (s.winner === 'player' ? '勝利！' : '敗北…')
 
   return (
-    <div className="battle-viewport">
+    <div className="battle-viewport" onPointerDownCapture={prepareGameAudio} onKeyDownCapture={prepareGameAudio}>
     <div className="battle-board" style={{ background: C.bgMain, color: C.txtPri }}>
       <div className="battle-layout">
         <header className="battle-overview">

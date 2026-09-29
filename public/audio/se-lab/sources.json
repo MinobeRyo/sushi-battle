@@ -1,0 +1,344 @@
+[
+  {
+    "file": "dish-light.wav",
+    "original": "dishes_02.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.03669,
+    "trimEnd": 0.50054,
+    "gain": 0.49579
+  },
+  {
+    "file": "dish-stack.wav",
+    "original": "dishes_01.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.02059,
+    "trimEnd": 0.79367,
+    "gain": 0.50828
+  },
+  {
+    "file": "glass-touch.wav",
+    "original": "glass_01.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.35476,
+    "gain": 0.49586
+  },
+  {
+    "file": "wood-counter.wav",
+    "original": "wooden_03.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.02934,
+    "trimEnd": 0.35635,
+    "gain": 0.74037
+  },
+  {
+    "file": "glass-counter.wav",
+    "original": "glass_wooden_table_1204.mp3",
+    "source": "Glass, Placed on Table — BigSoundBank",
+    "author": "Joseph SARDIN",
+    "url": "https://bigsoundbank.com/verre-pose-sur-table-s1204.html",
+    "license": "CC0-1.0",
+    "trimStart": 0.19534,
+    "trimEnd": 0.59362,
+    "gain": 4.14601
+  },
+  {
+    "file": "order-bell.wav",
+    "original": "bell_01.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 1.10925,
+    "gain": 0.46419
+  },
+  {
+    "file": "order-short.wav",
+    "original": "bell_02.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.01172,
+    "trimEnd": 0.43628,
+    "gain": 0.52212
+  },
+  {
+    "file": "dish-serve.wav",
+    "original": "dishes_04.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.01027,
+    "trimEnd": 0.54388,
+    "gain": 0.61627
+  },
+  {
+    "file": "kitchen-pot.wav",
+    "original": "pot_01.ogg",
+    "source": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/node/85570",
+    "license": "CC0-1.0",
+    "trimStart": 0.02644,
+    "trimEnd": 0.31952,
+    "gain": 0.52864
+  },
+  {
+    "file": "hot-water.wav",
+    "original": "hot_water_mug_3312.mp3",
+    "source": "Hot Water in Mug #2 — BigSoundBank",
+    "author": "Joseph SARDIN",
+    "url": "https://bigsoundbank.com/eau-chaude-dans-mug-2-s3312.html",
+    "license": "CC0-1.0",
+    "trimStart": 3.25,
+    "trimEnd": 4.6963,
+    "gain": 1.15638
+  },
+  {
+    "file": "card-draw.wav",
+    "original": "card-slide-1.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.08821,
+    "trimEnd": 0.30039,
+    "gain": 0.65983
+  },
+  {
+    "file": "card-slide.wav",
+    "original": "card-slide-4.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.44576,
+    "gain": 0.64277
+  },
+  {
+    "file": "card-fan.wav",
+    "original": "card-fan-1.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.72082,
+    "gain": 0.80242
+  },
+  {
+    "file": "card-pack.wav",
+    "original": "cards-pack-open-2.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.73204,
+    "gain": 0.73966
+  },
+  {
+    "file": "card-play.wav",
+    "original": "card-place-1.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.06866,
+    "trimEnd": 0.31249,
+    "gain": 0.54844
+  },
+  {
+    "file": "card-place.wav",
+    "original": "card-place-4.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.60077,
+    "gain": 0.61661
+  },
+  {
+    "file": "card-return.wav",
+    "original": "card-shove-1.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 0.76587,
+    "gain": 0.73025
+  },
+  {
+    "file": "card-shuffle.wav",
+    "original": "card-shuffle.ogg",
+    "source": "Casino Audio",
+    "author": "Kenney",
+    "url": "https://kenney.nl/assets/casino-audio",
+    "license": "CC0-1.0",
+    "trimStart": 0.0,
+    "trimEnd": 1.35,
+    "gain": 0.71567
+  },
+  {
+    "file": "tablet-touch.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "1220Hzの正弦波と薄い三角波の倍音、6msの立ち上がりと28msの減衰",
+    "duration": 0.07600907029478458,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "tablet-pop.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "860Hzの正弦波、丸い立ち上がりと減衰",
+    "duration": 0.08800453514739229,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "tablet-double.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "1160Hzと1322.4Hzの2音、間に約12msの無音",
+    "duration": 0.14800453514739229,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "tablet-crisp.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "1400Hzの正弦波と控えめな第3・第5倍音",
+    "duration": 0.06399092970521542,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "tablet-glass.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "1580Hzの正弦波と減衰する3965.8Hzの微小成分",
+    "duration": 0.09600907029478457,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "tablet-low.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:tablet_candidates",
+    "method": "640Hzの正弦波と控えめな第3倍音",
+    "duration": 0.08399092970521542,
+    "note": "外部の録音素材は使用していません。CC0実録素材ではありません。"
+  },
+  {
+    "file": "pop-soft.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "急なピッチ降下、14msで指数減衰する丸い共鳴、薄い帯域制限ノイズ",
+    "duration": 0.08501133786848072,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "pop-round.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "低めの丸い共鳴と25msの減衰、短い息のような成分",
+    "duration": 0.12,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "pop-dry.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "9msで消える乾いた共鳴と、ごく短いノイズの破裂",
+    "duration": 0.06800453514739228,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "pop-bubble.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "大きめのピッチ降下で泡の弾みを表現、21msの指数減衰",
+    "duration": 0.1350113378684807,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "pop-puff.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "帯域を絞った息のようなノイズと、小さく沈む共鳴",
+    "duration": 0.08,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "pop-tiny.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "約4msで落ちる小さな共鳴と短い輪郭、80ms以内の小粒な過渡音",
+    "duration": 0.08,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-pokon.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "丸い着地音を中心に、短い非整数倍の共鳴を足したデフォルメ皿音",
+    "duration": 0.16,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-koton.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "乾いた3つの短い共鳴と接触ノイズ、木質の着地を誇張",
+    "duration": 0.1,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-pon.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "控えめな低中域の着地と短い接触成分、95Hz以下は穏やかに抑制",
+    "duration": 0.14,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-tokon.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "43ms遅れの小さな二打目で着地後の揺れを表現",
+    "duration": 0.15501133786848073,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-potan.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "ゆったり落ちる音程と柔らかい接触ノイズで、軽い着地を表現",
+    "duration": 0.17498866213151928,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  },
+  {
+    "file": "dish-comic.wav",
+    "source": "このプロジェクト用のオリジナル合成音",
+    "generator": "scripts/build-se-foley.py:playful_candidates",
+    "method": "大きなピッチ降下と薄い跳ね返り、長く響かないコミカルな着地",
+    "duration": 0.19501133786848074,
+    "note": "外部の録音素材は使用していません。ゲームでの採用設定は src/audio/gameSounds.ts を参照してください。"
+  }
+]

@@ -4,6 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      input: { game: 'index.html', soundLab: 'se-lab.html' },
+    },
+  },
   server: {
     strictPort: true,
     proxy: {

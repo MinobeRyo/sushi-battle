@@ -8,7 +8,9 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: Card[]; mode: MatchMode }) {
+export function useBattleGame({ deck, p2Deck, mode, onSummon }: {
+  deck: Card[]; p2Deck?: Card[]; mode: MatchMode; onSummon?: () => void
+}) {
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
   if (matchRef.current === null) matchRef.current = createMatch({ deck, p2Deck, mode, matchId: 'local-0' })
@@ -48,7 +50,9 @@ export function useBattleGame({ deck, p2Deck, mode }: { deck: Card[]; p2Deck?: C
 
   const showEvents = (events: MatchEvent[]) => {
     for (const event of events) {
-      if (event.type === 'damage') {
+      if (event.type === 'summon') {
+        onSummon?.()
+      } else if (event.type === 'damage') {
         const target = event.playerId === view.current.viewer ? 'player' : 'cpu'
         const id = ++floatId.current
         setFloats(current => [...current, { id, dmg: event.amount, target }])
