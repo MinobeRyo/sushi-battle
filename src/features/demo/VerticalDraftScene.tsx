@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber'
 import { CanvasTexture, OrthographicCamera, RepeatWrapping, SRGBColorSpace } from 'three'
 import type { Card } from '../../types'
 import { BeltLane3D } from '../draft/scene/BeltLane3D'
-import type { OnlineBeltSupply } from '../draft/scene/BeltLane3D'
+import type { OnlineBeltSupply, SideMenuSelectHandler } from '../draft/scene/BeltLane3D'
 import { ShinkansenPlate3D } from '../draft/scene/ShinkansenPlate3D'
 import type { DraftState } from '../draft/draftEngine'
 import './VerticalDraftScene.css'
@@ -13,6 +13,9 @@ type Props = {
   generalCards: Card[]
   buildCards: Card[]
   onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
+  onSideMenuSelect?: SideMenuSelectHandler
+  sideMenusEnabled?: boolean
+  sideMenuPurchased?: boolean
   paused?: boolean
 }
 
@@ -63,7 +66,7 @@ function WoodCounter() {
   </mesh>
 }
 
-export function VerticalDraftScene({ onlineSupply, generalCards, buildCards, onBeltSelect, paused = false }: Props) {
+export function VerticalDraftScene({ onlineSupply, generalCards, buildCards, onBeltSelect, onSideMenuSelect, sideMenusEnabled = false, sideMenuPurchased = false, paused = false }: Props) {
   return <>
     <VerticalCamera />
     <color attach="background" args={['#57371f']} />
@@ -75,8 +78,9 @@ export function VerticalDraftScene({ onlineSupply, generalCards, buildCards, onB
 
     {/* 元の横移動（x減少）を奥から手前（z増加）に向ける。皿と寿司の形状・購入処理は共通。 */}
     <group rotation={[0, Math.PI / 2, 0]}>
-      <BeltLane3D label="" cards={generalCards} supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'general') }} duration={112} laneZ={-1.3} paused={paused} hideLabels portraitLabels plateSpacing={3.8} onSelect={onBeltSelect} />
-      <BeltLane3D label="" cards={buildCards} supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'build') }} duration={96} laneZ={1.3} paused={paused} hideLabels portraitLabels plateSpacing={3.8} onSelect={onBeltSelect} />
+      <BeltLane3D label="" lane="general" cards={generalCards} supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'general') }} duration={112} laneZ={-1.3} paused={paused} hideLabels portraitLabels plateSpacing={3.8} onSelect={onBeltSelect}
+        onSideMenuSelect={onSideMenuSelect} sideMenusEnabled={sideMenusEnabled} sideMenuPurchased={sideMenuPurchased} />
+      <BeltLane3D label="" lane="build" cards={buildCards} supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'build') }} duration={96} laneZ={1.3} paused={paused} hideLabels portraitLabels plateSpacing={3.8} onSelect={onBeltSelect} />
     </group>
   </>
 }

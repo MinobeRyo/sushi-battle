@@ -15,6 +15,7 @@ export type SideMenuCardProps = {
   actionLabel?: string
   onAction?: () => void
   compact?: boolean
+  presentation?: 'default' | 'shop'
   className?: string
 }
 
@@ -23,13 +24,39 @@ const LIFETIME: Record<SideMenuId, string> = {
 }
 
 /** 購入・発動の判定は呼び出し元で行い、このコンポーネントは表示だけを担当します。 */
-export function SideMenuCard({ id, price, status, disabled = false, disabledReason, actionLabel = '選ぶ', onAction, compact = false, className = '' }: SideMenuCardProps) {
+export function SideMenuCard({ id, price, status, disabled = false, disabledReason, actionLabel = '選ぶ', onAction, compact = false, presentation = 'default', className = '' }: SideMenuCardProps) {
   const instanceId = useId()
   const menu = SIDE_MENU_CATALOG.find(item => item.id === id)!
   const reason = disabled ? disabledReason || (onAction ? status || '現在は選択できません。' : null) : null
   const showStatus = status && status !== reason
   const timing = menu.timing === LIFETIME[id] ? null : menu.timing
   const style = { '--side-card-accent': menu.accent } as CSSProperties
+
+  if (presentation === 'shop') return (
+    <article className={`side-menu-card side-menu-card--shop${disabled ? ' side-menu-card--disabled' : ''}${className ? ` ${className}` : ''}`} style={style} aria-labelledby={`${instanceId}-name`} data-side-menu={id}>
+      <div className="side-menu-card__shop-main">
+        <div className="side-menu-card__shop-art"><SideMenuArt id={id} /></div>
+        <div className="side-menu-card__shop-copy">
+          <h3 className="side-menu-card__name" id={`${instanceId}-name`}>{menu.name}</h3>
+          <p className="side-menu-card__shop-effect" id={`${instanceId}-effect`}>
+            {menu.summary.split(/([＋−+-]?\d+)/).map((part, index) => /\d/.test(part) ? <strong key={index}>{part}</strong> : part)}
+          </p>
+          <span className="side-menu-card__shop-duration">{LIFETIME[id]}</span>
+        </div>
+      </div>
+      <details className="side-menu-card__shop-details">
+        <summary>詳しい効果・条件</summary>
+        <div><p>{menu.effect}</p>{timing && <p>{timing}</p>}</div>
+      </details>
+      <div className="side-menu-card__shop-footer">
+        {price !== undefined && <span className="side-menu-card__shop-price" aria-label={`価格 ${price.toLocaleString('ja-JP')}円`}>¥{price.toLocaleString('ja-JP')}</span>}
+        {onAction && <button type="button" className="side-menu-card__action" disabled={disabled} onClick={onAction}
+          aria-label={`${menu.name}：${reason || actionLabel}`} aria-describedby={`${instanceId}-effect`}>
+          {reason || actionLabel}
+        </button>}
+      </div>
+    </article>
+  )
 
   return (
     <article className={`side-menu-card${compact ? ' side-menu-card--compact' : ''}${disabled ? ' side-menu-card--disabled' : ''}${className ? ` ${className}` : ''}`} style={style} aria-labelledby={`${instanceId}-name`} data-side-menu={id}>

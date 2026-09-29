@@ -50,7 +50,7 @@ export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, pla
   const orderLabel = delivering ? '下のトレイで受取' : deckCount >= maxCards ? 'お皿がいっぱい' : remaining ? `あと${remaining}回　›` : '受付終了'
 
   return <section className="draft-portrait" aria-label="寿司を選ぶ縦画面のドラフト" onClickCapture={event => {
-    if (disabled) { event.preventDefault(); event.stopPropagation() }
+    if (disabled && !overlayRef.current?.contains(event.target as Node)) { event.preventDefault(); event.stopPropagation() }
   }}>
     <div className="pd-content" inert={overlayActive || disabled}>
       <header className="pd-header"><h1>すしを選ぶ<span>P{playerNum}</span></h1>{onHelp && <button onClick={onHelp}>遊び方</button>}</header>
@@ -63,7 +63,7 @@ export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, pla
         <button className="pd-order-button" disabled={!canOrder || disabled} onClick={onOrder}><strong>特急で注文</strong><span>{orderLabel}</span></button>
         {onSideMenu ? <DraftSideMenuButton className="pd-side-button" sideMenu={sideMenu} enabled={sideMenuEnabled} disabled={disabled} onClick={onSideMenu} /> : <span className="pd-tap-hint">お皿をタップ<br />して選ぶ</span>}
       </div>
-      <div className="pd-lane-headings"><h2>汎用寿司<span aria-hidden="true">↓</span></h2><h2>ビルド系<span aria-hidden="true">↓</span></h2></div>
+      <div className="pd-lane-headings"><h2>{sideMenuEnabled ? '汎用寿司・サイド' : '汎用寿司'}<span aria-hidden="true">↓</span></h2><h2>ビルド系<span aria-hidden="true">↓</span></h2></div>
       <div className="pd-stage" role="region" aria-label="寿司のお皿が上から下へ流れる2本のレーン">
         {children}
         {shinkansenPlate && <section className="pd-delivery" aria-label="特急のお届け">

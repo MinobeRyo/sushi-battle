@@ -114,4 +114,32 @@
 .side-menu-card__details > summary { width: fit-content; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 3px 0; }
 .side-menu-card__details[open] > summary { margin-bottom: 5px; }
 .side-menu-card__details > summary:focus-visible { outline: 2px solid var(--side-card-accent); outline-offset: 2px; }
+
+/* 注文一覧は料理・主効果・価格に絞り、厳密な条件は開いて確認する。 */
+.side-menu-card--shop { padding: 12px; border-color: #d5d7c8; border-radius: 12px; background: #fffdf7; box-shadow: 0 2px 6px #35452d09; }
+.side-menu-card__shop-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.side-menu-card__shop-art { display: grid; place-items: center; flex: 0 0 96px; width: 96px; height: 96px; border-radius: 10px; background: #f2eddf; }
+.side-menu-card__shop-art > svg { display: block; width: 96px; height: 96px; }
+.side-menu-card__shop-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 1px; }
+.side-menu-card--shop .side-menu-card__name { color: #293a2d; font-size: 18px; line-height: 1.4; letter-spacing: -.03em; }
+.side-menu-card .side-menu-card__shop-effect { color: #3f4b3e; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.side-menu-card__shop-effect > strong { font-weight: 850; color: #284e38; font-variant-numeric: tabular-nums; }
+.side-menu-card__shop-duration { padding: 2px 6px; border-radius: 4px; background: #edf0e5; color: #5c6853; font-size: 11px; font-weight: 700; line-height: 1.5; }
+.side-menu-card__shop-details { margin-top: 2px; color: #51634c; }
+.side-menu-card__shop-details > summary { display: flex; align-items: center; gap: 7px; min-height: 44px; width: fit-content; padding: 6px 2px; list-style: none; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.side-menu-card__shop-details > summary::-webkit-details-marker { display: none; }
+.side-menu-card__shop-details > summary::before { content: '+'; font-size: 17px; line-height: 1; width: 14px; text-align: center; }
+.side-menu-card__shop-details[open] > summary::before { content: '−'; }
+.side-menu-card__shop-details > summary:focus-visible { outline: 2px solid #4e7352; outline-offset: 1px; border-radius: 4px; }
+.side-menu-card__shop-details > div { display: grid; gap: 8px; padding: 0 2px 12px; }
+.side-menu-card__shop-details p { color: #495543; font-size: 14px; line-height: 1.75; }
+.side-menu-card__shop-details p + p { color: #6a755e; font-size: 12px; }
+.side-menu-card__shop-footer { display: flex; align-items: center; gap: 12px; padding-top: 8px; margin-top: auto; border-top: 1px solid #e2e5d8; }
+.side-menu-card__shop-price { margin-right: auto; color: #344b32; font-size: 22px; font-weight: 850; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.side-menu-card--shop .side-menu-card__action { flex: 0 1 160px; justify-content: center; width: auto; min-height: 44px; padding: 9px 14px; font-size: 14px; text-align: center; border-color: #355b43; background: #3e624b; color: #fffdf4; }
+.side-menu-card--shop .side-menu-card__action:hover:not(:disabled) { border-color: #284a36; background: #2f503b; }
+.side-menu-card--shop .side-menu-card__action:focus-visible { outline-color: #648c6b; }
+.side-menu-card--shop .side-menu-card__action:disabled { border-color: #dadbd0; background: #eceee5; color: #6b735f; }
+.side-menu-card--shop.side-menu-card--disabled { border-color: #dadbd1; }
+
 @media (prefers-reduced-motion: reduce) { .side-menu-card .side-menu-card__action { transition: none; } }

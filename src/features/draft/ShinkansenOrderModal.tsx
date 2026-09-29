@@ -57,14 +57,14 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
   const label = TABS.find(tab => tab.id === category)?.label ?? 'おすすめ'
 
   return <motion.div className="order-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-    <motion.div className="order-menu-device" role="dialog" aria-modal="true" aria-labelledby="order-menu-heading"
+    <motion.div className={`order-menu-device${isSideMenu ? ' order-menu-device--side' : ''}`} role="dialog" aria-modal="true" aria-labelledby="order-menu-heading"
       initial={{ scale: .94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
       onKeyDown={event => {
         if (event.key === 'Escape') onClose()
         if (event.key === 'Tab') {
-          const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
-          const first = buttons[0], last = buttons[buttons.length - 1]
+          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), summary'))
+          const first = controls[0], last = controls[controls.length - 1]
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
         }
@@ -75,15 +75,16 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
           {TABS.filter(tab => tab.id !== 'side_menu' || onOrderSideMenu).map(tab => <button key={tab.id} aria-pressed={category === tab.id} onClick={() => { setCategory(tab.id); setPage(0) }}>{tab.label}<span>›</span></button>)}
         </nav>
         <main className="order-menu-main">
-          <div className="order-menu-heading"><div><p>{isSideMenu ? 'もう一皿、勝負の一手。' : '握りたてを、あなたのお席へ。'}</p><h2 id="order-menu-heading">{label}</h2></div><span>{isSideMenu ? '全品300円 · 使用は0AP' : '商品を押すと注文が確定します'}</span></div>
+          <div className="order-menu-heading"><div><p>{isSideMenu ? '全6品・各300円' : '握りたてを、あなたのお席へ。'}</p><h2 id="order-menu-heading">{label}</h2></div>
+            {isSideMenu ? <div className="order-side-budget"><span>残高</span><strong>¥{budget.toLocaleString()}</strong></div> : <span>商品を押すと注文が確定します</span>}
+          </div>
           {isSideMenu ? <>
-            <p className="order-side-notice" role="status">{sideMenu ? `${SIDE_MENU_BY_ID[sideMenu].name}を購入済み。交換・追加購入はできません。` : !sideMenuEnabled ? 'サイドメニューは最初のデッキ構築で購入できます。追加注文では購入できません。' : '選べるのは1試合に1品。寿司の20枚とは別枠で、対戦中に好きなタイミングで使えます。'}</p>
+            <div className="order-side-shop-notice" role="status">{sideMenu ? <><strong>購入済み：{SIDE_MENU_BY_ID[sideMenu].name}</strong><span>1試合に1品まで。交換はできません。</span></> : !sideMenuEnabled ? <><strong>初期購入限定</strong><span>追加注文では購入できません。</span></> : <><strong>1試合に1品</strong><span>寿司とは別枠・自分のターンに0APで使用</span></>}</div>
             <div className="order-side-products" aria-label="サイドメニュー6品">
               {SIDE_MENUS.map(dish => {
-                const reason = sideMenu ? sideMenu === dish.id ? '購入済み' : '1試合に1品まで' : !sideMenuEnabled ? '初期購入限定' : disabled ? '注文を確認中です' : budget < dish.price ? '残高不足' : undefined
-                return <SideMenuCard key={dish.id} id={dish.id} price={dish.price}
-                  status={sideMenu === dish.id ? '専用スロットに購入済み' : undefined}
-                  disabled={!!reason} disabledReason={reason} actionLabel={`${dish.price}円で注文`}
+                const reason = sideMenu ? sideMenu === dish.id ? '購入済み' : '追加不可' : !sideMenuEnabled ? '初期購入限定' : disabled ? '確認中…' : budget < dish.price ? '残高不足' : undefined
+                return <SideMenuCard key={dish.id} id={dish.id} price={dish.price} presentation="shop"
+                  disabled={!!reason} disabledReason={reason} actionLabel="注文する"
                   onAction={onOrderSideMenu ? () => onOrderSideMenu(dish.id) : undefined} />
               })}
             </div>
@@ -95,13 +96,11 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
             <div className="order-menu-pager"><button disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹ 前へ</button><span>{page + 1} / {pages}</span><button disabled={page >= pages - 1} onClick={() => setPage(p => p + 1)}>次へ ›</button></div>
           </>}
         </main>
-        <aside className="order-menu-sidebar">
-          <div className="order-menu-budget"><span>ご利用いただける金額</span><strong>¥{budget.toLocaleString()}</strong><p>{isSideMenu ? <>サイドは全品300円<br />特急回数は減りません</> : <>特急価格は定価の1.5倍<br />50円単位で切り上げ</>}</p></div>
-          {isSideMenu ? <div className="order-side-guide"><span>SIDE MENU</span><strong>あなたの<br />専用の一皿。</strong><p>購入後は専用スロットへ。寿司の手札や机の枠を使いません。</p><p>自分のターンに0APで使用・設置。効果の残り時間は対戦画面で確認できます。</p><b>使い切り後の買い直し不可</b></div> : <>
+        {!isSideMenu && <aside className="order-menu-sidebar">
+          <div className="order-menu-budget"><span>ご利用いただける金額</span><strong>¥{budget.toLocaleString()}</strong><p>特急価格は定価の1.5倍<br />50円単位で切り上げ</p></div>
           <div className="order-menu-poster"><span>本日のおすすめ</span><strong>とろける<br />大トロ</strong>{adCard && <SushiArt card={adCard} size="100%" />}<p>贅沢な一皿を<br />特急レーンで。</p><b>{adCard ? Math.ceil(adCard.price * 1.5 / 50) * 50 : 750}<small>円</small></b></div>
           <p className="order-menu-delivery">ご注文後は、奥の金色の<br />お皿をタップしてお受け取りください。</p>
-          </>}
-        </aside>
+        </aside>}
       </div>
       <footer className="order-menu-footer"><span>{isSideMenu ? 'サイドは専用スロットへ直接お届けします' : 'ご注文品は特急レーンでお届けします'}</span><strong>残高 ¥{budget.toLocaleString()}</strong></footer>
     </motion.div>

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { CARDS, getCardsByLane } from '../src/data/cards'
 import { isSideMenuId } from '../src/data/sideMenus'
 import { shuffled } from '../src/game/battleRules'
-import { DRAFT_HOVER_LEASE_MS, ONLINE_LANES, onlineLaneElapsed, onlinePlatePosition } from '../src/game/draftOffers'
+import { DRAFT_HOVER_LEASE_MS, ONLINE_LANES, onlineLaneElapsed, onlinePlatePosition, sideMenuForBeltSlot } from '../src/game/draftOffers'
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../src/game/draftOffers'
 import type { PlayerId, RandomSource } from '../src/game/types'
 import type { Card } from '../src/types'
@@ -56,10 +56,13 @@ export function refreshOnlineDraft(draft: OnlineDraft, now: number, random: Rand
         const generation = onlinePlatePosition(lane, slot, onlineLaneElapsed(draft.startedAt, clock, now)).generation
         const index = player.offers.findIndex(offer => offer.lane === lane && offer.slot === slot)
         if (index >= 0 && player.offers[index].generation === generation) continue
-        if (!player.bags[lane].length) player.bags[lane] = shuffled(getCardsByLane(lane), random)
-        const offer: DraftOffer = {
-          id: `${draft.id}:${id}:${lane}:${slot}:${generation}`, lane, slot, generation,
-          card: player.bags[lane].pop()!, sold: false,
+        const sideMenuId = sideMenuForBeltSlot(lane, slot, generation, draft.mode === 'initial')
+        const common = { id: `${draft.id}:${id}:${lane}:${slot}:${generation}`, lane, slot, generation, sold: false }
+        let offer: DraftOffer
+        if (sideMenuId) offer = { ...common, sideMenuId }
+        else {
+          if (!player.bags[lane].length) player.bags[lane] = shuffled(getCardsByLane(lane), random)
+          offer = { ...common, card: player.bags[lane].pop()! }
         }
         if (index < 0) player.offers.push(offer)
         else player.offers[index] = offer
@@ -144,7 +147,10 @@ export function applyDraftAction(draft: OnlineDraft, id: PlayerId, action: Onlin
     case 'buy': {
       const offer = player.offers.find(offer => offer.id === action.offerId)
       if (!offer) return { ok: false, error: 'draft_offer_expired' }
-      result = purchaseBeltCard(player.state, offer.id, offer.card, now)
+      if (offer.sold) return { ok: false, error: 'draft_duplicate' }
+      result = offer.sideMenuId
+        ? purchaseSideMenu(player.state, offer.sideMenuId, now)
+        : purchaseBeltCard(player.state, offer.id, offer.card, now)
       if (result.accepted) offer.sold = true
       break
     }

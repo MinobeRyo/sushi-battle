@@ -1,6 +1,6 @@
 import type { Card } from '../../../types'
 import { BeltLane3D } from './BeltLane3D'
-import type { OnlineBeltSupply } from './BeltLane3D'
+import type { OnlineBeltSupply, SideMenuSelectHandler } from './BeltLane3D'
 import { ShinkansenPlate3D } from './ShinkansenPlate3D'
 import { DraftCamera } from './DraftCamera'
 import type { DraftState } from '../draftEngine'
@@ -34,12 +34,15 @@ interface SceneProps {
   buildCards: Card[]
   shinkansenPlate: DraftState['shinkansenPlate']
   onBeltSelect: (card: Card, markSold: () => boolean, offerId: string) => void
+  onSideMenuSelect?: SideMenuSelectHandler
+  sideMenusEnabled?: boolean
+  sideMenuPurchased?: boolean
   onShinkansenPickup: () => void
   paused?: boolean
   sevenPlates?: boolean
 }
 
-export function Scene({ onlineSupply, generalCards, buildCards, shinkansenPlate, onBeltSelect, onShinkansenPickup, paused = false, sevenPlates = false }: SceneProps) {
+export function Scene({ onlineSupply, generalCards, buildCards, shinkansenPlate, onBeltSelect, onSideMenuSelect, sideMenusEnabled = false, sideMenuPurchased = false, onShinkansenPickup, paused = false, sevenPlates = false }: SceneProps) {
   const LANE_SHINKANSEN = -2.6
   const LANE_GENERAL = 0
   const LANE_BUILD = 2.6
@@ -72,17 +75,22 @@ export function Scene({ onlineSupply, generalCards, buildCards, shinkansenPlate,
       {/* General belt (middle) */}
       <BeltLane3D
         label="汎用・サイドメニュー"
+        lane="general"
         cards={generalCards}
         supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'general') }}
         duration={32 / BELT_SPEED_MULTIPLIER}
         laneZ={LANE_GENERAL}
         paused={paused}
         onSelect={onBeltSelect}
+        onSideMenuSelect={onSideMenuSelect}
+        sideMenusEnabled={sideMenusEnabled}
+        sideMenuPurchased={sideMenuPurchased}
       />
 
       {/* Build belt (front) */}
       <BeltLane3D
         label="ビルド系雑多"
+        lane="build"
         cards={buildCards}
         supply={onlineSupply && { ...onlineSupply, offers: onlineSupply.offers.filter(offer => offer.lane === 'build') }}
         duration={16 / BELT_SPEED_MULTIPLIER}

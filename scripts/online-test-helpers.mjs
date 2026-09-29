@@ -13,7 +13,7 @@ export async function finishPurchases(request, read, buy = true) {
     for (let count = 0; count < 24; count++) {
       const draft = snapshot.draft
       if (!draft || draft.you.completed || draft.you.deck.length >= 20) break
-      const offer = [...draft.offers].sort((a, b) => b.card.attack - a.card.attack)
+      const offer = draft.offers.filter(offer => offer.card).sort((a, b) => b.card.attack - a.card.attack)
         .find(offer => !offer.sold && offer.card.price <= draft.you.budget)
       if (!offer) break
       const reply = await send({ type: 'buy', offerId: offer.id })

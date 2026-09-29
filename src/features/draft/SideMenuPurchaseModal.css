@@ -1,0 +1,66 @@
+.side-menu-purchase-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: #130b06b8;
+}
+
+.side-menu-purchase-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 480px);
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #c6ad8d;
+  border-radius: 16px;
+  background: #fff8ed;
+  color: #4a3322;
+  box-shadow: 0 18px 64px #140a0759;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+}
+
+.side-menu-purchase-dialog, .side-menu-purchase-dialog * { box-sizing: border-box; }
+.side-menu-purchase-dialog button { font: inherit; touch-action: manipulation; cursor: pointer; }
+.side-menu-purchase-dialog button:focus-visible { outline: 3px solid #aa572e; outline-offset: 3px; }
+.side-menu-purchase-header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #e1d2bd; }
+.side-menu-purchase-header p { margin: 0 0 4px; color: #88715a; font-size: 11px; line-height: 1.5; }
+.side-menu-purchase-header h2 { margin: 0; color: #4a3322; font-size: 18px; font-weight: 800; line-height: 1.5; overflow-wrap: anywhere; }
+.side-menu-purchase-header > button { flex: 0 0 auto; min-height: 44px; padding: 8px 10px; border: 1px solid #d7c6ad; border-radius: 8px; background: #f1e7d7; color: #6a4d35; font-size: 12px; }
+.side-menu-purchase-body { min-height: 0; padding: 14px 16px; overflow-y: auto; overscroll-behavior: contain; }
+.side-menu-purchase-body .side-menu-card__artwork { height: 176px; }
+.side-menu-purchase-body .side-menu-card .side-menu-card__name { font-size: 20px; }
+.side-menu-purchase-body .side-menu-card .side-menu-card__effect { color: #443224; font-size: 14px; line-height: 1.85; }
+.side-menu-purchase-body .side-menu-card .side-menu-card__timing { color: #69563f; font-size: 12px; line-height: 1.7; }
+.side-menu-purchase-body .side-menu-card .side-menu-card__category { font-size: 11px; }
+.side-menu-purchase-notice { margin: 14px 0 0; padding: 12px; border-radius: 7px; background: #edeede; color: #4e5735; font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.side-menu-purchase-notice[data-blocked='true'] { background: #f5e5d6; color: #805030; }
+.side-menu-purchase-footer { flex: 0 0 auto; padding: 12px 16px 16px; border-top: 1px solid #e1d2bd; background: #fff8ed; }
+.side-menu-purchase-budget { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; color: #76614d; font-size: 12px; }
+.side-menu-purchase-budget strong { color: #644529; font-size: 18px; font-variant-numeric: tabular-nums; }
+.side-menu-purchase-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.side-menu-purchase-actions button { min-height: 46px; padding: 10px 12px; border: 1px solid; border-radius: 9px; font-size: 13px; font-weight: 700; line-height: 1.5; }
+.side-menu-purchase-actions .side-menu-purchase-cancel { border-color: #d3bea1; background: #efe5d5; color: #6b5038; }
+.side-menu-purchase-actions .side-menu-purchase-confirm { border-color: #8a4424; background: #a85127; color: #fff8ed; }
+.side-menu-purchase-confirm:hover:not(:disabled) { background: #91441f; }
+.side-menu-purchase-actions .side-menu-purchase-confirm:disabled { border-color: #d4c6b0; background: #e9dfce; color: #867257; cursor: not-allowed; }
+
+@media (max-width: 480px) {
+  .side-menu-purchase-backdrop { padding: 8px; }
+  .side-menu-purchase-header { padding: 10px 12px; gap: 8px; }
+  .side-menu-purchase-header h2 { font-size: 18px; }
+  .side-menu-purchase-body { padding: 10px 12px; }
+  .side-menu-purchase-body .side-menu-card__artwork { height: 144px; }
+  .side-menu-purchase-footer { padding: 10px 12px 12px; }
+}
+
+@media (max-height: 540px) {
+  .side-menu-purchase-header { padding-block: 8px; }
+  .side-menu-purchase-header p { display: none; }
+  .side-menu-purchase-body .side-menu-card__artwork { height: 96px; }
+  .side-menu-purchase-footer { padding-block: 8px; }
+  .side-menu-purchase-budget { margin-bottom: 6px; }
+}

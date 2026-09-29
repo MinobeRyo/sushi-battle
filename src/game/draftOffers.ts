@@ -1,4 +1,6 @@
 import type { Card } from '../types'
+import { SIDE_MENUS } from '../data/sideMenus'
+import type { SideMenuId } from '../data/sideMenus'
 
 // オンラインではサーバーの経過時間から皿の位置と周回を決める。
 export const ONLINE_LANES = {
@@ -6,8 +8,17 @@ export const ONLINE_LANES = {
   build: { slots: 12, durationMs: 16_000 / 1.2 },
 } as const
 export type DraftLane = keyof typeof ONLINE_LANES
-export type DraftOffer = { id: string; lane: DraftLane; slot: number; generation: number; card: Card; sold: boolean }
+export type DraftOffer = {
+  id: string; lane: DraftLane; slot: number; generation: number; sold: boolean
+} & ({ card: Card; sideMenuId?: never } | { card?: never; sideMenuId: SideMenuId })
 export type DraftLaneClock = { pausedMs: number; pausedAt: number | null; pauseUntil: number | null }
+
+// 汎用レーンの10皿中2皿をサイドに使う。3周で6品が一巡し、ローカル・通信で同じ並びになる。
+export function sideMenuForBeltSlot(lane: DraftLane, slot: number, generation: number, enabled: boolean): SideMenuId | null {
+  if (!enabled || lane !== 'general' || (slot !== 3 && slot !== 7)) return null
+  const offset = slot === 3 ? 0 : 1
+  return SIDE_MENUS[(generation * 2 + offset) % SIDE_MENUS.length].id
+}
 // hoverは更新が途絶えると自然に解除する。締切の時計はこの補正を使用しない。
 export const DRAFT_HOVER_LEASE_MS = 3000
 

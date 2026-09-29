@@ -90,7 +90,7 @@ export function DraftRestaurantLayout({
 
   return <section className="draft-restaurant-ui" aria-label="寿司を選ぶドラフト画面"
     onClickCapture={event => {
-      if (disabled) { event.preventDefault(); event.stopPropagation() }
+      if (disabled && !overlayRef.current?.contains(event.target as Node)) { event.preventDefault(); event.stopPropagation() }
     }}>
     <div className="restaurant-content" inert={overlayActive || disabled}>
       <header className="restaurant-header">
@@ -124,7 +124,7 @@ export function DraftRestaurantLayout({
         <div className="restaurant-scene" data-world-width="16.1" aria-label="奥から特急、汎用、ビルド系の3Dレーン">
           {children}
           <div className="restaurant-lane-label restaurant-lane-label-express">特急<span>ご注文のお皿</span></div>
-          <div className="restaurant-lane-label restaurant-lane-label-general">汎用寿司</div>
+          <div className="restaurant-lane-label restaurant-lane-label-general">{sideMenuEnabled ? '汎用寿司・サイド' : '汎用寿司'}</div>
           <div className="restaurant-lane-label restaurant-lane-label-build">ビルド系</div>
         </div>
         {notice && <p className="restaurant-notice" role="status">{notice}</p>}

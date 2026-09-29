@@ -5,13 +5,18 @@ import { SushiGeometry } from '../models/SushiGeometry'
 import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { PlateHitTarget } from './PlateHitTarget'
-import { onlinePlatePosition } from '../../../game/draftOffers'
+import { onlinePlatePosition, sideMenuForBeltSlot } from '../../../game/draftOffers'
+import { SIDE_MENU_BY_ID, type SideMenuId } from '../../../data/sideMenus'
+import { SideMenuModel } from '../../side-menu/models/SideMenuModel'
 import type { DraftLane, DraftOffer } from '../../../game/draftOffers'
 
 export type OnlineBeltSupply = {
   offers: DraftOffer[]
   elapsed: (lane: DraftLane) => number
 }
+
+type PlateContents = { card: Card; sideMenuId?: never } | { card?: never; sideMenuId: SideMenuId }
+export type SideMenuSelectHandler = (id: SideMenuId, markSold: () => boolean, offerId: string) => void
 
 const SPACING = 2.3 // world-unit spacing between plates
 
@@ -44,6 +49,12 @@ interface BeltPlate3DProps {
   offer?: DraftOffer
   elapsed?: () => number
   drawCard: () => Card
+  lane: DraftLane
+  slot: number
+  sideMenuStartGeneration: number
+  sideMenusEnabled: boolean
+  sideMenuPurchased: boolean
+  onSideMenuSelect?: SideMenuSelectHandler
   laneZ: number
   initialX: number
   speed: number
@@ -55,7 +66,7 @@ interface BeltPlate3DProps {
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWidth, onSelect, paused, hideLabels = false, portraitLabels = false, onlinePositionScale = 1 }: BeltPlate3DProps) {
+function BeltPlate3D({ offer, elapsed, drawCard, lane, slot, sideMenuStartGeneration, sideMenusEnabled, sideMenuPurchased, onSideMenuSelect, laneZ, initialX, speed, wrapWidth, onSelect, paused, hideLabels = false, portraitLabels = false, onlinePositionScale = 1 }: BeltPlate3DProps) {
   const groupRef = useRef<THREE.Group>(null)
   const labelRef = useRef<HTMLButtonElement>(null)
   const labelPosition = useMemo(() => new THREE.Vector3(), [])
@@ -64,10 +75,15 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
   const generationRef = useRef(0)
   const soldRef = useRef(false)
   const [hovered, setHovered] = useState(false)
-  const [localCard, setCard] = useState(() => ({ card: offer?.card ?? drawCard(), generation: 0 }))
-  const { card, generation } = offer ?? localCard
+  const drawLocalDish = (generation: number): PlateContents => {
+    const sideMenuId = sideMenuForBeltSlot(lane, slot, generation + sideMenuStartGeneration, sideMenusEnabled)
+    return sideMenuId ? { sideMenuId } : { card: drawCard() }
+  }
+  const [localDish, setDish] = useState<PlateContents & { generation: number }>(() => offer ?? ({ ...drawLocalDish(0), generation: 0 }))
+  const { card, sideMenuId, generation } = offer ?? localDish
   const [sold, setSold] = useState(false)
-  const colors = PRICE_COLOR[card.price] ?? PRICE_COLOR[300]
+  const item = sideMenuId ? SIDE_MENU_BY_ID[sideMenuId] : card!
+  const colors = PRICE_COLOR[item.price] ?? PRICE_COLOR[300]
 
   const clearHover = () => {
     setHovered(false)
@@ -78,16 +94,21 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
     document.body.style.cursor = 'auto'
   }, [])
 
+  const notifySelection = (markSold: () => boolean, offerId: string) => {
+    if (sideMenuId) onSideMenuSelect?.(sideMenuId, markSold, offerId)
+    else if (card) onSelect(card, markSold, offerId)
+  }
+
   const select = () => {
     if (offer && elapsed) {
       if (offer.sold || onlinePlatePosition(offer.lane, offer.slot, elapsed()).generation !== offer.generation) return
       clearHover()
-      onSelect(offer.card, () => true, offer.id)
+      notifySelection(() => true, offer.id)
       return
     }
     if (soldRef.current || generationRef.current !== generation) return
     clearHover()
-    onSelect(card, () => {
+    notifySelection(() => {
       if (soldRef.current || generationRef.current !== generation) return false
       soldRef.current = true
       clearHover()
@@ -111,7 +132,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         posX.current += wrapWidth
         generationRef.current += 1
         soldRef.current = false
-        setCard({ card: drawCard(), generation: generationRef.current })
+        setDish({ ...drawLocalDish(generationRef.current), generation: generationRef.current })
         setSold(false)
       }
 
@@ -157,6 +178,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         <meshStandardMaterial color={colors.plate} roughness={0.25} metalness={0.05} />
       </mesh>
       {/* 寿司の高さと皿の周りを含む、見た目より少し広いクリック領域。 */}
+      <group scale={sideMenuId ? [1, 1.1, 1.12] : undefined}>
       <PlateHitTarget
         onClick={(e) => {
           e.stopPropagation()
@@ -170,6 +192,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         }}
         onPointerOut={clearHover}
       />
+      </group>
       {/* Rim ring */}
       <mesh position={[0, 0.06, 0]}>
         <cylinderGeometry args={[0.75, 0.75, 0.08, 32, 1, true]} />
@@ -180,7 +203,9 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         <circleGeometry args={[0.22, 16]} />
         <meshBasicMaterial color="white" transparent opacity={0.35} />
       </mesh>
-      <SushiGeometry card={card} />
+      {sideMenuId ? <group position={[0, 0.115, 0]} scale={0.55}>
+        <SideMenuModel id={sideMenuId} />
+      </group> : card && <SushiGeometry card={card} />}
       {hovered && (
         <>
           <mesh position={[0, 0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -189,7 +214,8 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
           </mesh>
           {!portraitLabels && <Html center position={[0, 1.2, 0]} zIndexRange={[8, 0]} style={{ pointerEvents: 'none' }}>
             <div style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #d9a55e', background: '#2c1006ee', color: '#fff2d9', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {card.name} <span style={{ color: '#fcd34d' }}>¥{card.price}</span>
+              {item.name} <span style={{ color: '#fcd34d' }}>¥{item.price}</span>
+              {sideMenuId && <small style={{ display: 'block', marginTop: 3, color: '#d9e5b3', fontSize: 10 }}>{sideMenuPurchased ? 'サイドは購入済み · 詳細を見る' : 'サイドメニュー · 1試合に1品'}</small>}
             </div>
           </Html>}
         </>
@@ -200,9 +226,9 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
           onPointerEnter={event => { if (event.pointerType !== 'touch') setHovered(true) }}
           onPointerLeave={clearHover}
           onFocus={() => setHovered(true)} onBlur={clearHover}
-          aria-label={`${card.name}、${card.price}円。詳細を見る`}
+          aria-label={`${item.name}、${item.price}円。${sideMenuId ? sideMenuPurchased ? 'サイドは購入済み。' : 'サイドメニュー。' : ''}詳細を見る`}
         >
-          <span>{card.name}</span><strong>¥{card.price.toLocaleString()}</strong>
+          <span>{item.name}</span><strong>¥{item.price.toLocaleString()}</strong>
         </button>
       </Html>}
       {/* Card name */}
@@ -215,7 +241,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
         anchorY="middle"
         maxWidth={1.2}
       >
-        {card.name.length > 7 ? card.name.slice(0, 7) + '…' : card.name}
+        {sideMenuId ? `${item.name}\n¥${item.price}` : item.name.length > 7 ? item.name.slice(0, 7) + '…' : item.name}
       </Text>}
     </group>
   )
@@ -225,6 +251,10 @@ function BeltPlate3D({ offer, elapsed, drawCard, laneZ, initialX, speed, wrapWid
 
 interface BeltLane3DProps {
   supply?: OnlineBeltSupply
+  lane?: DraftLane
+  sideMenusEnabled?: boolean
+  sideMenuPurchased?: boolean
+  onSideMenuSelect?: SideMenuSelectHandler
   label: string
   cards: Card[]
   duration: number
@@ -237,7 +267,9 @@ interface BeltLane3DProps {
   onSelect: (card: Card, markSold: () => boolean, offerId: string) => void
 }
 
-export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false, hideLabels = false, portraitLabels = false, plateSpacing = SPACING }: BeltLane3DProps) {
+export function BeltLane3D({ supply, lane = 'general', sideMenusEnabled = false, sideMenuPurchased = false, onSideMenuSelect, label, cards, duration, laneZ, isShinkansen, onSelect, paused = false, hideLabels = false, portraitLabels = false, plateSpacing = SPACING }: BeltLane3DProps) {
+  // ローカルだけ、開始時のサイド2品を一度選びます。皿の実世代・ID・売約判定は変えません。
+  const [sideMenuStartGeneration] = useState(() => !supply && lane === 'general' && sideMenusEnabled ? Math.floor(Math.random() * 3) : 0)
   // 皿（スロット）は最大12枚。カードプールが大きくてもベルトの見た目・速度は一定
   const slotCount = supply?.offers.length ?? Math.min(cards.length, 12)
   const onlinePositionScale = plateSpacing / SPACING
@@ -293,6 +325,12 @@ export function BeltLane3D({ supply, label, cards, duration, laneZ, isShinkansen
           offer={supply?.offers[i]}
           elapsed={supply && (() => supply.elapsed(supply.offers[i].lane))}
           drawCard={drawCard}
+          lane={lane}
+          slot={i}
+          sideMenuStartGeneration={sideMenuStartGeneration}
+          sideMenusEnabled={sideMenusEnabled}
+          sideMenuPurchased={sideMenuPurchased}
+          onSideMenuSelect={onSideMenuSelect}
           laneZ={laneZ}
           initialX={x}
           speed={speed}

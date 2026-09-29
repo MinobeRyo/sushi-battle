@@ -3,7 +3,9 @@
 // 実行: node --import tsx scripts/test-side-menu-online.mjs
 import assert from 'node:assert/strict'
 import { createRoomService } from '../server/roomService.ts'
+import { applyDraftAction, createOnlineDraft } from '../server/onlineDraft.ts'
 import { SIDE_MENUS } from '../src/data/sideMenus.ts'
+import { ONLINE_LANES, sideMenuForBeltSlot } from '../src/game/draftOffers.ts'
 
 const realNow = Date.now
 let now = 1_000_000
@@ -59,6 +61,121 @@ function test(name, run) {
 }
 
 try {
+  test('初期の汎用レーンは10皿中2皿がサイドで、3周に6品を順繰りに供給する', () => {
+    const f = fixture()
+    const seen = []
+    for (let generation = 0; generation < 3; generation++) {
+      now = 1_000_000 + Math.ceil(generation * ONLINE_LANES.general.durationMs)
+      const draft = f.read(f.host).draft
+      const sides = draft.offers.filter(offer => offer.sideMenuId)
+      assert.equal(draft.offers.length, 22)
+      assert.equal(draft.offers.filter(offer => offer.lane === 'general').length, 10)
+      assert.deepEqual(sides.map(offer => offer.slot), [3, 7])
+      assert.ok(sides.every(offer => offer.lane === 'general' && offer.generation === generation && !('card' in offer)))
+      assert.deepEqual(sides.map(offer => offer.sideMenuId), SIDE_MENUS.slice(generation * 2, generation * 2 + 2).map(menu => menu.id))
+      for (const offer of sides) {
+        assert.equal(sideMenuForBeltSlot(offer.lane, offer.slot, offer.generation, true), offer.sideMenuId)
+        seen.push(offer.sideMenuId)
+      }
+      assert.ok(draft.offers.filter(offer => offer.lane === 'build').every(offer => offer.card))
+    }
+    assert.deepEqual(seen, SIDE_MENUS.map(menu => menu.id))
+    assert.equal(sideMenuForBeltSlot('general', 3, 3, true), 'karaage')
+    assert.equal(sideMenuForBeltSlot('general', 7, 3, true), 'fries')
+    assert.equal(sideMenuForBeltSlot('general', 3, 0, false), null)
+    assert.equal(sideMenuForBeltSlot('general', 2, 0, true), null)
+    assert.equal(sideMenuForBeltSlot('build', 3, 0, true), null)
+    const reorder = createOnlineDraft('reorder', now, () => 0.5)
+    assert.ok(reorder.players[1].offers.every(offer => offer.card && !offer.sideMenuId))
+  })
+
+  test('レーンのサイド購入は専用枠だけに入り、再送・二重購入・タブレットからの追加を防ぐ', () => {
+    const f = fixture()
+    const before = f.read(f.host).draft
+    const [offer, other] = before.offers.filter(offer => offer.sideMenuId)
+    const action = f.draftAction(f.host, { type: 'buy', offerId: offer.id, sideMenuId: 'ramen', price: -999, playerId: 2 })
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
+    const after = f.read(f.host).draft
+    assert.equal(after.you.sideMenu, offer.sideMenuId)
+    assert.equal(after.you.budget, before.you.budget - 300)
+    assert.deepEqual(after.you.deck, before.you.deck)
+    assert.equal(after.you.shinkansenLeft, before.you.shinkansenLeft)
+    assert.equal(after.you.shinkansenPlate, null)
+    assert.equal(after.offers.find(item => item.id === offer.id).sold, true)
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
+    assert.deepEqual(f.read(f.host).draft, after)
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: offer.id }), { ok: false, error: 'draft_duplicate' })
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: other.id }), { ok: false, error: 'draft_side_menu_owned' })
+    assert.deepEqual(f.buy(f.host, 'ramen'), { ok: false, error: 'draft_side_menu_owned' })
+    assert.equal(f.read(f.host).draft.offers.find(item => item.id === other.id).sold, false)
+    assert.equal(f.read(f.guest).draft.you.sideMenu, null)
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', { ...action, offerId: other.id }),
+      { ok: false, error: 'action_id_conflict' })
+  })
+
+  test('タブレットで一品購入した後もレーンから買い足せず、残金と特急受領待ちを保つ', () => {
+    const f = fixture()
+    f.draft(f.host, { type: 'order', cardId: 'tamago' })
+    assert.deepEqual(f.buy(f.host, 'ramen'), { ok: true })
+    const before = f.read(f.host).draft
+    const offer = before.offers.find(offer => offer.sideMenuId)
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: offer.id }), { ok: false, error: 'draft_side_menu_owned' })
+    assert.deepEqual(f.read(f.host).draft, before)
+  })
+
+  test('サイド皿は20枚上限と特急配送に影響せず、残金不足だけを共通ルールで拒否する', () => {
+    const draft = createOnlineDraft('initial', now, () => 0.5)
+    const player = draft.players[1]
+    const offer = player.offers.find(offer => offer.sideMenuId)
+    const sushi = player.offers.find(offer => offer.card).card
+    player.state.deck = Array(20).fill(sushi)
+    player.state.shinkansenPlate = { card: sushi, orderId: 'pending' }
+    player.state.budget = 299
+    const buy = () => applyDraftAction(draft, 1, {
+      type: 'buy', offerId: offer.id, draftId: draft.id, expectedRevision: player.revision, actionId: `full-${++nextActionId}`,
+    }, now)
+    assert.deepEqual(buy(), { ok: false, error: 'draft_budget' })
+    assert.equal(offer.sold, false)
+    player.state.budget = 300
+    assert.deepEqual(buy(), { ok: true })
+    assert.equal(player.state.budget, 0)
+    assert.equal(player.state.deck.length, 20)
+    assert.deepEqual(player.state.shinkansenPlate, { card: sushi, orderId: 'pending' })
+    assert.equal(player.state.sideMenu, offer.sideMenuId)
+  })
+
+  test('偽のサイド皿・相手の皿・前の周回の皿を拒否し、締切後には買えない', () => {
+    const f = fixture()
+    const offer = f.read(f.host).draft.offers.find(offer => offer.sideMenuId)
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: `${offer.id}:fake` }), { ok: false, error: 'draft_offer_expired' })
+    assert.deepEqual(f.draft(f.guest, { type: 'buy', offerId: offer.id }), { ok: false, error: 'draft_offer_expired' })
+    now += Math.ceil(ONLINE_LANES.general.durationMs)
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: offer.id }), { ok: false, error: 'draft_offer_expired' })
+    const next = f.read(f.host).draft.offers.find(offer => offer.sideMenuId)
+    const late = f.draftAction(f.host, { type: 'buy', offerId: next.id })
+    now = 1_090_000
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', late), { ok: false, error: 'draft_not_started' })
+    assert.equal(f.read(f.host).match.you.sideMenu, null)
+  })
+
+  test('サイド皿もhover中は留まり、購入後の復帰で専用枠・売約済み・残金を維持する', () => {
+    const f = fixture()
+    const before = f.read(f.host).draft
+    const offer = before.offers.find(offer => offer.sideMenuId)
+    assert.deepEqual(f.service.handle(f.host, 'draft:hover', { draftId: before.draftId, lanes: ['general'], sequence: 1 }), { ok: true })
+    now += 2000
+    assert.equal(f.read(f.host).draft.offers.find(item => item.slot === offer.slot && item.lane === offer.lane).id, offer.id)
+    assert.deepEqual(f.draft(f.host, { type: 'buy', offerId: offer.id }), { ok: true })
+    const purchased = f.read(f.host).draft
+    f.service.disconnect(f.host)
+    const resumed = f.peer('resumed-belt')
+    f.service.connect(resumed)
+    const join = f.service.handle(resumed, 'room:resume', f.created.session)
+    assert.equal(join.ok, true)
+    assert.deepEqual(join.snapshot.draft.you, purchased.you)
+    assert.equal(join.snapshot.draft.offers.find(item => item.id === offer.id).sold, true)
+  })
+
   test('専用枠の購入は300円で確定し、再送・二重購入・別商品へのactionId使い回しを防ぐ', () => {
     const f = fixture()
     const action = f.draftAction(f.host, { type: 'buy_side_menu', sideMenuId: 'karaage', price: -999, playerId: 2 })

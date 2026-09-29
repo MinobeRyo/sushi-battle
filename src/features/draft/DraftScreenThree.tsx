@@ -6,6 +6,7 @@ import { PCFShadowMap } from 'three'
 import { Scene } from './scene/DraftScene'
 import { AnimatePresence } from 'framer-motion'
 import { PurchaseModal } from './PurchaseModal'
+import { SideMenuPurchaseModal } from './SideMenuPurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import type { OrderCategory } from './ShinkansenOrderModal'
 import { DraftDeckSheet, DraftRestaurantLayout } from './DraftRestaurantLayout'
@@ -41,7 +42,9 @@ type Props = {
   mode?: 'initial' | 'reorder'
 }
 
-type SelectedItem = { card: Card; offerId: string; markSold: () => boolean }
+type SelectedItem = { offerId: string; markSold: () => boolean } & (
+  { card: Card; sideMenuId?: never } | { card?: never; sideMenuId: SideMenuId }
+)
 
 export function DraftScreenThree({
   online,
@@ -127,22 +130,25 @@ export function DraftScreenThree({
     if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }
 
-  const handleBeltSelect = (card: Card, markSold: () => boolean, offerId: string) => {
+  const selectBeltItem = (item: SelectedItem) => {
     if (online ? online.disabled || draft.completed || timeLeft === 0
       : draftRef.current.completed || draftSecondsLeft(draftRef.current, Date.now()) === 0) return
     clearAutoClose()
     setPurchaseNotice('')
-    selectedRef.current = { card, offerId, markSold }
+    selectedRef.current = item
     setSelected(selectedRef.current)
-    autoCloseTimer.current = setTimeout(() => {
+    if (item.card) autoCloseTimer.current = setTimeout(() => {
       selectedRef.current = null
       setSelected(null)
     }, 10000)
   }
 
+  const handleBeltSelect = (card: Card, markSold: () => boolean, offerId: string) => selectBeltItem({ card, markSold, offerId })
+  const handleBeltSideSelect = (sideMenuId: SideMenuId, markSold: () => boolean, offerId: string) => selectBeltItem({ sideMenuId, markSold, offerId })
+
   const handlePurchase = (card: Card) => {
     const item = selectedRef.current
-    if (!item || item.card.id !== card.id) return
+    if (!item?.card || item.card.id !== card.id) return
     if (online) {
       if (!online.disabled) {
         void online.send({ type: 'buy', offerId: item.offerId })
@@ -164,6 +170,29 @@ export function DraftScreenThree({
   }
 
   const handleModalClose = () => { clearAutoClose(); selectedRef.current = null; setSelected(null) }
+
+  const handleBeltSidePurchase = () => {
+    const item = selectedRef.current
+    if (!item?.sideMenuId) return
+    if (online) {
+      if (!online.disabled) {
+        void online.send({ type: 'buy', offerId: item.offerId })
+        handleModalClose()
+      }
+      return
+    }
+    const result = purchaseSideMenu(draftRef.current, item.sideMenuId, Date.now())
+    if (!result.accepted) {
+      if (result.reason === 'expired') completeDraft()
+      return
+    }
+    // 皿が周回していた場合は専用枠も残金も変更しません。
+    if (item.markSold()) {
+      updateDraft(result.state)
+      setPurchaseNotice(`${SIDE_MENU_BY_ID[item.sideMenuId].name}を購入しました。サイドメニューは1試合に1品までです。`)
+    } else setPurchaseNotice('このお皿は流れていきました。別のお皿を選んでください。')
+    handleModalClose()
+  }
 
   const handleShinkansenOrder = (card: Card) => {
     if (online) {
@@ -234,9 +263,13 @@ export function DraftScreenThree({
       notice={purchaseNotice}
       overlays={<>
         {handOpen && <DraftDeckSheet deck={deck} sideMenu={mode === 'initial' ? draft.sideMenu : undefined} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}
-        {selected && <div className="portrait-purchase-dialog" role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') handleModalClose() }}>
+        {selected?.card && <div className="portrait-purchase-dialog" role="dialog" aria-modal="true" aria-label="お皿の詳細" onKeyDown={event => { if (event.key === 'Escape') handleModalClose() }}>
           <PurchaseModal card={selected.card} displayPrice={selected.card.price} isPremium={false} budget={budget} deckCount={deck.length} onPurchase={handlePurchase} onClose={handleModalClose} />
         </div>}
+        {selected?.sideMenuId && <SideMenuPurchaseModal sideMenuId={selected.sideMenuId} budget={budget}
+          purchasedSideMenu={draft.sideMenu} enabled={draft.sideMenuEnabled}
+          disabled={online?.disabled || draft.completed || timeLeft === 0}
+          onPurchase={handleBeltSidePurchase} onClose={handleModalClose} />}
         {showShinkansenModal && <ShinkansenOrderModal initialCategory={orderCategory} budget={budget} onOrder={handleShinkansenOrder} onClose={() => setShowShinkansenModal(false)}
           sideMenu={draft.sideMenu} sideMenuEnabled={draft.sideMenuEnabled} disabled={online?.disabled || draft.completed || timeLeft === 0}
           canOrderSushi={canOrder} onOrderSideMenu={handleSideMenuOrder} />}
@@ -249,12 +282,18 @@ export function DraftScreenThree({
     >
       <Canvas className={portrait ? 'pd-main-canvas' : undefined} orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          {portrait ? <VerticalDraftScene onlineSupply={onlineSupply} generalCards={generalCards} buildCards={buildCards} onBeltSelect={handleBeltSelect} paused={Boolean(selected || showShinkansenModal || showHelp || handOpen)} /> : <Scene
+          {portrait ? <VerticalDraftScene onlineSupply={onlineSupply} generalCards={generalCards} buildCards={buildCards}
+            onBeltSelect={handleBeltSelect} onSideMenuSelect={handleBeltSideSelect}
+            sideMenusEnabled={draft.sideMenuEnabled} sideMenuPurchased={Boolean(draft.sideMenu)}
+            paused={Boolean(selected || showShinkansenModal || showHelp || handOpen)} /> : <Scene
             onlineSupply={onlineSupply}
             generalCards={generalCards}
             buildCards={buildCards}
             shinkansenPlate={shinkansenPlate}
             onBeltSelect={handleBeltSelect}
+            onSideMenuSelect={handleBeltSideSelect}
+            sideMenusEnabled={draft.sideMenuEnabled}
+            sideMenuPurchased={Boolean(draft.sideMenu)}
             onShinkansenPickup={handleShinkansenPickup}
             paused={Boolean(selected || showShinkansenModal || showHelp)}
             sevenPlates
