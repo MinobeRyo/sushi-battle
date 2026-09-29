@@ -1,0 +1,113 @@
+.side-studio {
+  --ink: #333e34;
+  --muted: #87877a;
+  --line: #dddcd0;
+  width: 100%; height: 100%; overflow: auto;
+  background: #f7f6ef; color: var(--ink);
+  padding: 0 4.2%; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+}
+.side-studio button, .side-studio a { -webkit-tap-highlight-color: transparent; }
+.side-studio button { cursor: pointer; font: inherit; }
+.side-studio button:focus-visible, .side-studio a:focus-visible { outline: 2px solid #bd6247; outline-offset: 4px; }
+.side-studio-header { height: 94px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); gap: 18px; }
+.side-studio-brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; font-size: 18px; font-weight: 700; letter-spacing: 2px; }
+.side-studio-brand small { display: block; font-family: sans-serif; font-size: 8px; letter-spacing: 3px; margin-top: 5px; }
+.side-studio button.side-studio-brand { border: 0; padding: 0; background: transparent; font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; font-size: 18px; font-weight: 700; text-align: left; }
+.side-studio button.side-studio-back { border: 0; padding: 0; background: transparent; font-size: 11px; }
+.side-studio-seal { display: grid; place-items: center; width: 40px; height: 44px; background: #b45339; color: #fff8eb; font-size: 29px; border-radius: 3px 1px 4px 2px; }
+.side-studio-header-note { font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+.side-studio-back { display: flex; align-items: center; gap: 14px; color: #60685c; text-decoration: none; font-size: 11px; }
+.side-studio-intro { display: flex; align-items: flex-end; justify-content: space-between; padding: 36px 0 28px; gap: 24px; }
+.side-studio-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: 2.5px; color: #7f8477; margin-bottom: 13px; }
+.side-studio-eyebrow span { color: #aaa795; margin-left: 12px; }
+.side-studio h1 { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; font-size: clamp(26px, 3vw, 42px); font-weight: 500; letter-spacing: 4px; line-height: 1.5; margin: 0; }
+.side-studio h1 span { color: #687560; }
+.side-studio-lead { font-size: 11px; line-height: 2; color: #898a7e; letter-spacing: 0.8px; padding-bottom: 5px; }
+.side-studio-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }
+.side-studio-viewer { background: #ede7dc; border: 1px solid #e4dfd4; border-radius: 3px; overflow: hidden; min-width: 0; }
+.side-studio-viewer-bar { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; position: relative; z-index: 20; }
+.side-studio-view-switch { display: flex; background: #e4ded2; padding: 3px; border-radius: 5px; }
+.side-studio-view-switch button { display: flex; align-items: center; gap: 8px; color: #828576; border: 0; background: none; border-radius: 3px; padding: 8px 13px; font-size: 11px; }
+.side-studio-view-switch button.active { color: #354837; background: #faf8f0; box-shadow: 0 1px 3px #6c594314; }
+.side-studio-live { font-size: 8px; letter-spacing: 2px; color: #727665; display: flex; align-items: center; gap: 7px; }
+.side-studio-live i { width: 5px; height: 5px; border-radius: 50%; background: #819575; }
+.side-studio-dish-select { color: #606f5c; font: inherit; font-size: 10px; background: #f7f3e8; border: 1px solid #d8d3c6; border-radius: 3px; max-width: 155px; padding: 7px; }
+.side-studio-canvas { height: clamp(390px, 51vh, 640px); position: relative; touch-action: none; }
+.side-studio-canvas canvas { display: block; cursor: grab; }
+.side-studio-canvas canvas:active { cursor: grabbing; }
+.side-studio-render-state { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.side-studio-fallback { display: grid; place-items: center; height: 100%; padding: 24px; font-size: 13px; line-height: 2; }
+.side-studio-dish-label { white-space: nowrap; display: flex; align-items: center; gap: 7px; padding: 6px 10px; font-size: 10px !important; color: #6c7163; border: 1px solid transparent; border-radius: 4px; background: #f7f3e8d9; }
+.side-studio-dish-label span { font-size: 8px; color: #a19b87; font-family: monospace; }
+.side-studio-dish-label.is-selected { color: #944b32; border-color: #d8bca6; background: #fff9ed; }
+.side-studio-viewer-footer { height: 48px; margin: 0 18px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #dcd6c9; gap: 6px; color: #868675; font-size: 10px; }
+.side-studio-viewer-footer b { font-weight: 400; padding: 0 9px; color: #b7b09d; }
+.side-studio-viewer-footer > div { display: flex; gap: 9px; }
+.side-studio-viewer-footer button { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 6px; color: #838671; font-size: 10px; }
+.side-studio-viewer-footer button.active { color: #a25036; }
+.side-studio-detail { display: flex; flex-direction: column; padding: 6px 5px 0 0; min-width: 0; }
+.side-studio-detail-top { display: flex; justify-content: space-between; padding-bottom: 21px; border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: 1px; }
+.side-studio-detail-top > span:last-child { font-family: monospace; font-size: 12px; }
+.side-studio-detail-top i { font-style: normal; color: #a6a799; }
+.side-studio-dish-info { animation: side-menu-enter 220ms ease-out; }
+.side-studio-category { margin-top: 25px; margin-bottom: 11px; font-size: 10px; letter-spacing: 1.5px; }
+.side-studio h2 { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; font-weight: 500; font-size: 28px; line-height: 1.6; letter-spacing: 2px; }
+.side-studio-english { font-size: 8px; letter-spacing: 2.6px; color: #969c8d; margin-top: 5px; }
+.side-studio-description { font-size: 12px; line-height: 2.1; margin-top: 21px; color: #7b8173; }
+.side-studio-effect { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 22px; }
+.side-studio-effect > span { font-size: 9px; letter-spacing: 1.5px; color: #8c9283; }
+.side-studio-effect p { font-size: 12px; line-height: 2; margin-top: 10px; }
+.side-studio-effect small { display: inline-block; margin-top: 13px; font-size: 9px; line-height: 1.8; padding: 4px 8px; color: #747d69; background: #eaece1; border-radius: 2px; }
+.side-studio-inspect { margin-top: auto; padding: 15px 18px; width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: #374c3b; color: #f4f3e8; font-size: 11px !important; letter-spacing: 1px; border-radius: 3px; min-height: 48px; }
+.side-studio-inspect:hover { background: #48604b; }
+.side-studio-slot-note { margin-top: 14px; font-size: 9px; line-height: 1.9; color: #929887; }
+.side-studio-menu { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 24px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.side-studio-menu button { min-width: 0; display: flex; align-items: center; gap: 11px; padding: 21px 14px; text-align: left; border: 0; border-right: 1px solid var(--line); background: transparent; color: #606f5c; position: relative; }
+.side-studio-menu button:last-child { border-right: 0; }
+.side-studio-menu button.selected { background: #e9ede2; box-shadow: inset 0 -2px #728563; }
+.side-studio-menu button:hover { background: #eff0e7; }
+.side-studio-menu-number { color: #b0b1a2; font: 10px monospace; }
+.side-studio-menu strong { display: block; font-size: 11px; font-weight: 500; line-height: 1.5; }
+.side-studio-menu small { display: block; font-size: 6px; letter-spacing: 1.1px; margin-top: 5px; color: #989f8d; }
+.side-studio-menu-dot { flex-shrink: 0; width: 4px; height: 4px; border-radius: 50%; margin-left: auto; opacity: 0.7; }
+.side-studio-footer { display: flex; justify-content: space-between; padding: 23px 0 28px; font-size: 8px; letter-spacing: 1.4px; color: #a0a493; gap: 12px; }
+@keyframes side-menu-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (min-width: 1700px) { .side-studio { padding-left: max(4.2%, calc((100% - 1600px) / 2)); padding-right: max(4.2%, calc((100% - 1600px) / 2)); } }
+@media (max-width: 1050px) {
+  .side-studio-layout { grid-template-columns: minmax(0, 1fr) 250px; gap: 20px; }
+  .side-studio-menu button { padding: 18px 10px; gap: 8px; }
+  .side-studio-menu-dot { display: none; }
+  .side-studio h2 { font-size: 24px; }
+}
+@media (max-width: 760px) {
+  .side-studio { padding: 0 5%; }
+  .side-studio-header { height: 75px; }
+  .side-studio-header-note { display: none; }
+  .side-studio-brand { font-size: 15px; }
+  .side-studio button.side-studio-brand { font-size: 15px; }
+  .side-studio-back { font-size: 10px; gap: 7px; }
+  .side-studio-intro { display: block; padding: 27px 0 21px; }
+  .side-studio h1 { font-size: 27px; letter-spacing: 2px; }
+  .side-studio-lead { font-size: 10px; margin-top: 13px; line-height: 1.9; }
+  .side-studio-lead br { display: none; }
+  .side-studio-eyebrow { font-size: 8px; letter-spacing: 1.6px; }
+  .side-studio-layout { grid-template-columns: 1fr; gap: 22px; }
+  .side-studio-canvas { height: 410px; }
+  .side-studio-viewer-bar { height: 54px; padding: 0 11px; }
+  .side-studio-viewer-footer { margin: 0 10px; font-size: 8px; }
+  .side-studio-viewer-footer b { padding: 0 4px; }
+  .side-studio-viewer-footer button { font-size: 9px; }
+  .side-studio-detail { padding: 0; }
+  .side-studio-detail-top { padding-bottom: 14px; }
+  .side-studio-category { margin-top: 18px; }
+  .side-studio-description { margin-top: 15px; }
+  .side-studio-effect { margin-top: 17px; padding-top: 15px; }
+  .side-studio-inspect { margin-top: 20px; }
+  .side-studio-slot-note { font-size: 10px; }
+  .side-studio-menu { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .side-studio-menu button:nth-child(3n) { border-right: 0; }
+  .side-studio-menu button:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+  .side-studio-footer { flex-direction: column; gap: 9px; font-size: 7px; }
+  .side-studio-dish-label { font-size: 8px !important; padding: 4px 5px; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .side-studio-dish-info { animation: none; } }

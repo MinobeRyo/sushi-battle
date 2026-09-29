@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { SushiArt } from '../../components/SushiArt'
 import { CARDS } from '../../data/cards'
+import { SIDE_MENU_CATALOG } from '../side-menu/sideMenuCatalog'
 import type { Archetype, Card, CardType } from '../../types'
 import { EFFECT_FULL } from '../battle/battlePresentation'
 import './CardCatalogScreen.css'
+
+const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
+const SideMenuStudio = lazy(() => import('../side-menu/SideMenuStudio'))
 
 const ARCHETYPES: Record<Archetype, string> = {
   general: '汎用',
@@ -25,7 +29,7 @@ function cardEffect(card: Card) {
   return card.effect ? EFFECT_FULL[card.effect] ?? '効果の説明は準備中です' : '特殊効果なし'
 }
 
-function CatalogCard({ card }: { card: Card }) {
+function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
   const isPersist = card.type === 'persist'
   const bases = [card.base, ...card.subBases ?? []].join('・')
 
@@ -56,7 +60,112 @@ function CatalogCard({ card }: { card: Card }) {
         <div><dt>ネタ</dt><dd>{bases}</dd></div>
         <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
       </dl>
+      <button type="button" className="catalog-view-model" onClick={onView} aria-label={`${card.name}の3Dモデルを見る`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z M4 7.5l8 4.5 8-4.5 M12 12v9" />
+        </svg>
+        3Dで見る<span aria-hidden="true">↗</span>
+      </button>
     </article>
+  )
+}
+
+function ModelDialog({ card, index, count, onNavigate, onClose }: {
+  card: Card
+  index: number
+  count: number
+  onNavigate: (offset: number) => void
+  onClose: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [autoRotate, setAutoRotate] = useState(false)
+  const [view, setView] = useState<'angle' | 'top' | 'side'>('angle')
+  const [zoom, setZoom] = useState(1)
+  const [resetKey, setResetKey] = useState(0)
+  const number = String(CARDS.findIndex(item => item.id === card.id) + 1).padStart(3, '0')
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      trigger?.focus({ preventScroll: true })
+    }
+  }, [])
+
+  const resetView = () => {
+    setView('angle')
+    setZoom(1)
+    setAutoRotate(false)
+    setResetKey(value => value + 1)
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="catalog-model-dialog"
+      aria-labelledby="catalog-model-title"
+      aria-describedby="catalog-model-help"
+      onCancel={event => { event.preventDefault(); onClose() }}
+    >
+      <header className="catalog-model-header">
+        <div><span>寿司カード図鑑</span><p>{card.name}</p></div>
+        <button type="button" className="catalog-model-close" onClick={onClose} autoFocus aria-label="3D表示を閉じる">閉じる <span aria-hidden="true">×</span></button>
+      </header>
+      <div className="catalog-model-body">
+        <section className="catalog-model-exhibit" aria-label={`${card.name}の3D展示`}>
+          <div className="catalog-model-stage">
+            <span className="catalog-model-number" aria-hidden="true">No. {number}</span>
+            <span className="catalog-model-stage-label" aria-hidden="true">3D MODEL</span>
+            <Suspense fallback={<div className="catalog-model-fallback" role="status">3Dモデルを準備しています…</div>}>
+              <SushiModelViewer card={card} autoRotate={autoRotate} view={view} zoom={zoom} resetKey={resetKey} onZoomChange={setZoom} onInteraction={() => setAutoRotate(false)} />
+            </Suspense>
+          </div>
+          <p id="catalog-model-help" className="catalog-model-help">ドラッグで回転 · スクロール / ピンチで拡大</p>
+          <div className="catalog-model-controls">
+            <div className="catalog-model-angles" role="group" aria-label="見る角度">
+              {([['angle', '斜め'], ['top', '真上'], ['side', '横']] as const).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={view === value} onClick={() => {
+                  setView(value); setAutoRotate(false); setResetKey(current => current + 1)
+                }}>{label}</button>
+              ))}
+            </div>
+            <button type="button" className="catalog-model-spin" aria-pressed={autoRotate} onClick={() => setAutoRotate(current => !current)}>{autoRotate ? '回転を停止' : '自動回転'}</button>
+            <div className="catalog-model-zoom" role="group" aria-label="モデルの大きさ">
+              <button type="button" aria-label="縮小" disabled={zoom <= 0.75} onClick={() => setZoom(current => Math.max(0.75, current - 0.15))}>−</button>
+              <button type="button" aria-label="拡大" disabled={zoom >= 1.6} onClick={() => setZoom(current => Math.min(1.6, current + 0.15))}>＋</button>
+            </div>
+            <button type="button" className="catalog-model-reset" onClick={resetView}>表示をリセット</button>
+          </div>
+        </section>
+        <section className="catalog-model-detail" aria-labelledby="catalog-model-title">
+          <p className="catalog-model-eyebrow">おしながき <span>／ {number}</span></p>
+          <h2 id="catalog-model-title" aria-live="polite">{card.name}</h2>
+          <div className="catalog-card-tags">
+            <span>{card.type === 'persist' ? '持続型' : '即時型'}</span>
+            {card.archetype.map(value => <span key={value}>{ARCHETYPES[value]}</span>)}
+          </div>
+          <dl className="catalog-card-stats">
+            <div><dt>価格</dt><dd>¥{card.price}</dd></div>
+            <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
+            <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
+            <div><dt>滞在</dt><dd>{card.type === 'persist' ? `${card.fullness}ターン` : '即時'}</dd></div>
+          </dl>
+          <p className="catalog-card-effect"><span>この寿司の効果</span>{cardEffect(card)}</p>
+          <dl className="catalog-model-ingredients">
+            <div><dt>ネタ</dt><dd>{[card.base, ...card.subBases ?? []].join('・')}</dd></div>
+            <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
+          </dl>
+          <p className="catalog-model-note">レーンを流れる寿司と同じ3Dモデルです。<br />数値は強化前の基本値です。</p>
+        </section>
+      </div>
+      <footer className="catalog-model-footer">
+        <button type="button" disabled={index === 0} onClick={() => onNavigate(-1)}>← 前の寿司</button>
+        <p><strong>{index + 1}</strong> / {count}<span>表示中の寿司</span></p>
+        <button type="button" disabled={index === count - 1} onClick={() => onNavigate(1)}>次の寿司 →</button>
+      </footer>
+    </dialog>
   )
 }
 
@@ -64,6 +173,16 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
   const [query, setQuery] = useState('')
   const [cardType, setCardType] = useState<CardType | 'all'>('all')
   const [archetype, setArchetype] = useState<Archetype | 'all'>('all')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [showSideMenus, setShowSideMenus] = useState(false)
+  const sideMenuButton = useRef<HTMLButtonElement>(null)
+  const returningFromSideMenu = useRef(false)
+  useEffect(() => {
+    if (!showSideMenus && returningFromSideMenu.current) {
+      sideMenuButton.current?.focus({ preventScroll: true })
+      returningFromSideMenu.current = false
+    }
+  }, [showSideMenus])
   const searchTerms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean)
   const filteredCards = CARDS.filter(card => {
     if (cardType !== 'all' && card.type !== cardType) return false
@@ -75,10 +194,23 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
     return searchTerms.every(term => searchText.includes(term))
   })
   const hasFilters = query !== '' || cardType !== 'all' || archetype !== 'all'
+  const selectedIndex = filteredCards.findIndex(card => card.id === selectedId)
+  const selectedCard = filteredCards[selectedIndex]
   const resetFilters = () => {
     setQuery('')
     setCardType('all')
     setArchetype('all')
+  }
+
+  if (showSideMenus) {
+    return (
+      <Suspense fallback={<div className="card-catalog catalog-loading" role="status">サイドメニュー図鑑を準備しています…</div>}>
+        <SideMenuStudio onBack={() => {
+          returningFromSideMenu.current = true
+          setShowSideMenus(false)
+        }} />
+      </Suspense>
+    )
   }
 
   return (
@@ -92,7 +224,11 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <div className="catalog-content">
-        <p className="catalog-intro">お気に入りの一皿を見つけて、デッキづくりの参考に。</p>
+        <nav className="catalog-sections" aria-label="図鑑の種類">
+          <span aria-current="page">寿司カード <small>{CARDS.length}種</small></span>
+          <button ref={sideMenuButton} type="button" onClick={() => setShowSideMenus(true)}>サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small><span aria-hidden="true">↗</span></button>
+        </nav>
+        <p className="catalog-intro">お気に入りの一皿を、立体でじっくり。<br />「3Dで見る」から寿司を回して眺めながら、デッキづくりの参考に。</p>
         <section className="catalog-filters" aria-label="カードを探す">
           <label className="catalog-search">
             <span>カードを検索</span>
@@ -130,7 +266,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
 
         {filteredCards.length > 0 ? (
           <div className="catalog-grid">
-            {filteredCards.map(card => <CatalogCard key={card.id} card={card} />)}
+            {filteredCards.map(card => <CatalogCard key={card.id} card={card} onView={() => setSelectedId(card.id)} />)}
           </div>
         ) : (
           <div className="catalog-empty">
@@ -140,6 +276,18 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
       </div>
+      {selectedCard && (
+        <ModelDialog
+          card={selectedCard}
+          index={selectedIndex}
+          count={filteredCards.length}
+          onNavigate={offset => {
+            const nextCard = filteredCards[selectedIndex + offset]
+            if (nextCard) setSelectedId(nextCard.id)
+          }}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </main>
   )
 }
