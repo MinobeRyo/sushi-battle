@@ -22,13 +22,14 @@ function rejected(state, id, reason, at = now) {
   assert.deepEqual(state, before)
 }
 
-test('全6品は300円で、3Dと共通のIDだけを受け付ける', () => {
-  assert.deepEqual(SIDE_MENUS.map(menu => menu.id), ['karaage', 'fries', 'tempura', 'ramen', 'miso', 'chawanmushi'])
+test('全7品を共通IDで扱い、インバウン丼だけ500円で提供する', () => {
+  assert.deepEqual(SIDE_MENUS.map(menu => menu.id), ['karaage', 'fries', 'tempura', 'ramen', 'miso', 'chawanmushi', 'inbound_don'])
   for (const menu of SIDE_MENUS) {
-    assert.equal(menu.price, 300)
+    assert.equal(menu.price, menu.id === 'inbound_don' ? 500 : 300)
     assert.equal(SIDE_MENU_BY_ID[menu.id], menu)
     assert.equal(isSideMenuId(menu.id), true)
   }
+  assert.equal(SIDE_MENU_BY_ID.inbound_don.name, 'インバウン丼')
   for (const id of ['potato', 'aosa', '__proto__', 'constructor', {}, null]) assert.equal(isSideMenuId(id), false)
 })
 
@@ -64,6 +65,17 @@ test('締切ちょうど・完了済み・残金不足を拒否する', () => {
   rejected(completeDraft(fresh()).state, 'miso', 'completed')
   rejected(createDraftState(299, 90, now), 'miso', 'budget')
   assert.equal(purchaseSideMenu(createDraftState(300, 90, now), 'miso', now).state.budget, 0)
+})
+
+test('インバウン丼は499円で拒否し、500円ちょうどで購入して二重購入を防ぐ', () => {
+  rejected(createDraftState(499, 90, now), 'inbound_don', 'budget')
+  const result = purchaseSideMenu(createDraftState(500, 90, now), 'inbound_don', now)
+  assert.equal(result.accepted, true)
+  assert.equal(result.state.budget, 0)
+  assert.equal(result.state.sideMenu, 'inbound_don')
+  rejected(result.state, 'inbound_don', 'side_menu_owned')
+  rejected(result.state, 'miso', 'side_menu_owned')
+  assert.equal(completeDraft(result.state).state.sideMenu, 'inbound_don')
 })
 
 test('未知のIDを拒否し、価格などを含むオブジェクトも信用しない', () => {

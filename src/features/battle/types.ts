@@ -28,7 +28,8 @@ export type BattleView = {
   pThisTurnArch: Record<string, number>
   pDigestStopTurns: number
   pApNextBonus: number   // 次のターンだけのAPボーナス
-  pNikuMatsuri: boolean  // このターン肉祭りが発動中か（終盤強化ボーナス×2）
+  pNikuMatsuri: boolean  // このターンに肉祭りが発動済みか
+  pSacrificedThisTurn: number
   pKiretaSpent: boolean  // コハダで切れ味を使い切ったか（実際のリセットはターン終了時）
   // この端末から見た相手側（ローカル対戦用）
   cHandCount: number; cField: FieldCard[]; cDeckCount: number
@@ -43,6 +44,7 @@ export type BattleView = {
   cDigestStopTurns: number
   cApNextBonus: number
   cNikuMatsuri: boolean
+  cSacrificedThisTurn: number
   cKiretaSpent: boolean
   // Game
   activePlayer: 1 | 2

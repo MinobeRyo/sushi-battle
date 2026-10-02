@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { SushiArt } from '../../components/SushiArt'
-import { CARDS } from '../../data/cards'
+import { CARDS, GENERATED_CARDS } from '../../data/cards'
 import { SIDE_MENU_CATALOG } from '../side-menu/sideMenuCatalog'
 import type { Archetype, Card, CardType } from '../../types'
 import { EFFECT_FULL } from '../battle/battlePresentation'
@@ -8,6 +8,9 @@ import './CardCatalogScreen.css'
 
 const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
 const SideMenuStudio = lazy(() => import('../side-menu/SideMenuStudio'))
+const CATALOG_CARDS = [...CARDS, ...GENERATED_CARDS]
+const GENERATED_IDS = new Set(GENERATED_CARDS.map(card => card.id))
+const generatedNote = '牛タン寿司・ローストビーフ寿司の効果で机に生成されます。購入・デッキ編成はできません。机の8枠を使い、カルビ寿司・和牛にぎりの生贄にできます。'
 
 const ARCHETYPES: Record<Archetype, string> = {
   general: '汎用',
@@ -26,11 +29,13 @@ function normalizeSearch(value: string) {
 }
 
 function cardEffect(card: Card) {
+  if (GENERATED_IDS.has(card.id)) return generatedNote
   return card.effect ? EFFECT_FULL[card.effect] ?? '効果の説明は準備中です' : '特殊効果なし'
 }
 
 function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
   const isPersist = card.type === 'persist'
+  const generated = GENERATED_IDS.has(card.id)
   const bases = [card.base, ...card.subBases ?? []].join('・')
 
   return (
@@ -43,14 +48,15 @@ function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
           <span className="catalog-card-type">{isPersist ? '持続型' : '即時型'}</span>
           <h2 id={`catalog-${card.id}`}>{card.name}</h2>
           <div className="catalog-card-tags">
+            {generated && <span className="catalog-generated-tag">生成専用</span>}
             {card.archetype.map(archetype => <span key={archetype}>{ARCHETYPES[archetype]}</span>)}
           </div>
         </div>
       </div>
 
       <dl className="catalog-card-stats">
-        <div><dt>価格</dt><dd>¥{card.price}</dd></div>
-        <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
+        <div><dt>価格</dt><dd>{generated ? '購入不可' : `¥${card.price}`}</dd></div>
+        <div><dt>消費AP</dt><dd>{generated ? '—' : card.cost}</dd></div>
         <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
         <div><dt>滞在</dt><dd>{isPersist ? `${card.fullness}ターン` : '即時'}</dd></div>
       </dl>
@@ -82,7 +88,8 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
   const [view, setView] = useState<'angle' | 'top' | 'side'>('angle')
   const [zoom, setZoom] = useState(1)
   const [resetKey, setResetKey] = useState(0)
-  const number = String(CARDS.findIndex(item => item.id === card.id) + 1).padStart(3, '0')
+  const generated = GENERATED_IDS.has(card.id)
+  const number = String(CATALOG_CARDS.findIndex(item => item.id === card.id) + 1).padStart(3, '0')
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -144,11 +151,12 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
           <h2 id="catalog-model-title" aria-live="polite">{card.name}</h2>
           <div className="catalog-card-tags">
             <span>{card.type === 'persist' ? '持続型' : '即時型'}</span>
+            {generated && <span className="catalog-generated-tag">生成専用</span>}
             {card.archetype.map(value => <span key={value}>{ARCHETYPES[value]}</span>)}
           </div>
           <dl className="catalog-card-stats">
-            <div><dt>価格</dt><dd>¥{card.price}</dd></div>
-            <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
+            <div><dt>価格</dt><dd>{generated ? '購入不可' : `¥${card.price}`}</dd></div>
+            <div><dt>消費AP</dt><dd>{generated ? '—' : card.cost}</dd></div>
             <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
             <div><dt>滞在</dt><dd>{card.type === 'persist' ? `${card.fullness}ターン` : '即時'}</dd></div>
           </dl>
@@ -157,7 +165,7 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
             <div><dt>ネタ</dt><dd>{[card.base, ...card.subBases ?? []].join('・')}</dd></div>
             <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
           </dl>
-          <p className="catalog-model-note">レーンを流れる寿司と同じ3Dモデルです。<br />数値は強化前の基本値です。</p>
+          <p className="catalog-model-note">{generated ? '生ハムはカードの効果で生成される専用の寿司です。' : 'レーンを流れる寿司と同じ3Dモデルです。'}<br />数値は強化前の基本値です。</p>
         </section>
       </div>
       <footer className="catalog-model-footer">
@@ -184,7 +192,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
     }
   }, [showSideMenus])
   const searchTerms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean)
-  const filteredCards = CARDS.filter(card => {
+  const filteredCards = CATALOG_CARDS.filter(card => {
     if (cardType !== 'all' && card.type !== cardType) return false
     if (archetype !== 'all' && !card.archetype.includes(archetype)) return false
     const searchText = normalizeSearch([
@@ -219,16 +227,16 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
         <div className="catalog-header-inner">
           <button type="button" className="catalog-back" onClick={onBack}>← タイトルへ</button>
           <h1 id="catalog-title">寿司カード図鑑</h1>
-          <span className="catalog-total">全{CARDS.length}種</span>
+          <span className="catalog-total">全{CATALOG_CARDS.length}種</span>
         </div>
       </header>
 
       <div className="catalog-content">
         <nav className="catalog-sections" aria-label="図鑑の種類">
-          <span aria-current="page">寿司カード <small>{CARDS.length}種</small></span>
+          <span aria-current="page">寿司カード <small>{CATALOG_CARDS.length}種</small></span>
           <button ref={sideMenuButton} type="button" onClick={() => setShowSideMenus(true)}>サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small><span aria-hidden="true">↗</span></button>
         </nav>
-        <p className="catalog-intro">お気に入りの一皿を、立体でじっくり。<br />「3Dで見る」から寿司を回して眺めながら、デッキづくりの参考に。</p>
+        <p className="catalog-intro">お気に入りの一皿を、立体でじっくり。<br />「3Dで見る」から寿司を回して眺めながら、デッキづくりの参考に。生成専用の寿司は、カードの効果でのみ登場します。</p>
         <section className="catalog-filters" aria-label="カードを探す">
           <label className="catalog-search">
             <span>カードを検索</span>
@@ -259,10 +267,10 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
         </section>
 
         <div className="catalog-results-bar">
-          <p role="status">{filteredCards.length} / {CARDS.length}種を表示</p>
+          <p role="status">{filteredCards.length} / {CATALOG_CARDS.length}種を表示</p>
           {hasFilters && <button type="button" onClick={resetFilters}>条件をリセット</button>}
         </div>
-        <p className="catalog-guide">APは召喚に必要な食欲ポイントです。数値は強化前の基本値です。</p>
+        <p className="catalog-guide">APは召喚に必要な食欲ポイントです。生成専用カードは購入できず、APを使わずに効果で机へ出ます。数値は強化前の基本値です。</p>
 
         {filteredCards.length > 0 ? (
           <div className="catalog-grid">

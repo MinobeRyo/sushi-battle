@@ -80,10 +80,10 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
   const game: BattleController = {
     s: toOnlineBattleView(match, phase), showLog, setShowLog,
     comboAnim, floats: [], inspect: currentInspect, setInspect, reorderStep: 'p',
-    playCard: card => {
+    playCard: (card, sacrificeCount = 0) => {
       if (!canAct || !('instanceId' in card) || typeof card.instanceId !== 'string') return
       setInspect(null)
-      void room.playCard(card.instanceId)
+      void room.playCard(card.instanceId, sacrificeCount)
     },
     endTurn: () => { if (canAct) { setInspect(null); void room.endTurn() } },
     useSideMenu: () => { if (canAct) { setInspect(null); void room.useSideMenu() } },

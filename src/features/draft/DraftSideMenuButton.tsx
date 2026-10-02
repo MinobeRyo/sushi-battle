@@ -1,4 +1,4 @@
-import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
+import { SIDE_MENUS, SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
 import { SideMenuArt } from '../side-menu/SideMenuArt'
 import './DraftSideMenuButton.css'
 
@@ -10,7 +10,7 @@ export function DraftSideMenuButton({ sideMenu, enabled = false, disabled = fals
   className?: string
 }) {
   const name = sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'
-  const detail = sideMenu ? '購入済み · 専用1枠' : enabled ? '全6品 · 300円 · 1品だけ' : '追加購入はできません'
+  const detail = sideMenu ? '購入済み · 専用1枠' : enabled ? `全${SIDE_MENUS.length}品 · 300〜500円 · 1品だけ` : '追加購入はできません'
   return <button type="button" className={`draft-side-menu-button ${className}`} disabled={disabled} onClick={onClick}
     aria-haspopup="dialog" aria-label={`${name}。${detail}。サイドメニューを開く`}>
     <SideMenuArt id={sideMenu ?? 'ramen'} />

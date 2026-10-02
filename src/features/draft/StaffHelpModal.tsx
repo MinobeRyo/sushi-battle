@@ -2,28 +2,39 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import { SideMenuArt } from '../side-menu/SideMenuArt'
-import { getCardById } from '../../data/cards'
+import { GENERATED_CARDS, getCardById } from '../../data/cards'
 import { SIDE_MENUS } from '../../data/sideMenus'
 import { COMBO_META, GUNKAN_BOOST, MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED } from '../battle/battleEngine'
 import './StaffHelpModal.css'
 
 // ─── 遊び方のお品書き（ビルド・コンボ・サイドメニュー） ──────────────────
 
+const getHelpCard = (id: string) => getCardById(id) ?? GENERATED_CARDS.find(card => card.id === id)
+
 const HELP_SPREADS = [
   {
+    kind: 'builds', sideMenuOffset: 0,
     title: '寿司の系統', footer: '基本のお品書き',
     running: ['赤身・巻物・光り物', '海鮮・肉寿司・汎用'],
     intro: ['同じ系統を集めてデッキに軸を。', '系統はカード左上のラベルで確認。'],
   },
   {
+    kind: 'combos', sideMenuOffset: 0,
     title: '名物合わせ盛り', footer: '合わせ技のお品書き',
     running: ['赤身と巻物の組み合わせ', '光り物・海鮮・肉寿司の組み合わせ'],
     intro: ['巻物には軍艦も含みます。', '条件を揃えるとコンボ（役）が発動。'],
   },
-  {
+  ...Array.from({ length: Math.ceil(SIDE_MENUS.length / 6) }, (_, index) => ({
+    kind: 'sideMenus', sideMenuOffset: index * 6,
     title: 'サイドメニュー', footer: 'もう一品のお品書き',
-    running: ['揚げ物の一品', '麺・汁物・蒸し物'],
-    intro: ['初回のレーン・タブレットで1品まで。変更・追加購入はできません。', '寿司20枚・特急3回とは別枠。自分のターンに0APで設置・使用。'],
+    running: index === 0 ? ['揚げ物の一品', '麺・汁物・蒸し物'] : ['こだわりの一品', '注文と使い方'],
+    intro: ['初回のレーン・タブレットで1品まで。価格は各品に記載。', '寿司20枚・特急3回とは別枠。自分のターンに0APで設置・使用。'],
+  })),
+  {
+    kind: 'meat', sideMenuOffset: 0,
+    title: '肉寿司と生ハム', footer: '肉寿司のお品書き',
+    running: ['生ハムを用意する', '生贄で攻撃を強める'],
+    intro: ['生成した生ハムも机の8枠を使います。', '生贄の数は召喚時に選べます。'],
   },
 ]
 
@@ -32,7 +43,7 @@ const BUILD_GUIDE = [
   { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
   { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'サバ・アジなどで切れ味を貯め、攻撃や効果に使います。' },
   { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
-  { label: '肉寿司', cardId: 'wagyu', specialty: '終盤の主役', desc: '相手のお腹が増えるほど強まるカードが多く、終盤が得意。' },
+  { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '牛タン・ローストビーフで生ハムを作り、カルビ・和牛の生贄にして攻撃を強化。' },
   { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃やドローで支えます。' },
 ]
 
@@ -66,11 +77,20 @@ const COMBO_GUIDE = [
     note: 'ペアは1枚1回。成立後も机に残ります。',
   },
   {
-    id: 'niku_matsuri', timing: '各ターンに1回', cards: ['wagyu', 'yakiniku'],
-    cond: '同じターンに肉寿司を2枚召喚。',
-    effect: 'そのターン、肉寿司の終盤強化 ×2。',
-    note: '相手のお腹による攻撃の増加分だけ2倍。',
+    id: 'niku_matsuri', timing: '各ターンに1回', cards: ['namahamu', 'karubi', 'wagyu'],
+    cond: '同じターンに生ハムを合計2体生贄に。',
+    effect: '即時5ダメージ。ガリでは防げません。',
+    note: 'カルビ・和牛で使った合計。次のターンには再発動できます。',
   },
+]
+
+const MEAT_GUIDE = [
+  { cardId: 'gyutan', title: '牛タン寿司', timing: '2AP・攻撃5', desc: '召喚時、生ハムを1体生成。', note: '寿司を置いた後の空き枠だけ生成します。' },
+  { cardId: 'roast_beef', title: 'ローストビーフ寿司', timing: '4AP・攻撃10', desc: '召喚時、生ハムを最大2体生成。', note: '空きが1枠なら1体、0枠なら生成なし。' },
+  { cardId: 'namahamu', title: '生ハム', timing: '攻撃1・3ターン持続', desc: '生成したターンを含む自分の3ターン攻撃。', note: '生成専用。購入やデッキ編成はできません。' },
+  { cardId: 'karubi', title: 'カルビ寿司', timing: '3AP・攻撃9', desc: '生ハムを0〜1体生贄に。1体で攻撃＋7。', note: '強化は召喚したターンだけ有効です。' },
+  { cardId: 'wagyu', title: '和牛にぎり', timing: '4AP・攻撃12', desc: '生ハムを0〜2体生贄に。1体につき攻撃＋8。', note: '生贄なしでも召喚できます。' },
+  { cardId: 'namahamu', title: '生贄の選び方', timing: '召喚時に数を選択', desc: '古い生ハムから退場し、机の枠が空きます。', note: '机が満杯でも、生贄で枠を空ければ召喚可能。' },
 ]
 
 export function StaffHelpModal({ onClose }: { onClose: () => void }) {
@@ -151,10 +171,10 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                         <h2 id={`${pageId}-${side}-heading`}>{currentSpread.title}</h2>
                         <p className="help-menu-intro">{currentSpread.intro[side]}</p>
                       </header>
-                      {spread === 0 ? (
+                      {currentSpread.kind === 'builds' ? (
                         <div className="help-menu-builds">
                           {BUILD_GUIDE.slice(side * 3, side * 3 + 3).map((build) => {
-                            const card = getCardById(build.cardId)
+                            const card = getHelpCard(build.cardId)
                             return (
                               <article className="help-menu-build" key={build.label}>
                                 <div className="help-menu-dish">
@@ -167,12 +187,12 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                             )
                           })}
                         </div>
-                      ) : spread === 1 ? (
+                      ) : currentSpread.kind === 'combos' ? (
                         <div className="help-menu-combo-list">
                           {COMBO_GUIDE.slice(side * 3, side * 3 + 3).map((combo) => (
                             <article className="help-menu-combo" key={combo.id}>
                               <div className="help-menu-platter" aria-hidden="true">{combo.cards.map((cardId) => {
-                                const card = getCardById(cardId)
+                                const card = getHelpCard(cardId)
                                 return card ? <SushiArt key={cardId} card={card} size="100%" /> : null
                               })}</div>
                               <div className="help-menu-combo-heading">
@@ -185,9 +205,9 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                             </article>
                           ))}
                         </div>
-                      ) : (
+                      ) : currentSpread.kind === 'sideMenus' ? (
                         <div className="help-menu-combo-list">
-                          {SIDE_MENUS.slice(side * 3, side * 3 + 3).map((menu) => (
+                          {SIDE_MENUS.slice(currentSpread.sideMenuOffset + side * 3, currentSpread.sideMenuOffset + side * 3 + 3).map((menu) => (
                             <article className="help-menu-combo help-menu-side" key={menu.id}>
                               <div className="help-menu-platter" aria-hidden="true"><SideMenuArt id={menu.id} /></div>
                               <div className="help-menu-combo-heading">
@@ -198,10 +218,43 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                               <p className="help-menu-note">{menu.timing}</p>
                             </article>
                           ))}
+                          {currentSpread.sideMenuOffset + side * 3 >= SIDE_MENUS.length && (
+                            <>
+                              <article className="help-menu-combo">
+                                <h3>専用の一枠</h3>
+                                <p className="help-menu-description">初回注文で1品だけ。購入後の交換や追加注文はできません。</p>
+                              </article>
+                              <article className="help-menu-combo">
+                                <h3>自分の手番に</h3>
+                                <p className="help-menu-description">0APで使用・設置。寿司の机8枠を使いません。</p>
+                              </article>
+                              <article className="help-menu-combo">
+                                <h3>肉寿司のお供に</h3>
+                                <p className="help-menu-description">インバウン丼は肉丼ウニのせ。自分の生ハムと生贄による強化を支えます。</p>
+                              </article>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="help-menu-combo-list">
+                          {MEAT_GUIDE.slice(side * 3, side * 3 + 3).map((item) => {
+                            const card = getHelpCard(item.cardId)
+                            return (
+                              <article className="help-menu-combo" key={item.title}>
+                                <div className="help-menu-platter" aria-hidden="true">{card && <SushiArt card={card} size="100%" />}</div>
+                                <div className="help-menu-combo-heading">
+                                  <h3>{item.title}</h3>
+                                  <span className="help-menu-timing">{item.timing}</span>
+                                </div>
+                                <p className="help-menu-description">{item.desc}</p>
+                                <p className="help-menu-note">{item.note}</p>
+                              </article>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
-                    <div className="help-book-page-bottom"><span>{currentSpread.footer}</span><span>{['一', '二', '三', '四', '五', '六'][spread * 2 + side]}</span></div>
+                    <div className="help-book-page-bottom"><span>{currentSpread.footer}</span><span>{['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][spread * 2 + side] ?? spread * 2 + side + 1}</span></div>
                   </section>
                 ))}
                 {turn !== null && (

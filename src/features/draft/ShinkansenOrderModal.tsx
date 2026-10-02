@@ -80,12 +80,12 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
           {TABS.filter(tab => tab.id !== 'side_menu' || onOrderSideMenu).map(tab => <button key={tab.id} aria-pressed={category === tab.id} onClick={() => { setCategory(tab.id); setPage(0) }}>{tab.label}<span>›</span></button>)}
         </nav>
         <main className="order-menu-main">
-          <div className="order-menu-heading"><div><p>{isSideMenu ? '全6品・各300円' : '握りたてを、あなたのお席へ。'}</p><h2 id="order-menu-heading">{label}</h2></div>
+          <div className="order-menu-heading"><div><p>{isSideMenu ? `全${SIDE_MENUS.length}品・300〜500円` : '握りたてを、あなたのお席へ。'}</p><h2 id="order-menu-heading">{label}</h2></div>
             {isSideMenu ? <div className="order-side-budget"><span>残高</span><strong>¥{budget.toLocaleString()}</strong></div> : <span>商品を押すと注文が確定します</span>}
           </div>
           {isSideMenu ? <>
             <div className="order-side-shop-notice" role="status">{sideMenu ? <><strong>購入済み：{SIDE_MENU_BY_ID[sideMenu].name}</strong><span>1試合に1品まで。交換はできません。</span></> : !sideMenuEnabled ? <><strong>初期購入限定</strong><span>追加注文では購入できません。</span></> : <><strong>1試合に1品</strong><span>寿司とは別枠・自分のターンに0APで使用</span></>}</div>
-            <div className="order-side-products" aria-label="サイドメニュー6品">
+            <div className="order-side-products" aria-label={`サイドメニュー${SIDE_MENUS.length}品`}>
               {SIDE_MENUS.map(dish => {
                 const reason = sideMenu ? sideMenu === dish.id ? '購入済み' : '追加不可' : !sideMenuEnabled ? '初期購入限定' : disabled ? '確認中…' : budget < dish.price ? '残高不足' : undefined
                 return <SideMenuCard key={dish.id} id={dish.id} price={dish.price} presentation="shop"

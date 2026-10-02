@@ -1,5 +1,5 @@
 import type { Card } from '../types'
-import { CARDS } from '../data/cards'
+import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import type { FieldCard, PlayerId, RandomSource } from './types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -39,7 +39,8 @@ export const OBA_REQUIRED = 3 // 光り物三昧: 大葉トッピングの累計
 
 const KIRETA_MULT = 3 // コハダ: 切れ味全消費 ×この倍率
 
-const NIKU_REQUIRED = 2 // 肉祭り: 同ターンの肉寿司召喚数
+const NIKU_REQUIRED = 2 // 肉祭り: 同ターンに生贄にした生ハムの累計
+const NIKU_DAMAGE = 5
 
 export const REORDER_BUDGET = 1500 // 追加注文タイムの軍資金
 
@@ -97,7 +98,7 @@ export const COMBO_META: Record<string, ComboMeta> = {
   },
   niku_matsuri: {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
-    desc: 'このターン、肉寿司の終盤強化ボーナス×2',
+    desc: '同じターンに生ハムを累計2体生贄にすると、即時+5ダメージ（1ターンに1回）',
   },
 }
 
@@ -118,7 +119,7 @@ export function shuffled<T>(arr: T[], random: RandomSource = Math.random): T[] {
 }
 
 type DmgOpts = {
-  nikuMatsuri?: boolean   // 肉祭り: そのターンの終盤強化ボーナスを2倍
+  nikuMatsuri?: boolean   // 既存表示APIとの互換用。肉祭りは召喚時の即時ダメージだけ。
   gunkanBoost?: boolean   // 巻物コンプ②: 未指定なら渡された field から判定する
 }
 
@@ -143,7 +144,6 @@ export function calcFieldDmg(
       case 'belly_boost_65': if (enemyBelly >= 65) effectBonus = 6; break
       case 'belly_boost_persist_50': if (enemyBelly >= 50) effectBonus = 2; break
     }
-    if (opts.nikuMatsuri) effectBonus *= 2
     let total = base + kiretaBonus + effectBonus
     if (gunkanBoost && c.archetype.includes('gunkan')) {
       total = Math.floor(total * GUNKAN_BOOST)
@@ -153,6 +153,26 @@ export function calcFieldDmg(
 }
 
 // ── 召喚処理（プレイヤー / CPU 共通の純関数） ────────────────────────────────
+
+export function getSacrificeLimit(card: Card): number {
+  return card.effect === 'sacrifice_namahamu_1_7' ? 1 : card.effect === 'sacrifice_namahamu_2_8' ? 2 : 0
+}
+
+export function getSacrificeBonus(card: Card): number {
+  return card.effect === 'sacrifice_namahamu_1_7' ? 7 : card.effect === 'sacrifice_namahamu_2_8' ? 8 : 0
+}
+
+export function countNamahamu(field: FieldCard[]): number {
+  return field.filter(card => card.id === NAMAHAM_CARD.id).length
+}
+
+export function getSacrificeError(card: Card, field: FieldCard[], count: unknown = 0): string | undefined {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 0 || count > getSacrificeLimit(card)) {
+    return 'invalid_sacrifice_count'
+  }
+  if (count > countNamahamu(field)) return 'not_enough_namahamu'
+  return undefined
+}
 
 type SummonInput = {
   fieldId?: string
@@ -168,12 +188,16 @@ type SummonInput = {
   attackBuff: Record<string, number>
   drawBonus: number
   nikuMatsuri: boolean
+  sacrificedThisTurn?: number
+  sacrificeCount?: number
+  sacrificeAttackBonus?: number
   kiretaSpent: boolean
   enemyBelly: number
   turnAttackBonus?: number
 }
 
-type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId'> & {
+type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount' | 'sacrificeAttackBonus'> & {
+  sacrificedThisTurn: number
   extraDmg: number
   stopOppDigest: boolean
   drawNow: number   // 召喚時ドロー枚数
@@ -184,6 +208,9 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId'> & {
 
 export function applySummon(input: SummonInput): SummonResult {
   const { card, enemyBelly } = input
+  const sacrificeCount = input.sacrificeCount ?? 0
+  const sacrificeError = getSacrificeError(card, input.field, input.sacrificeCount)
+  if (sacrificeError) throw new RangeError(sacrificeError)
   const logs: string[] = []
   let extraDmg = 0
   let belly = input.belly
@@ -255,9 +282,31 @@ export function applySummon(input: SummonInput): SummonResult {
       break
   }
 
+  // 机の配列順は生成された順。古い生ハムから取り除いて召喚枠を空ける。
+  let remainingSacrifices = sacrificeCount
+  const remainingField = input.field.filter(item => {
+    if (remainingSacrifices > 0 && item.id === NAMAHAM_CARD.id) {
+      remainingSacrifices -= 1
+      return false
+    }
+    return true
+  })
+  const sacrificedThisTurn = (input.sacrificedThisTurn ?? 0) + sacrificeCount
   const summonedCard = toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)
-  if (input.turnAttackBonus) summonedCard.turnAttackBonus = input.turnAttackBonus
-  let field = [...input.field, summonedCard]
+  const sacrificeBonus = sacrificeCount * (getSacrificeBonus(card) + (input.sacrificeAttackBonus ?? 0))
+  const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeBonus
+  if (attackBonus) summonedCard.turnAttackBonus = attackBonus
+  if (sacrificeCount) logs.push(`生ハム${sacrificeCount}体を生贄にして、${card.name}の攻撃 +${sacrificeBonus}`)
+  let field = [...remainingField, summonedCard]
+  const generateCount = card.effect === 'generate_namahamu_1' ? 1 : card.effect === 'generate_namahamu_2' ? 2 : 0
+  if (generateCount) {
+    const actualCount = Math.min(generateCount, Math.max(0, FIELD_MAX - field.length))
+    for (let index = 0; index < actualCount; index++) {
+      field.push(toField(NAMAHAM_CARD, `${summonedCard.fid}:namahamu:${index + 1}`))
+    }
+    if (actualCount) logs.push(`生ハム${actualCount}体を机に生成（基本攻撃1・自分の3ターン）`)
+    if (actualCount < generateCount) logs.push(`机の空き枠が足りず、生ハム${generateCount - actualCount}体を生成できませんでした`)
+  }
 
   // このカードが名乗る base 一覧（太巻きは subBases も含む）
   const cardBases = [card.base, ...(card.subBases ?? [])]
@@ -341,9 +390,10 @@ export function applySummon(input: SummonInput): SummonResult {
     }
   }
 
-  // 肉祭り（同ターンに肉寿司2枚・そのターンに1回・ターンをまたげば何度でも）
-  if (!nikuMatsuri && (thisTurnArch['niku'] ?? 0) >= NIKU_REQUIRED) {
+  // 肉祭りは生贄の累計で判定し、通常攻撃への倍率は付けない。
+  if (!nikuMatsuri && sacrificeCount > 0 && sacrificedThisTurn >= NIKU_REQUIRED) {
     nikuMatsuri = true
+    extraDmg += NIKU_DAMAGE
     announce(COMBO_META.niku_matsuri)
   }
 
@@ -355,7 +405,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 type Point = [number, number, number]
@@ -346,5 +346,187 @@ export function ChawanmushiModel() {
       <Ring radius={0.26} y={0.218} color="#597d83" thickness={0.008} />
       <Ring radius={0.062} y={0.292} color="#597d83" thickness={0.009} />
     </group>
+  </group>
+}
+
+function RoastBeefSlice({ position, rotation, index }: { position: Point; rotation: number; index: number }) {
+  const shape = useMemo(() => {
+    const slice = new THREE.Shape()
+    slice.moveTo(-0.18, -0.35)
+    slice.bezierCurveTo(-0.3, -0.25, -0.27, 0.01, -0.24, 0.19)
+    slice.bezierCurveTo(-0.21, 0.39, -0.07, 0.43, 0.1, 0.36)
+    slice.bezierCurveTo(0.29, 0.3, 0.26, 0.09, 0.23, -0.13)
+    slice.bezierCurveTo(0.21, -0.35, 0.03, -0.43, -0.18, -0.35)
+    return slice
+  }, [])
+  return <group position={position} rotation={[0.025 + (index % 3) * 0.025, rotation, -0.055]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+      <extrudeGeometry args={[shape, { depth: 0.013, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, steps: 1 }]} />
+      <meshPhysicalMaterial color="#744b3d" roughness={0.59} clearcoat={0.15} />
+    </mesh>
+    <mesh position={[0, 0.019, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.95, 0.965, 1]} receiveShadow>
+      <shapeGeometry args={[shape, 24]} />
+      <meshPhysicalMaterial color={index % 2 ? '#bd4550' : '#cf5860'} roughness={0.49} clearcoat={0.24} side={THREE.DoubleSide} />
+    </mesh>
+    {[-2, -1, 0, 1, 2].map(i => <FoodCurve key={i}
+      points={[[-0.17, 0.024, i * 0.105 - 0.03], [-0.075, 0.025, i * 0.105 + 0.015], [0.05, 0.025, i * 0.105 - 0.012], [0.18, 0.024, i * 0.105 + 0.03]]}
+      color={i % 2 ? '#df8b8c' : '#e9a2a1'} radius={0.003} />)}
+  </group>
+}
+
+/** 平たい二房の生ウニ。波打つ縁と細かな起伏を頂点で作り、丸い塊にしません。 */
+function UniLobe({ position, rotation, index, scale = 1 }: { position: Point; rotation: number; index: number; scale?: number }) {
+  const geometry = useMemo(() => {
+    const rows = 32, columns = 20
+    const positions: number[] = [], colors: number[] = [], indices: number[] = []
+    const shade = new THREE.Color()
+    const length = 0.51 + (index % 4) * 0.035
+    const width = 0.13 + (index % 3) * 0.01
+    const layerSize = (rows + 1) * (columns + 1)
+    for (let layer = 0; layer < 2; layer++) {
+      for (let row = 0; row <= rows; row++) {
+        const t = row / rows
+        // 先端は細く尖らせ、左右の肉を中央の裂け溝で分けます。
+        const taper = Math.pow(Math.sin(Math.PI * t), 0.67)
+        const bend = Math.sin(t * Math.PI + index * 1.7) * 0.029
+        for (let column = 0; column <= columns; column++) {
+          const u = column / columns * 2 - 1
+          const edge = 1 + 0.075 * Math.sin(t * 31 + index) + 0.045 * Math.cos(t * 61 + index)
+          const mound = 0.065 * Math.pow(Math.max(0, 1 - u * u), 0.55)
+          const crease = 0.038 * Math.exp(-Math.pow((u - 0.035 * Math.sin(t * 16)) / 0.19, 2))
+          const wrinkle = 0.003 * Math.sin(t * 93 + u * 11 + index) + 0.0016 * Math.cos(t * 137 - u * 37)
+          const y = layer === 0 ? (0.018 + mound - crease + wrinkle) * taper : -0.015 * taper
+          positions.push(u * width * taper * edge + bend, y + Math.sin(t * 8 + index) * 0.007 * taper, (t - 0.5) * length)
+          // sRGB の橙色をリニアへ変換してから頂点色に使い、照明下の白飛びを抑えます。
+          shade.set(['#e77505', '#ed8109', '#d76504', '#df7206'][index % 4])
+          shade.multiplyScalar(0.93 + 0.065 * Math.abs(u) + 0.018 * Math.sin(t * 39 + column))
+          colors.push(shade.r, shade.g, shade.b)
+        }
+      }
+    }
+    for (let row = 0; row < rows; row++) {
+      for (let column = 0; column < columns; column++) {
+        const a = row * (columns + 1) + column, b = a + columns + 1
+        indices.push(a, b, a + 1, a + 1, b, b + 1)
+        indices.push(a + layerSize, a + 1 + layerSize, b + layerSize, a + 1 + layerSize, b + 1 + layerSize, b + layerSize)
+      }
+    }
+    const perimeter = [
+      ...Array.from({ length: columns + 1 }, (_, i) => i),
+      ...Array.from({ length: rows }, (_, i) => (i + 1) * (columns + 1) + columns),
+      ...Array.from({ length: columns }, (_, i) => rows * (columns + 1) + columns - 1 - i),
+      ...Array.from({ length: rows - 1 }, (_, i) => (rows - 1 - i) * (columns + 1)),
+    ]
+    for (let i = 0; i < perimeter.length; i++) {
+      const a = perimeter[i], b = perimeter[(i + 1) % perimeter.length]
+      indices.push(a, a + layerSize, b, b, a + layerSize, b + layerSize)
+    }
+    const result = new THREE.BufferGeometry()
+    result.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    result.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    result.setIndex(indices)
+    result.computeVertexNormals()
+    return result
+  }, [index])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <mesh geometry={geometry} position={position} rotation={[0.035 * Math.sin(index), rotation, 0.045 * Math.cos(index)]} scale={scale} castShadow receiveShadow>
+    <meshPhysicalMaterial vertexColors roughness={0.49} clearcoat={0.22} clearcoatRoughness={0.4} side={THREE.DoubleSide} />
+  </mesh>
+}
+
+const DON_BOWL: [number, number][] = [
+  [0, 0.04], [0.34, 0.04], [0.36, 0.075], [0.36, 0.13], [0.52, 0.19],
+  [0.7, 0.29], [0.88, 0.43], [1.02, 0.61], [1.04, 0.7], [1.035, 0.73],
+  [0.991, 0.73], [0.98, 0.645], [0.85, 0.47], [0.68, 0.33], [0.5, 0.23], [0, 0.2],
+]
+const DON_INNER: [number, number][] = [
+  [0.99, 0.73], [0.978, 0.649], [0.848, 0.474], [0.678, 0.334], [0.5, 0.233], [0, 0.205],
+]
+const DON_UNI: [number, number, number, number][] = [
+  [-0.72, -0.12, -0.28, 0.94], [-0.58, -0.36, 0.38, 0.97], [-0.41, -0.46, 0.9, 0.9],
+  [-0.7, 0.2, -0.42, 1], [-0.52, 0.05, 0.22, 1.08], [-0.31, -0.16, 0.66, 1.06],
+  [-0.56, 0.44, -0.74, 1.02], [-0.31, 0.32, 0.18, 1.02], [-0.11, 0.12, 0.48, 1],
+  [-0.32, 0.63, -1.05, 0.92], [-0.08, 0.53, -0.22, 1.05], [0.17, 0.44, 0.56, 1],
+  [0.11, 0.7, 1.28, 0.91], [0.37, 0.61, 0.76, 0.92], [0.52, 0.38, 0.46, 0.93],
+  [-0.43, 0.04, -0.12, 0.92], [-0.26, 0.45, -0.73, 0.96], [0.02, 0.34, 0.36, 0.9],
+]
+
+const DON_RICE_GRAINS = 1200
+
+function DonRice() {
+  const grains = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const mesh = grains.current
+    if (!mesh) return
+    const rand = random(507)
+    const grain = new THREE.Object3D()
+    const color = new THREE.Color()
+    for (let i = 0; i < DON_RICE_GRAINS; i++) {
+      const angle = i * 2.39996 + (rand() - 0.5) * 0.06
+      const radius = 0.886 * Math.sqrt((i + 0.5) / DON_RICE_GRAINS)
+      const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius
+      const mound = 0.6 + 0.125 * Math.sqrt(1 - (radius / 0.91) ** 2)
+      grain.position.set(x, mound + 0.005 + rand() * 0.005 + Math.sin(x * 12) * Math.cos(z * 9) * 0.003, z)
+      grain.rotation.set((rand() - 0.5) * 0.3, rand() * Math.PI + Math.sin(x * 9 + z * 5) * 0.3, (rand() - 0.5) * 0.3)
+      const size = 0.84 + rand() * 0.28
+      grain.scale.set((0.029 + rand() * 0.009) * size, (0.012 + rand() * 0.003) * size, (0.015 + rand() * 0.003) * size)
+      grain.updateMatrix()
+      mesh.setMatrixAt(i, grain.matrix)
+      color.set(['#f9f4e9', '#f2eddf', '#fffaf0', '#eee7db'][i % 4])
+      mesh.setColorAt(i, color)
+    }
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+  }, [])
+  return <>
+    <mesh position={[0, 0.6, 0]} scale={[0.91, 0.125, 0.91]} receiveShadow>
+      <sphereGeometry args={[1, 40, 16]} />
+      <meshStandardMaterial color="#e5ddcf" roughness={0.76} />
+    </mesh>
+    <instancedMesh ref={grains} args={[undefined, undefined, DON_RICE_GRAINS]} castShadow receiveShadow>
+      <sphereGeometry args={[1, 10, 6]} />
+      <meshPhysicalMaterial roughness={0.49} clearcoat={0.16} clearcoatRoughness={0.42} />
+    </instancedMesh>
+  </>
+}
+
+function IkuraPile() {
+  return <group position={[0.04, 0.856, -0.025]}>
+    {Array.from({ length: 38 }, (_, i) => {
+      const upper = i >= 26
+      const angle = i * 2.39996
+      const radius = (upper ? 0.19 : 0.285) * Math.sqrt(((upper ? i - 26 : i) + 0.5) / (upper ? 12 : 26))
+      return <group key={i} position={[Math.cos(angle) * radius, (upper ? 0.095 : 0.01) + Math.cos(i * 2) * 0.012, Math.sin(angle) * radius]}>
+        <mesh castShadow>
+          <sphereGeometry args={[0.066 + (i % 3) * 0.004, 16, 12]} />
+          <meshPhysicalMaterial color={i % 3 ? '#f46a16' : '#f17d1e'} roughness={0.12} clearcoat={1} clearcoatRoughness={0.08} transmission={0.28} thickness={0.12} ior={1.35} />
+        </mesh>
+        <mesh position={[0.008, 0.001, 0.01]}>
+          <sphereGeometry args={[0.032, 10, 8]} />
+          <meshStandardMaterial color="#d9430d" roughness={0.32} />
+        </mesh>
+      </group>
+    })}
+  </group>
+}
+
+/** 黒い浅丼に、薄切りの赤身肉、生ウニ、いくらを盛り付けます。 */
+export function InboundDonModel() {
+  return <group position={[0, -0.04, 0]}>
+    <Lathe points={DON_BOWL} color="#181a18" roughness={0.3} />
+    <Lathe points={DON_INNER} color="#d6ad55" roughness={0.35} />
+    <Ring radius={1.013} y={0.731} color="#d5b366" thickness={0.022} />
+    <Ring radius={0.355} y={0.075} color="#39362d" thickness={0.01} />
+    <DonRice />
+    {Array.from({ length: 8 }, (_, i) => {
+      const angle = -1.02 + i * 0.355
+      return <RoastBeefSlice key={i} position={[Math.sin(angle) * 0.54 + 0.11, 0.716 + i * 0.013, -Math.cos(angle) * 0.49 - 0.035]} rotation={-angle + 0.28} index={i} />
+    })}
+    {DON_UNI.map(([x, z, rotation, scale], i) => <UniLobe key={i} position={[x, 0.75 + Math.floor(i / 3) * 0.012, z]} rotation={rotation} index={i} scale={scale} />)}
+    <IkuraPile />
+    <MitsubaLeaf position={[-0.06, 1.02, -0.045]} rotation={-1.05} scale={0.68} />
+    <MitsubaLeaf position={[0.06, 1.026, -0.11]} rotation={0.3} scale={0.68} />
+    <MitsubaLeaf position={[0.17, 1.02, -0.04]} rotation={1.12} scale={0.6} />
   </group>
 }

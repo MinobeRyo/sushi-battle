@@ -3,8 +3,8 @@
 // 実行: node --import tsx scripts/test-side-menu-online.mjs
 import assert from 'node:assert/strict'
 import { createRoomService } from '../server/roomService.ts'
-import { applyDraftAction, createOnlineDraft } from '../server/onlineDraft.ts'
-import { SIDE_MENUS } from '../src/data/sideMenus.ts'
+import { applyDraftAction, createOnlineDraft, refreshOnlineDraft } from '../server/onlineDraft.ts'
+import { SIDE_MENUS, SIDE_MENU_BY_ID } from '../src/data/sideMenus.ts'
 import { ONLINE_LANES, sideMenuForBeltSlot } from '../src/game/draftOffers.ts'
 
 const realNow = Date.now
@@ -68,10 +68,10 @@ function test(name, run) {
 }
 
 try {
-  test('初期の汎用レーンは10皿中2皿がサイドで、3周に6品を順繰りに供給する', () => {
+  test('初期の汎用レーンは10皿中2皿がサイドで、全商品を順繰りに供給する', () => {
     const f = fixture()
     const seen = []
-    for (let generation = 0; generation < 3; generation++) {
+    for (let generation = 0; generation < Math.ceil(SIDE_MENUS.length / 2); generation++) {
       now = 1_000_000 + Math.ceil(generation * ONLINE_LANES.general.durationMs)
       const draft = f.read(f.host).draft
       const sides = draft.offers.filter(offer => offer.sideMenuId)
@@ -79,16 +79,16 @@ try {
       assert.equal(draft.offers.filter(offer => offer.lane === 'general').length, 10)
       assert.deepEqual(sides.map(offer => offer.slot), [3, 7])
       assert.ok(sides.every(offer => offer.lane === 'general' && offer.generation === generation && !('card' in offer)))
-      assert.deepEqual(sides.map(offer => offer.sideMenuId), SIDE_MENUS.slice(generation * 2, generation * 2 + 2).map(menu => menu.id))
+      assert.deepEqual(sides.map(offer => offer.sideMenuId), [0, 1].map(offset => SIDE_MENUS[(generation * 2 + offset) % SIDE_MENUS.length].id))
       for (const offer of sides) {
         assert.equal(sideMenuForBeltSlot(offer.lane, offer.slot, offer.generation, true), offer.sideMenuId)
         seen.push(offer.sideMenuId)
       }
       assert.ok(draft.offers.filter(offer => offer.lane === 'build').every(offer => offer.card))
     }
-    assert.deepEqual(seen, SIDE_MENUS.map(menu => menu.id))
-    assert.equal(sideMenuForBeltSlot('general', 3, 3, true), 'karaage')
-    assert.equal(sideMenuForBeltSlot('general', 7, 3, true), 'fries')
+    assert.deepEqual([...new Set(seen)], SIDE_MENUS.map(menu => menu.id))
+    assert.equal(sideMenuForBeltSlot('general', 3, SIDE_MENUS.length, true), SIDE_MENUS[0].id)
+    assert.equal(sideMenuForBeltSlot('general', 7, SIDE_MENUS.length, true), SIDE_MENUS[1].id)
     assert.equal(sideMenuForBeltSlot('general', 3, 0, false), null)
     assert.equal(sideMenuForBeltSlot('general', 2, 0, true), null)
     assert.equal(sideMenuForBeltSlot('build', 3, 0, true), null)
@@ -104,7 +104,7 @@ try {
     assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
     const after = f.read(f.host).draft
     assert.equal(after.you.sideMenu, offer.sideMenuId)
-    assert.equal(after.you.budget, before.you.budget - 300)
+    assert.equal(after.you.budget, before.you.budget - SIDE_MENU_BY_ID[offer.sideMenuId].price)
     assert.deepEqual(after.you.deck, before.you.deck)
     assert.equal(after.you.shinkansenLeft, before.you.shinkansenLeft)
     assert.equal(after.you.shinkansenPlate, null)
@@ -137,13 +137,13 @@ try {
     const sushi = player.offers.find(offer => offer.card).card
     player.state.deck = Array(20).fill(sushi)
     player.state.shinkansenPlate = { card: sushi, orderId: 'pending' }
-    player.state.budget = 299
+    player.state.budget = SIDE_MENU_BY_ID[offer.sideMenuId].price - 1
     const buy = () => applyDraftAction(draft, 1, {
       type: 'buy', offerId: offer.id, draftId: draft.id, expectedRevision: player.revision, actionId: `full-${++nextActionId}`,
     }, now)
     assert.deepEqual(buy(), { ok: false, error: 'draft_budget' })
     assert.equal(offer.sold, false)
-    player.state.budget = 300
+    player.state.budget = SIDE_MENU_BY_ID[offer.sideMenuId].price
     assert.deepEqual(buy(), { ok: true })
     assert.equal(player.state.budget, 0)
     assert.equal(player.state.deck.length, 20)
@@ -203,6 +203,44 @@ try {
     assert.equal('opponentSideMenu' in f.read(f.guest).draft, false)
   })
 
+  test('インバウン丼はサーバー定義の500円で購入し、偽価格・再送・二重購入で残金を変えない', () => {
+    const f = fixture()
+    const request = f.draftAction(f.host, { type: 'buy_side_menu', sideMenuId: 'inbound_don', price: 0 })
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', request), { ok: true })
+    const after = f.read(f.host).draft
+    assert.equal(after.you.sideMenu, 'inbound_don')
+    assert.equal(after.you.budget, 2500)
+    assert.equal(f.read(f.guest).draft.you.budget, 3000)
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', request), { ok: true })
+    assert.deepEqual(f.read(f.host).draft, after)
+    assert.deepEqual(f.buy(f.host, 'inbound_don'), { ok: false, error: 'draft_side_menu_owned' })
+  })
+
+  test('インバウン丼はレーン・専用枠とも499円で拒否し、500円ちょうどで購入できる', () => {
+    for (const source of ['belt', 'tablet']) {
+      const draft = createOnlineDraft('initial', now, () => 0.5)
+      const at = now + Math.ceil(Math.floor(SIDE_MENUS.findIndex(menu => menu.id === 'inbound_don') / 2) * ONLINE_LANES.general.durationMs)
+      refreshOnlineDraft(draft, at, () => 0.5)
+      const player = draft.players[1]
+      const offer = player.offers.find(offer => offer.sideMenuId === 'inbound_don')
+      assert.ok(offer)
+      const buy = () => applyDraftAction(draft, 1, {
+        ...(source === 'belt' ? { type: 'buy', offerId: offer.id } : { type: 'buy_side_menu', sideMenuId: 'inbound_don' }),
+        draftId: draft.id, expectedRevision: player.revision, actionId: `inbound-budget-${++nextActionId}`,
+      }, at)
+      player.state.budget = 499
+      const before = structuredClone(player.state)
+      assert.deepEqual(buy(), { ok: false, error: 'draft_budget' })
+      assert.deepEqual(player.state, before)
+      assert.equal(offer.sold, false)
+      player.state.budget = 500
+      assert.deepEqual(buy(), { ok: true })
+      assert.equal(player.state.budget, 0)
+      assert.equal(player.state.sideMenu, 'inbound_don')
+      assert.equal(offer.sold, source === 'belt')
+    }
+  })
+
   test('不正な商品ID・古いrevision・前回の購入IDはサーバーで拒否する', () => {
     const f = fixture()
     const before = f.read(f.host).draft
@@ -229,7 +267,7 @@ try {
     assert.equal(f.read(f.host).match.opponent.sideMenu, null)
   })
 
-  test('6品の購入状態を両者の対戦へ引き継ぎ、寿司の手札・山札には混ぜない', () => {
+  test('全商品の購入状態を両者の対戦へ引き継ぎ、寿司の手札・山札には混ぜない', () => {
     for (const menu of SIDE_MENUS) {
       const f = fixture()
       assert.deepEqual(f.buy(f.host, menu.id), { ok: true })

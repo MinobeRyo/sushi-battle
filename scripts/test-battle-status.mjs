@@ -14,7 +14,7 @@ const card = id => {
 }
 const side = (overrides = {}) => ({
   summonedIds: [], combosFired: [], field: [], attackBuff: {}, drawBonus: 0,
-  kiretaStack: 0, kiretaSpent: false, nikuMatsuri: false,
+  kiretaStack: 0, kiretaSpent: false, nikuMatsuri: false, sacrificedThisTurn: 0,
   digestStopTurns: 0, apNextBonus: 0, thisTurnArch: {}, ...overrides,
 })
 const effect = (player, id) => battleStatusDetails(player).effects.find(item => item.id === id)
@@ -43,8 +43,8 @@ const step = (state, action) => {
   }
   return result.state
 }
-const play = (state, id) => step(state, {
-  type: 'play_card', playerId: state.activePlayerId,
+const play = (state, id, sacrificeCount = 0) => step(state, {
+  type: 'play_card', playerId: state.activePlayerId, sacrificeCount,
   cardInstanceId: state.players[state.activePlayerId].hand.find(c => c.id === id).instanceId,
 })
 const end = state => step(state, { type: 'end_turn', playerId: state.activePlayerId })
@@ -140,16 +140,27 @@ test('大葉進捗は大葉トッピングの累積で、重複を含め、普�
   assert.equal(combo({ ...st, combosFired: ['hikari_zanmai'], kiretaStack: 0 }, 'hikari_zanmai').value, '達成済')
 })
 
-test('肉祭りはこの手番の召喚を数え、発動時だけ条件ボーナス2倍を表示しターン終了で消える', () => {
-  let state = play(match(['karubi', 'wagyu']), 'karubi')
-  assert.equal(combo(state.players[1], 'niku_matsuri').value, '1/2枚（今ターン）')
+test('肉祭りは同ターンの生贄を数え、即時攻撃の発動済み表示を手番終了で消す', () => {
+  let state = play(match(['roast_beef', 'karubi', 'wagyu']), 'roast_beef')
+  assert.equal(combo(state.players[1], 'niku_matsuri').value, '0/2体（今ターン）')
+  state = play(state, 'karubi', 1)
+  assert.equal(combo(state.players[1], 'niku_matsuri').value, '1/2体（今ターン）')
   assert.equal(effect(state.players[1], 'niku'), undefined)
-  state = play(state, 'wagyu')
-  assert.equal(combo(state.players[1], 'niku_matsuri').value, '発動中')
-  assert.match(effect(state.players[1], 'niku').description, /基本攻撃力は2倍になりません/)
+  state = play(state, 'wagyu', 1)
+  assert.equal(combo(state.players[1], 'niku_matsuri').value, '今ターン発動済')
+  assert.equal(effect(state.players[1], 'niku').value, '今ターン発動済')
+  assert.match(effect(state.players[1], 'niku').description, /即時5ダメージ/)
+  assert.equal(state.players[2].belly, 5)
   state = end(state)
   assert.equal(effect(state.players[1], 'niku'), undefined)
-  assert.equal(combo(state.players[1], 'niku_matsuri').value, '0/2枚（今ターン）')
+  assert.equal(combo(state.players[1], 'niku_matsuri').value, '0/2体（今ターン）')
+})
+
+test('肉寿司を複数召喚しただけでは肉祭りの生贄進捗を増やさない', () => {
+  const state = play(play(match(['karubi', 'wagyu']), 'karubi'), 'wagyu')
+  assert.equal(combo(state.players[1], 'niku_matsuri').value, '0/2体（今ターン）')
+  assert.equal(effect(state.players[1], 'niku'), undefined)
+  assert.equal(combo(side({ sacrificedThisTurn: undefined, thisTurnArch: { niku: 4 } }), 'niku_matsuri').value, '0/2体（今ターン）')
 })
 
 test('海鮮ペア候補は机にいる未使用カードだけを数え、発動済みカードを次の相方にしない', () => {
@@ -182,7 +193,7 @@ for (const viewer of [1, 2]) test(`P${viewer}視点でローカル・オンラ�
   const state = match(['inari'])
   Object.assign(state.players[1], {
     ap: 2, maxAP: 7, kiretaStack: 4, kiretaSpent: false,
-    digestStopTurns: 1, apNextBonus: 2, thisTurnArch: { niku: 1 },
+    digestStopTurns: 1, apNextBonus: 2, thisTurnArch: { niku: 1 }, sacrificedThisTurn: 1,
     attackBuff: { マグロ: 2 },
   })
   Object.assign(state.players[2], {
@@ -204,17 +215,17 @@ for (const viewer of [1, 2]) test(`P${viewer}視点でローカル・オンラ�
     assert.equal(view.activePlayer, viewer)
     assert.deepEqual([
       view.cAP, view.cMaxAP, view.cKiretaStack, view.cKiretaSpent,
-      view.cDigestStopTurns, view.cApNextBonus, view.cThisTurnArch, view.cAttackBuff,
+      view.cDigestStopTurns, view.cApNextBonus, view.cThisTurnArch, view.cAttackBuff, view.cSacrificedThisTurn,
     ], [
       enemy.ap, enemy.maxAP, enemy.kiretaStack, enemy.kiretaSpent,
-      enemy.digestStopTurns, enemy.apNextBonus, enemy.thisTurnArch, enemy.attackBuff,
+      enemy.digestStopTurns, enemy.apNextBonus, enemy.thisTurnArch, enemy.attackBuff, enemy.sacrificedThisTurn,
     ])
     assert.deepEqual([
       view.pAP, view.pMaxAP, view.pKiretaStack, view.pKiretaSpent,
-      view.pDigestStopTurns, view.pApNextBonus, view.pThisTurnArch, view.pAttackBuff,
+      view.pDigestStopTurns, view.pApNextBonus, view.pThisTurnArch, view.pAttackBuff, view.pSacrificedThisTurn,
     ], [
       own.ap, own.maxAP, own.kiretaStack, own.kiretaSpent,
-      own.digestStopTurns, own.apNextBonus, own.thisTurnArch, own.attackBuff,
+      own.digestStopTurns, own.apNextBonus, own.thisTurnArch, own.attackBuff, own.sacrificedThisTurn,
     ])
   }
 })

@@ -63,7 +63,7 @@ type SideStatus = {
   summonedIds: string[]; combosFired: string[]; field: FieldCard[]
   attackBuff: Record<string, number>; drawBonus: number
   kireta: number; kiretaSpent: boolean; nikuMatsuri: boolean
-  digestStopTurns?: number; apNextBonus?: number
+  digestStopTurns?: number; apNextBonus?: number; sacrificedThisTurn?: number
 }
 
 // 相手側は「今なにが効いているか」だけを出す（進捗の途中経過は出さない）
@@ -99,7 +99,8 @@ export function ComboStatusBar({ st, compact, inline, onGold, hideKireta }: {
   if (obaFired) push('oba', <StatusPill icon="✨" label="大葉" value="発動済" on tone="#2563eb" onGold={onGold} />)
   else if (!compact || oba > 0) push('oba', <StatusPill icon="✨" label="大葉" value={`${oba}/${OBA_REQUIRED}`} on={false} tone="#2563eb" onGold={onGold} />)
 
-  if (st.nikuMatsuri) push('niku', <StatusPill icon="🥩" label="肉祭り" value="ボーナス×2" on tone="#9a3412" onGold={onGold} />)
+  if (st.nikuMatsuri) push('niku', <StatusPill icon="🥩" label="肉祭り" value="今ターン発動済" on tone="#9a3412" onGold={onGold} />)
+  else if (!compact || st.sacrificedThisTurn) push('niku', <StatusPill icon="🥩" label="生贄" value={`${st.sacrificedThisTurn ?? 0}/2体`} on={false} tone="#9a3412" onGold={onGold} />)
   if (st.apNextBonus) push('ap', <StatusPill icon="⚡" label="次のAP" value={`+${st.apNextBonus}`} on tone="#b45309" onGold={onGold} />)
   if (st.digestStopTurns) push('digest', <StatusPill icon="⊘" label="消化停止" value={`${st.digestStopTurns}回`} on tone="#b91c1c" onGold={onGold} />)
 

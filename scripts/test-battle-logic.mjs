@@ -3,7 +3,7 @@
 // 画面の文字列を切り出さず、実際の battleEngine.ts とその依存を読み込む。
 import { loadTs } from './load-ts.mjs'
 
-const { CARDS } = loadTs('src/data/cards.ts')
+const { CARDS, NAMAHAM_CARD } = loadTs('src/data/cards.ts')
 const { applySummon, calcFieldDmg, toField, digestBonus, makimonoCount, digestionAmount } =
   loadTs('src/features/battle/battleEngine.ts')
 
@@ -152,18 +152,21 @@ console.log('\n[6] 海の幸三昧（いか＋たこのペアを消費・何度�
   eq('ターンをまたいで机のたことペアを組める', next.fired.map(f => f.id).includes('umi_zanmai'), true)
 }
 
-console.log('\n[7] 肉祭り（同ターン肉寿司2枚・ターンに1回・ターンをまたげば何度でも）')
+console.log('\n[7] 肉祭り（同ターンに生ハム累計2体生贄・即時+5・ターンに1回）')
 {
-  eq('1枚では未発動', playAll(['wagyu']).firedNames.includes('niku_matsuri'), false)
-  const two = playAll(['wagyu', 'roast_beef'])
-  eq('2枚で発動', two.firedNames.includes('niku_matsuri'), true)
-  eq('即時+12 は廃止（追加ダメージ0）', two.extra, 0)
-  eq('同ターンに4枚出しても発動は1回',
-    playAll(['wagyu', 'roast_beef', 'karubi', 'gyutan']).firedNames.filter(x => x === 'niku_matsuri').length, 1)
-  const wagyu = toField(byId('wagyu')), rb = toField(byId('roast_beef'))
-  eq('相手お腹70・通常 (12+8)*2 = 40', calcFieldDmg([wagyu, rb], {}, 0, 70), 40)
-  eq('相手お腹70・肉祭り中 (12+16)*2 = 56', calcFieldDmg([wagyu, rb], {}, 0, 70, { nikuMatsuri: true }), 56)
-  eq('相手お腹50では肉祭りでも増えない', calcFieldDmg([wagyu, rb], {}, 0, 50, { nikuMatsuri: true }), 24)
+  eq('肉寿司2枚の通常召喚では未発動', playAll(['wagyu', 'roast_beef']).firedNames.includes('niku_matsuri'), false)
+  const first = applySummon(blank({ card: byId('karubi'), sacrificeCount: 1,
+    field: [0, 1, 2].map(index => toField(NAMAHAM_CARD, `ham-${index}`)) }))
+  eq('生贄1体では未発動', first.nikuMatsuri, false)
+  const second = applySummon({ ...first, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
+  eq('生贄累計2体で発動', second.fired.map(item => item.id), ['niku_matsuri'])
+  eq('肉祭りは即時+5', second.extraDmg, 5)
+  const third = applySummon({ ...second, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
+  eq('同じターンは追加発動しない', [third.extraDmg, third.fired.length], [0, 0])
+  const field = [toField(byId('yakiniku')), toField(byId('ebi_ten'))]
+  eq('肉祭りで腹条件ボーナスを倍増しない', calcFieldDmg(field, {}, 0, 70, { nikuMatsuri: true }), 20)
+  eq('置換された和牛とローストビーフは腹条件で強化されない',
+    calcFieldDmg([toField(byId('wagyu')), toField(byId('roast_beef'))], {}, 0, 99), 22)
 }
 
 console.log('\n[8] 赤身三種盛り（累積・1試合1回・永続バフが青天井にならないこと）')

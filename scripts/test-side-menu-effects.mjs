@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
-const { CARDS } = loadTs('src/data/cards.ts')
+const { CARDS, NAMAHAM_CARD } = loadTs('src/data/cards.ts')
 const { createMatch, transitionMatch, getSideMenuUseError, getCpuActions } = loadTs('src/game/matchEngine.ts')
 const { calcFieldDmg, toField } = loadTs('src/game/battleRules.ts')
 const card = id => {
@@ -81,6 +81,45 @@ test('0AP・寿司の机が満杯でもサイドを使用でき、設置は一�
   assert.equal(state.players[1].field.length, 8)
   assert.equal(state.players[1].sideMenu.status, 'active')
   reject(state, 'side_menu_already_active')
+})
+
+test('インバウン丼は0APで永続設置し、在場の生ハムだけ攻撃1から3へ強化する', () => {
+  let state = make('inbound_don')
+  state.players[1].ap = 0
+  state.players[1].field = [toField(NAMAHAM_CARD, 'own-ham'), toField(card('gyutan'), 'own-meat')]
+  state.players[2].field = [toField(NAMAHAM_CARD, 'enemy-ham')]
+  assert.equal(calcFieldDmg(state.players[1].field, state.players[1].attackBuff), 6)
+  state = use(state)
+  assert.equal(state.players[1].ap, 0)
+  assert.equal(state.players[1].sideMenu.status, 'active')
+  assert.equal(state.players[1].sideMenu.turnsLeft, null)
+  assert.equal(calcFieldDmg(state.players[1].field, state.players[1].attackBuff), 8)
+  assert.equal(calcFieldDmg(state.players[2].field, state.players[2].attackBuff), 1, '相手の生ハムには加算しない')
+  assert.equal(calcFieldDmg([state.players[1].field[1]], state.players[1].attackBuff), 5, '肉寿司そのものには加算しない')
+  reject(state, 'side_menu_already_active')
+  let attack = step(state, { type: 'end_turn', playerId: 1 })
+  assert.equal(attack.pendingAttack.amount, 8)
+  state = step(attack, { type: 'respond_defense', playerId: 2, useGari: false })
+  attack = step(state, { type: 'end_turn', playerId: 2 })
+  assert.equal(attack.pendingAttack.amount, 1)
+  state = step(attack, { type: 'respond_defense', playerId: 1, useGari: false })
+  for (let round = 0; round < 3; round++) state = end(end(state))
+  assert.equal(state.players[1].sideMenu.status, 'active', '3ターン後も設置効果は終了しない')
+  assert.equal(state.players[1].sideMenu.turnsLeft, null)
+})
+
+test('設置後に生成する生ハムも攻撃3となり、手番をまたいでも通常攻撃の加算が続く', () => {
+  let state = make('inbound_don', { deck: [card('gyutan'), ...copies('tamago')] })
+  state = play(use(state), 'gyutan')
+  const ham = state.players[1].field.find(item => item.id === NAMAHAM_CARD.id)
+  assert.ok(ham)
+  assert.equal(calcFieldDmg([ham], state.players[1].attackBuff), 3)
+  let attack = step(state, { type: 'end_turn', playerId: 1 })
+  assert.equal(attack.pendingAttack.amount, 8)
+  state = step(attack, { type: 'respond_defense', playerId: 2, useGari: false })
+  state = end(state)
+  attack = step(state, { type: 'end_turn', playerId: 1 })
+  assert.equal(attack.pendingAttack.amount, 3)
 })
 
 test('唐揚げは双方へ一度だけ15を加え、APを消費しない', () => {

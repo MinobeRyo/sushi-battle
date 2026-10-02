@@ -1,4 +1,7 @@
-export type SideMenuId = 'karaage' | 'fries' | 'tempura' | 'ramen' | 'miso' | 'chawanmushi'
+export type SideMenuId = 'karaage' | 'fries' | 'tempura' | 'ramen' | 'miso' | 'chawanmushi' | 'inbound_don'
+
+export const INBOUND_DON_ATTACK_BONUS = 2
+export const INBOUND_DON_SACRIFICE_BONUS = 2
 
 export type SideMenuDefinition = {
   id: SideMenuId
@@ -56,6 +59,13 @@ export const SIDE_MENUS: SideMenuDefinition[] = [
     effect: '自分のお腹を15減らし、消化停止を解除する。このターン開始時に止められた消化も一度だけ取り戻す。',
     summary: 'お腹−15・消化停止を解除',
     timing: '0AP・1回使い切り', accent: '#628578',
+  },
+  {
+    id: 'inbound_don', name: 'インバウン丼', english: 'INBOUND DON', category: '肉寿司を育てる一杯', price: 500,
+    description: 'つややかな肉を敷き詰め、ウニをどっさり。生ハムまで強くなる、ご褒美の肉丼。',
+    effect: `自分の生ハムの通常攻撃を＋${INBOUND_DON_ATTACK_BONUS}し、生贄1体につき、その寿司の攻撃をさらに＋${INBOUND_DON_SACRIFICE_BONUS}する。すでに場にいる生ハムと、以降に生成する生ハムが対象。肉祭りの追加ダメージは変わらない。`,
+    summary: `生ハムの攻撃＋${INBOUND_DON_ATTACK_BONUS}・生贄1体につきさらに＋${INBOUND_DON_SACRIFICE_BONUS}`,
+    timing: '0APで設置・永続・自分だけに適用', accent: '#b46d27',
   },
 ]
 

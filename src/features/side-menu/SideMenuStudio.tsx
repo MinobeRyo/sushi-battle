@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 import { OrthographicCamera, PCFShadowMap } from 'three'
-import { CARDS } from '../../data/cards'
+import { CARDS, GENERATED_CARDS } from '../../data/cards'
 import { SideMenuModel } from './models/SideMenuModel'
 import { SIDE_MENU_CATALOG } from './sideMenuCatalog'
 import type { SideMenuId } from './sideMenuCatalog'
@@ -11,6 +11,8 @@ import '../catalog/CardCatalogScreen.css'
 import './SideMenuStudio.css'
 
 type ViewMode = 'collection' | 'detail'
+const COLLECTION_COLUMNS = 3
+const COLLECTION_ROWS = Math.ceil(SIDE_MENU_CATALOG.length / COLLECTION_COLUMNS)
 
 function Icon({ name }: { name: 'grid' | 'focus' | 'rotate' | 'reset' | 'arrow' }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -37,7 +39,7 @@ function CameraRig({ mode, reset, rotating }: { mode: ViewMode; reset: number; r
     if (!(camera instanceof OrthographicCamera)) return
     camera.position.set(...(mode === 'collection' ? [0, 10, 11] : [3.4, 4.6, 6]) as [number, number, number])
     camera.zoom = mode === 'collection'
-      ? Math.min(size.width / 10.1, size.height / 7.7)
+      ? Math.min(size.width / 10.1, size.height / (4.45 + (COLLECTION_ROWS - 1) * 3.25))
       : Math.min(size.width / 4.3, size.height / 3.8)
     camera.lookAt(0, 0.45, 0)
     camera.updateProjectionMatrix()
@@ -51,8 +53,8 @@ function CameraRig({ mode, reset, rotating }: { mode: ViewMode; reset: number; r
 function Dish({ id, index, selected, mode, onSelect }: {
   id: SideMenuId; index: number; selected: boolean; mode: ViewMode; onSelect: (id: SideMenuId) => void
 }) {
-  const x = mode === 'collection' ? (index % 3 - 1) * 3.05 : 0
-  const z = mode === 'collection' ? (Math.floor(index / 3) - 0.5) * 3.25 : 0
+  const x = mode === 'collection' ? (index % COLLECTION_COLUMNS - (COLLECTION_COLUMNS - 1) / 2) * 3.05 : 0
+  const z = mode === 'collection' ? (Math.floor(index / COLLECTION_COLUMNS) - (COLLECTION_ROWS - 1) / 2) * 3.25 : 0
   return <group position={[x, 0, z]}>
     <mesh position={[0, -0.065, 0]} receiveShadow>
       <cylinderGeometry args={[1.33, 1.36, 0.12, 64]} />
@@ -123,11 +125,11 @@ export default function SideMenuStudio({ onBack, onTitle }: SideMenuStudioProps 
     <div className="catalog-content">
       <nav className="catalog-sections" aria-label="図鑑の種類">
         {onBack
-          ? <button type="button" onClick={onBack}>寿司カード <small>{CARDS.length}種</small><span aria-hidden="true">↗</span></button>
+          ? <button type="button" onClick={onBack}>寿司カード <small>{CARDS.length + GENERATED_CARDS.length}種</small><span aria-hidden="true">↗</span></button>
           : <button type="button" onClick={() => window.location.assign(returnUrl)}>ゲームへ戻る <span aria-hidden="true">↗</span></button>}
         <span aria-current="page">サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small></span>
       </nav>
-      <p className="catalog-intro">六つのサイドメニューを、立体でじっくり。<br />一覧から気になる一皿を選び、料理や効果の説明をご覧ください。</p>
+      <p className="catalog-intro">{SIDE_MENU_CATALOG.length}種のサイドメニューを、立体でじっくり。<br />一覧から気になる一皿を選び、料理や効果の説明をご覧ください。</p>
       <div className="catalog-results-bar">
         <p role="status">{mode === 'collection' ? SIDE_MENU_CATALOG.length : 1} / {SIDE_MENU_CATALOG.length}種を表示</p>
       </div>
@@ -164,15 +166,15 @@ export default function SideMenuStudio({ onBack, onTitle }: SideMenuStudioProps 
       </section>
 
       <aside className="side-studio-detail" aria-label="選んだメニューの詳細">
-        <div className="side-studio-detail-top"><span>本日のお品書き</span><span>0{index + 1} <i>/ 06</i></span></div>
+        <div className="side-studio-detail-top"><span>本日のお品書き</span><span>{String(index + 1).padStart(2, '0')} <i>/ {String(SIDE_MENU_CATALOG.length).padStart(2, '0')}</i></span></div>
         <div className="side-studio-dish-info" key={dish.id}>
           <p className="side-studio-category" style={{ color: dish.accent }}>{dish.category}</p>
           <h2>{dish.name}</h2><p className="side-studio-english">{dish.english}</p>
           <p className="side-studio-description">{dish.description}</p>
-          <div className="side-studio-effect"><span>バトルでの効果案</span><p>{dish.effect}</p><small>{dish.timing}</small></div>
+          <div className="side-studio-effect"><span>バトルでの効果</span><p>{dish.effect}</p><small>{dish.timing}</small></div>
         </div>
         <button className="side-studio-inspect" onClick={() => setMode(mode === 'detail' ? 'collection' : 'detail')}>
-          {mode === 'detail' ? '六つのお品書きに戻る' : 'この一皿を拡大'}<Icon name={mode === 'detail' ? 'grid' : 'arrow'} />
+          {mode === 'detail' ? 'お品書き一覧に戻る' : 'この一皿を拡大'}<Icon name={mode === 'detail' ? 'grid' : 'arrow'} />
         </button>
         <p className="side-studio-slot-note">サイドメニュースロットは1枠。<br />購入できるのは、1試合に一品だけ。</p>
       </aside>
@@ -183,7 +185,7 @@ export default function SideMenuStudio({ onBack, onTitle }: SideMenuStudioProps 
         <span className="side-studio-menu-number">0{itemIndex + 1}</span><span><strong>{item.name}</strong><small>{item.english}</small></span><span className="side-studio-menu-dot" style={{ background: item.accent }} />
       </button>)}
     </nav>
-    <p className="side-studio-footer">サイドメニューの効果は設計案です。</p>
+    <p className="side-studio-footer">最初の注文で1品購入し、自分のターンに0APで使用できます。</p>
     </div>
   </main>
 }

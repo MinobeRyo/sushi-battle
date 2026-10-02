@@ -9,7 +9,7 @@ import type { Card } from '../../types'
 export type BattleSideStatus = Pick<MatchPlayer,
   'summonedIds' | 'combosFired' | 'field' | 'attackBuff' | 'drawBonus'
   | 'kiretaStack' | 'kiretaSpent' | 'nikuMatsuri' | 'digestStopTurns'
-  | 'apNextBonus' | 'thisTurnArch'> & { sideMenu?: SideMenuState | null }
+  | 'apNextBonus' | 'thisTurnArch'> & { sideMenu?: SideMenuState | null; sacrificedThisTurn?: number }
 
 export type BattleStatusItem = {
   id: string
@@ -70,8 +70,8 @@ export function battleStatusDetails(st: BattleSideStatus): {
     description: `机に巻物が${MAKI_COMP_5}枚以上ある間、軍艦の攻撃を${GUNKAN_BOOST}倍にします。強化を加えた後、カードごとに小数点以下を切り捨てます。`,
   })
   if (st.nikuMatsuri) effects.push({
-    id: 'niku', name: '肉祭り', value: '条件ボーナス×2',
-    description: 'このターン、相手のお腹の条件で加算される攻撃ボーナスを2倍にします。基本攻撃力は2倍になりません。ターン終了で解除されます。',
+    id: 'niku', name: '肉祭り', value: '今ターン発動済',
+    description: 'このターンに生ハムを合計2体生贄にして、即時5ダメージの攻撃を発動済みです。同じターンには再発動しません。次の自分のターンには再び狙えます。',
   })
 
   const akami = ['maguro', 'chutoro', 'otoro'].filter(id => st.summonedIds.includes(id)).length
@@ -96,8 +96,8 @@ export function battleStatusDetails(st: BattleSideStatus): {
     description: `大葉トッピングのカードを試合中に合計${OBA_REQUIRED}枚召喚すると、切れ味 +3。同名カードも数え、1試合に1回です。光り物全体の枚数ではありません。`,
   }, {
     id: 'niku_matsuri', name: '肉祭り',
-    value: st.nikuMatsuri ? '発動中' : `${st.thisTurnArch.niku ?? 0}/2枚（今ターン）`,
-    description: '同じターンに肉寿司を2枚召喚すると、そのターンの条件付き攻撃ボーナスが2倍。別のターンには再び発動できます。',
+    value: st.nikuMatsuri ? '今ターン発動済' : `${st.sacrificedThisTurn ?? 0}/2体（今ターン）`,
+    description: '同じターンに生ハムを合計2体生贄にすると、即時5ダメージ。カルビ寿司・和牛にぎりで使った合計を数え、各ターンに1回だけ発動します。',
   }, {
     id: 'umi_zanmai', name: '海の幸三昧', value: `未使用 いか${pairCount('いか')}・たこ${pairCount('たこ')}`,
     description: 'いか・たこの召喚時、机のまだペアに使っていない相方1枚と組み、机の海鮮が50%の威力で再攻撃します。ペア使用済みのカードは再び相方にできません。新しいペアなら何度でも発動します。',

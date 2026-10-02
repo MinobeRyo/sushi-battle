@@ -573,7 +573,7 @@ test('同じ乱数列と入力で、CPU山札と試合開始状態を再現で�
   assert.deepEqual(createMatch(options, seeded(42)), createMatch(options, seeded(42)))
 })
 test('CPUが返す操作は入力状態を変更せず、個体IDで1枚ずつ実行できる', () => {
-  let state = make({ mode: 'cpu' })
+  let state = make({ mode: 'cpu', p2SideMenu: null })
   state = advance(state, end(state))
   const before = clone(state)
   const actions = getCpuActions(deepFreeze(state))

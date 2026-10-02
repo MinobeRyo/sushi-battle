@@ -8,7 +8,7 @@ const NETA_COLOR: Record<string, string> = {
   'いか': '#f2ede2', 'たこ': '#c86a9e', 'たまご': '#f7c948', 'あなご': '#8a6238',
   'きゅうり': '#3f9433', 'かんぴょう': '#b89a58', 'アボカド': '#6a9a44',
   'サバ': '#7e93a8', 'アジ': '#93a9bc', 'コハダ': '#8195a8', 'イワシ': '#7d90a5', 'サンマ': '#75889d',
-  '和牛': '#8e3a1e', 'カルビ': '#a04624', 'ローストビーフ': '#96402a', '焼肉': '#8a3c20', '牛タン': '#b4707e',
+  '和牛': '#8e3a1e', 'カルビ': '#a04624', 'ローストビーフ': '#96402a', '焼肉': '#8a3c20', '牛タン': '#b4707e', '生ハム': '#d9868d',
   'うに': '#eda52f', 'いくら': '#e8401c', 'とびこ': '#f07818', '明太子': '#e85a4a',
   'コーン': '#f5c518', 'シーフード': '#e8956a', 'なす': '#6b2fa0', 'チーズ': '#f2d264',
   '納豆': '#b89040', 'うめ': '#d04060', 'かに': '#e05038', '太巻き': '#2d5a1b',
@@ -47,7 +47,9 @@ export function SushiArt({ card, size = 48, fit = false }: { card: Card; size?: 
       <ellipse cx="50" cy="61" rx="44" ry="9.5" fill="#f8f6f0" stroke="#c8beb0" strokeWidth="1.2" />
       <ellipse cx="50" cy="60" rx="33" ry="6" fill="#ece5d8" opacity="0.8" />
 
-      {kind === 'maki' ? (
+      {card.base === '生ハム' ? (
+        <Namahamu />
+      ) : kind === 'maki' ? (
         <Maki color={color} />
       ) : kind === 'gunkan' ? (
         <Gunkan base={card.base} color={color} />
@@ -55,6 +57,21 @@ export function SushiArt({ card, size = 48, fit = false }: { card: Card; size?: 
         <Nigiri base={card.base} color={color} />
       )}
     </svg>
+  )
+}
+
+// 薄い肉を折り重ね、淡い脂の縁で焼いた肉と区別します。
+function Namahamu() {
+  return (
+    <g>
+      <ellipse cx="50" cy="53" rx="28" ry="10" fill={RICE} stroke="#e0d6c2" />
+      <path d="M25 55l4 1m9 3 4 1m14-2 4 1m10-5 3-1" stroke="#dcd4c2" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M15 42C13 34 22 29 35 30C45 22 56 33 66 28C78 25 88 36 85 43L78 54C66 50 61 58 48 51C35 48 27 57 18 51Z" fill="#cf7884" stroke="#b9606e" strokeWidth="1" />
+      <path d="M17 44C26 53 36 43 48 49S67 49 79 51" fill="none" stroke="#f4d9cb" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M23 36C31 25 39 26 49 33C59 40 65 28 76 32C68 37 76 46 64 46C51 46 46 35 35 42C29 45 23 42 23 36Z" fill="#e79ca0" stroke="#bd6d79" strokeWidth="1" />
+      <path d="M25 36C31 29 41 32 48 36S63 39 70 33" fill="none" stroke="#f7ddce" strokeWidth="3" strokeLinecap="round" />
+      <path d="M31 37l10 1m13 5 10-2M24 47l9-2m24 5 9-1" fill="none" stroke="#f9c6bc" strokeWidth="1.1" strokeLinecap="round" />
+    </g>
   )
 }
 

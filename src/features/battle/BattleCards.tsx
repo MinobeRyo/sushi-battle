@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { Inspect, FieldCard } from './types'
 import { EFFECT_FULL, C, ARCH_LABEL } from './battlePresentation'
 import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
+import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit } from './battleEngine'
+import { NAMAHAM_CARD } from '../../data/cards'
 import './BattleCards.css'
 
 const EFFECT_SHORT: Record<string, string> = {
@@ -18,6 +20,10 @@ const EFFECT_SHORT: Record<string, string> = {
   belly_boost_60: '相手お腹60以上で攻撃 +5',
   belly_boost_65: '相手お腹65以上で攻撃 +6',
   belly_boost_persist_50: '相手お腹50以上で攻撃 +2',
+  generate_namahamu_1: '生ハムを1体生成',
+  generate_namahamu_2: '生ハムを2体生成',
+  sacrifice_namahamu_1_7: '生ハム1体で攻撃 +7',
+  sacrifice_namahamu_2_8: '生ハム2体まで・各 +8',
   chain_on_kaisen_summon: '海鮮召喚で連鎖攻撃',
   draw_1: '召喚時に1枚引く',
   draw_2: '召喚時に2枚引く',
@@ -26,28 +32,52 @@ const EFFECT_SHORT: Record<string, string> = {
 }
 
 function shortEffect(card: Card) {
+  if (card.id === NAMAHAM_CARD.id) return '生成専用・生贄にできる'
   return card.effect ? EFFECT_SHORT[card.effect] ?? '特殊効果あり・詳細を確認' : '特殊効果なし'
 }
 
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, fieldCards, sacrificeAttackBonus = 0, onPlay, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
   kiretaStack: number
-  onPlay: () => void
+  fieldCards: FieldCard[]
+  sacrificeAttackBonus?: number
+  onPlay: (sacrificeCount?: number) => void
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const sacrificeHeadingId = useId()
+  const [sacrificeSelection, setSacrificeSelection] = useState<{ cardKey: string; count: number } | null>(null)
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const isField = remainingTurns !== undefined
   const showActualAttack = isField && inspect.actualAttack !== undefined
-  const effectDesc = card.effect ? EFFECT_FULL[card.effect] : null
+  const isGenerated = card.id === NAMAHAM_CARD.id
+  const effectDesc = isGenerated
+    ? '牛タン寿司やローストビーフ寿司から生成される専用カードです。場に3ターン残り、毎ターン攻撃1。カルビ寿司や和牛にぎりの生贄にして、攻撃を強化できます。購入はできません。'
+    : card.effect ? EFFECT_FULL[card.effect] : null
+  const cardKey = 'instanceId' in card ? String(card.instanceId) : card.id
+  const availableNamahamu = countNamahamu(fieldCards)
+  const maxSacrifices = Math.min(getSacrificeLimit(card), availableNamahamu)
+  const needsSacrificeChoice = !isField && maxSacrifices > 0
+  const selectedSacrifices = !needsSacrificeChoice ? 0
+    : sacrificeSelection?.cardKey === cardKey && sacrificeSelection.count <= maxSacrifices
+      ? sacrificeSelection.count : null
+  const sacrificeBonus = getSacrificeBonus(card) + sacrificeAttackBonus
+  const selectedAttackBonus = (selectedSacrifices ?? 0) * sacrificeBonus
+  const lacksFieldSpace = selectedSacrifices !== null && fieldCards.length - selectedSacrifices >= FIELD_MAX
+  const canConfirm = canPlay && isPresent && selectedSacrifices !== null && !lacksFieldSpace
+  const playLabel = !canPlay ? inspect.playBlockedReason ?? '召喚できません'
+    : selectedSacrifices === null ? '生ハムを残すか、消費するか選択'
+    : lacksFieldSpace ? '机がいっぱいです（8枚まで）'
+    : selectedSacrifices > 0 ? `${selectedSacrifices}体を消費して召喚（AP −${card.cost}）`
+    : `召喚する（AP −${card.cost}）`
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -116,10 +146,11 @@ export function CardDetailSheet({
                 {showActualAttack ? inspect.actualAttack : card.attack}
                 {!showActualAttack && buff > 0 && <span> +{buff}</span>}
                 {!showActualAttack && kBonus > 0 && <span> +{kBonus}（切れ味）</span>}
+                {!showActualAttack && selectedAttackBonus > 0 && <span> +{selectedAttackBonus}（生贄）</span>}
               </dd>
             </div>
             {isPersist && <div><dt>{isField ? '残りターン' : '持続ターン'}</dt><dd>{isField ? remainingTurns : card.fullness}ターン</dd></div>}
-            <div><dt>ドラフト価格</dt><dd>¥{card.price}</dd></div>
+            <div><dt>{isGenerated ? '入手方法' : 'ドラフト価格'}</dt><dd>{isGenerated ? '生成専用' : `¥${card.price}`}</dd></div>
           </dl>
         </div>
         <div className="battle-detail-effect">
@@ -127,18 +158,45 @@ export function CardDetailSheet({
           <p>{effectDesc ?? '特殊効果なし'}</p>
         </div>
 
+        {needsSacrificeChoice && (
+          <section className="battle-sacrifice" aria-labelledby={sacrificeHeadingId}>
+            <div className="battle-sacrifice-heading">
+              <h3 id={sacrificeHeadingId}>生ハムをどうしますか？</h3>
+              <span>場に <strong>{availableNamahamu}体</strong></span>
+            </div>
+            <p>残して毎ターン攻撃するか、消費してこの寿司を強化できます。</p>
+            {sacrificeAttackBonus > 0 && <p>インバウン丼：生贄1体につき、さらに攻撃 +{sacrificeAttackBonus}（下の数値に含みます）。</p>}
+            <div className="battle-sacrifice-options" role="group" aria-labelledby={sacrificeHeadingId}>
+              {Array.from({ length: maxSacrifices + 1 }, (_, count) => {
+                const needsSpace = fieldCards.length - count >= FIELD_MAX
+                return (
+                  <button type="button" key={count}
+                    aria-pressed={selectedSacrifices === count}
+                    disabled={!canPlay || !isPresent || needsSpace}
+                    onClick={() => setSacrificeSelection({ cardKey, count })}>
+                    <span>{count === 0 ? '生ハムを残す' : `${count}体を消費する`}</span>
+                    <strong>攻撃 +{count * sacrificeBonus}</strong>
+                    <small>{needsSpace ? '机が満杯のため選べません' : `生ハムは残り${availableNamahamu - count}体`}</small>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="battle-sacrifice-note">同じターンに合計2体を生贄にすると、肉祭りで追加5ダメージ（1ターンに1回）。</p>
+          </section>
+        )}
+
         <div className="battle-detail-actions">
           <button type="button" className="battle-detail-cancel" onClick={onClose}>{isField ? '閉じる' : 'キャンセル'}</button>
           {!isField && (
             <motion.button
               type="button"
               className="battle-detail-play"
-              onClick={canPlay && isPresent ? onPlay : undefined}
-              disabled={!canPlay || !isPresent}
-              whileTap={canPlay ? { scale: 0.95 } : {}}
-              whileHover={canPlay ? { scale: 1.02 } : {}}
+              onClick={canConfirm ? () => onPlay(selectedSacrifices ?? 0) : undefined}
+              disabled={!canConfirm}
+              whileTap={canConfirm ? { scale: 0.95 } : {}}
+              whileHover={canConfirm ? { scale: 1.02 } : {}}
             >
-              {canPlay ? `召喚する（AP −${card.cost}）` : inspect.playBlockedReason ?? '召喚できません'}
+              {playLabel}
             </motion.button>
           )}
         </div>

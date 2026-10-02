@@ -13,7 +13,7 @@ export type DraftOffer = {
 } & ({ card: Card; sideMenuId?: never } | { card?: never; sideMenuId: SideMenuId })
 export type DraftLaneClock = { pausedMs: number; pausedAt: number | null; pauseUntil: number | null }
 
-// 汎用レーンの10皿中2皿をサイドに使う。3周で6品が一巡し、ローカル・通信で同じ並びになる。
+// 汎用レーンの10皿中2皿をサイドに使う。全品を順繰りに流し、ローカル・通信で同じ並びになる。
 export function sideMenuForBeltSlot(lane: DraftLane, slot: number, generation: number, enabled: boolean): SideMenuId | null {
   if (!enabled || lane !== 'general' || (slot !== 3 && slot !== 7)) return null
   const offset = slot === 3 ? 0 : 1

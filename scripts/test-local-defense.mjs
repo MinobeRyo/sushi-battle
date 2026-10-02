@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
+const { SIDE_MENUS } = loadTs('src/data/sideMenus.ts')
 const byId = id => structuredClone(CARDS.find(card => card.id === id))
 const cardInstance = (id, playerId, suffix = id) => ({ ...byId(id), instanceId: `test:p${playerId}:${suffix}` })
 let passed = 0
@@ -265,4 +266,83 @@ test('防御中のサイドメニュー使用を止め、回答後の使用・�
   assert.equal(h.game.s.pSideMenu.status, 'ready')
 }, 'cpu', { sideMenu: 'miso' })
 
-console.log(`\nローカル防御: ${passed}件成功`)
+for (const { id: sideMenu } of SIDE_MENUS) {
+  test(`CPU戦の追加注文後も未使用の${sideMenu}を使用できる`, h => {
+    for (const player of Object.values(h.state.players)) {
+      player.hand = []
+      player.deck = []
+    }
+    h.game.endTurn()
+    h.advance(200 + 900)
+    assert.equal(h.game.s.phase, 'reorder')
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    assert.equal(h.game.s.phase, 'player')
+    assert.equal(h.game.s.pSideMenu.status, 'ready')
+    h.game.playCard(h.game.s.pHand[0])
+    h.game.useSideMenu()
+    assert.equal(h.game.s.pSideMenu.status,
+      ['karaage', 'chawanmushi'].includes(sideMenu) ? 'used' : 'active')
+  }, 'cpu', { sideMenu })
+
+  test(`同端末の追加注文と手渡し後も両者の${sideMenu}を使用できる`, h => {
+    for (const player of Object.values(h.state.players)) {
+      player.hand = []
+      player.deck = []
+      player.gari = 0
+    }
+    h.game.endTurn(); h.advance(200)
+    h.game.handlePassReady()
+    assert.equal(h.game.s.phase, 'reorder')
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    h.game.handlePassReady()
+    h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
+    h.game.handlePassReady()
+    for (const playerId of [2, 1]) {
+      assert.equal(h.game.s.phase, 'player')
+      assert.equal(h.game.s.activePlayer, playerId)
+      h.game.playCard(h.game.s.pHand[0])
+      h.game.useSideMenu()
+      assert.equal(h.game.s.pSideMenu.status,
+        ['karaage', 'chawanmushi'].includes(sideMenu) ? 'used' : 'active')
+      if (playerId === 2) {
+        h.game.endTurn(); h.advance(200); h.game.handlePassReady()
+      }
+    }
+  }, 'two_player', { sideMenu, p2SideMenu: sideMenu })
+}
+
+test('ローカル召喚は選択した生贄数を適用し、肉祭りはガリを消費せず即時に与える', h => {
+  const player = h.state.players[1]
+  player.hand = ['roast_beef', 'wagyu'].map(id => cardInstance(id, 1))
+  player.ap = 8
+  h.game.playCard(player.hand[0])
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 2)
+  h.game.playCard(h.game.s.pHand[0], 2)
+  assert.equal(h.game.s.pSacrificedThisTurn, 2)
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 0)
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.state.pendingAttack, null)
+  assert.equal(h.state.players[2].belly, 5)
+  assert.equal(h.state.players[2].gari, 2)
+  assert.equal(h.game.s.pNikuMatsuri, true)
+  assert.equal(h.summonCount, 2, '生成だけでは召喚SEを重複させない')
+})
+
+test('ローカルのインバウン丼は設置後の生成と生贄に反映し、召喚後も手番を維持する', h => {
+  const player = h.state.players[1]
+  player.hand = ['roast_beef', 'wagyu'].map(id => cardInstance(id, 1))
+  player.ap = 8
+  h.game.useSideMenu()
+  assert.equal(h.state.players[1].ap, 8)
+  assert.equal(h.state.players[1].attackBuff['生ハム'], 2)
+  h.game.playCard(h.game.s.pHand[0])
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 2)
+  h.game.playCard(h.game.s.pHand[0], 2)
+  assert.equal(h.game.s.pField.find(c => c.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(h.state.players[2].belly, 5)
+  assert.equal(h.state.players[2].gari, 2)
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.state.pendingAttack, null)
+}, 'cpu', { sideMenu: 'inbound_don' })
+
+console.log(`\nローカル防御・追加注文・肉寿司: ${passed}件成功`)

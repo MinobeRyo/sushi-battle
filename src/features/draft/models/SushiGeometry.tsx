@@ -2,6 +2,7 @@ import type { Card } from '../../../types'
 import { MakiPlate, FutomakiPlate, NattoMaki } from './MakiModels'
 import { NegitoroGunkan, TakowasaGunkan, SeafoodGunkan, GunkanSushi, EbiGunkan, KaniGunkan } from './GunkanModels'
 import { ToroNigiri, TempuraNigiri, InariSushi, CheeseNigiri, NikuNigiri, EbiNigiri, TakoNigiri, TamagoNigiri, NigiriSushi } from './NigiriModels'
+import { NamahamuModel } from './NamahamuModel'
 
 // ─── Sushi geometry ──────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ const NIGIRI_NAME_COLOR: Record<string, string> = {
 export function SushiGeometry({ card }: { card: Card }) {
   const archetype = card.archetype[0]
   const name = card.name
+  if (card.base === '生ハム') return <NamahamuModel />
   // 専用モデル（名前ベースの判定を先に）
   if (name.includes('ネギトロ')) {
     if (name.includes('巻')) return <MakiPlate base={card.base} negitoro />

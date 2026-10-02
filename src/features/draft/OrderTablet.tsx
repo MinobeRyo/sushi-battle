@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { CARDS } from '../../data/cards'
 import { SushiArt } from '../../components/SushiArt'
 import type { OrderCategory } from './ShinkansenOrderModal'
-import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
+import { SIDE_MENUS, SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
 import { SideMenuArt } from '../side-menu/SideMenuArt'
 import './OrderTablet.css'
 
@@ -50,7 +50,7 @@ export function OrderTablet({ canOrder, delivering, budget, spent, deckCount, re
               </div>
               <button className="order-home-side-menu" onClick={() => onOpenCategory('side_menu')} aria-label="サイドメニューを開く">
                 <SideMenuArt id={sideMenu ?? 'ramen'} />
-                <span><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'}</strong><small>{sideMenu ? '購入済み・専用スロットへ' : sideMenuEnabled ? '全6品 · 1試合に1品' : '初期購入で注文できます'}</small></span>
+                <span><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'}</strong><small>{sideMenu ? '購入済み・専用スロットへ' : sideMenuEnabled ? `全${SIDE_MENUS.length}品 · 1試合に1品` : '初期購入で注文できます'}</small></span>
                 <b>{sideMenu ? '確認 ›' : '見る ›'}</b>
               </button>
             </div>

@@ -20,6 +20,7 @@ export type PlayerStatusProps = {
   kireta: number
   kiretaSpent: boolean
   nikuMatsuri: boolean
+  sacrificedThisTurn?: number
   digestStopTurns: number
   apNextBonus: number
   combosFired: string[]
@@ -39,7 +40,7 @@ type ActiveEffect = {
 
 export function PlayerStatusPanel({
   label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount,
-  attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri,
+  attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn,
   digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
   const headingId = useId()
@@ -48,7 +49,7 @@ export function PlayerStatusPanel({
   const bellyLevel = bellyPercent >= 70 ? 'high' : bellyPercent >= 40 ? 'medium' : 'low'
   const effects: ActiveEffect[] = battleStatusDetails({
     summonedIds, combosFired, field, attackBuff, drawBonus,
-    kiretaStack: kireta, kiretaSpent, nikuMatsuri, digestStopTurns, apNextBonus, thisTurnArch, sideMenu,
+    kiretaStack: kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn, digestStopTurns, apNextBonus, thisTurnArch, sideMenu,
   }).effects.map(effect => ({
     key: effect.id,
     label: effect.name,
