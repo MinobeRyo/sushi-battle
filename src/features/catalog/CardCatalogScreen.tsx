@@ -205,7 +205,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
   if (showSideMenus) {
     return (
       <Suspense fallback={<div className="card-catalog catalog-loading" role="status">サイドメニュー図鑑を準備しています…</div>}>
-        <SideMenuStudio onBack={() => {
+        <SideMenuStudio onTitle={onBack} onBack={() => {
           returningFromSideMenu.current = true
           setShowSideMenus(false)
         }} />

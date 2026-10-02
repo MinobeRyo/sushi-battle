@@ -1,116 +1,233 @@
-import { motion } from 'framer-motion'
+import { useEffect, useId, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { SushiArt } from '../../components/SushiArt'
+import { SideMenuArt } from '../side-menu/SideMenuArt'
+import { getCardById } from '../../data/cards'
+import { SIDE_MENUS } from '../../data/sideMenus'
 import { COMBO_META, GUNKAN_BOOST, MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED } from '../battle/battleEngine'
+import './StaffHelpModal.css'
 
-// ─── 店員さんの解説モーダル（ビルド・コンボ説明） ─────────────────────────────
+// ─── 遊び方のお品書き（ビルド・コンボ・サイドメニュー） ──────────────────
+
+const HELP_SPREADS = [
+  {
+    title: '寿司の系統', footer: '基本のお品書き',
+    running: ['赤身・巻物・光り物', '海鮮・肉寿司・汎用'],
+    intro: ['同じ系統を集めてデッキに軸を。', '系統はカード左上のラベルで確認。'],
+  },
+  {
+    title: '名物合わせ盛り', footer: '合わせ技のお品書き',
+    running: ['赤身と巻物の組み合わせ', '光り物・海鮮・肉寿司の組み合わせ'],
+    intro: ['巻物には軍艦も含みます。', '条件を揃えるとコンボ（役）が発動。'],
+  },
+  {
+    title: 'サイドメニュー', footer: 'もう一品のお品書き',
+    running: ['揚げ物の一品', '麺・汁物・蒸し物'],
+    intro: ['初回のレーン・タブレットで1品まで。変更・追加購入はできません。', '寿司20枚・特急3回とは別枠。自分のターンに0APで設置・使用。'],
+  },
+]
 
 const BUILD_GUIDE = [
-  { label: '赤身', color: '#dc2626', desc: 'マグロ・トロ系です。高い攻撃力と、赤身三種盛りの強化で攻めます。' },
-  { label: '巻物', color: '#16a34a', desc: '持続型を残し、机に枚数を揃えます。軍艦も巻物として数えます。' },
-  { label: '光り物', color: '#2563eb', desc: 'サバ・アジなどで切れ味を貯め、攻撃を強化したり効果に使ったりします。' },
-  { label: '海鮮', color: '#0891b2', desc: 'いか・たこ・えび系の召喚で、連鎖や海の幸三昧を狙います。' },
-  { label: '肉寿司', color: '#ea580c', desc: '相手のお腹が増えると攻撃が強まるカードが多く、終盤に力を発揮します。' },
-  { label: '汎用', color: '#78716c', desc: 'たまご・サーモンなどです。低コストの攻撃やドローでデッキを支えます。' },
+  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。高い攻撃力と三種盛りの強化で攻めます。' },
+  { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
+  { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'サバ・アジなどで切れ味を貯め、攻撃や効果に使います。' },
+  { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
+  { label: '肉寿司', cardId: 'wagyu', specialty: '終盤の主役', desc: '相手のお腹が増えるほど強まるカードが多く、終盤が得意。' },
+  { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃やドローで支えます。' },
 ]
 
 const COMBO_GUIDE = [
   {
-    id: 'akami_mori', timing: '1試合に1回',
-    cond: '「マグロ」「中トロ」「大トロ」を各1回以上召喚します。ターンをまたいでも数えます。',
-    effect: '相手のお腹 +10／以降、マグロ系の攻撃 +2',
+    id: 'akami_mori', timing: '1試合に1回', cards: ['maguro', 'chutoro', 'otoro'],
+    cond: 'マグロ・中トロ・大トロを各1回召喚（累計）。',
+    effect: '相手のお腹 +10。以降、マグロ系の攻撃 +2。',
   },
   {
-    id: 'maki_comp_3', timing: '1試合に1回',
-    cond: `自分の机に巻物を同時に${MAKI_COMP_3}枚揃えます。軍艦も含みます。`,
-    effect: '以降、自分のターン終了時のドロー +1',
-    note: '発動後は巻物が減っても、追加ドローは続きます。',
+    id: 'maki_comp_3', timing: '1試合に1回', cards: ['kappa_maki', 'negitoro_maki', 'ikura_gunkan'],
+    cond: `自分の机に巻物を同時に${MAKI_COMP_3}枚。`,
+    effect: '以降、自分のターン終了時にドロー +1。',
+    note: '巻物が減っても追加ドローは継続。',
   },
   {
-    id: 'maki_comp_5', timing: '条件を満たす間',
-    cond: `自分の机に巻物を同時に${MAKI_COMP_5}枚揃えます。軍艦も含みます。`,
-    effect: `机の巻物が${MAKI_COMP_5}枚以上ある間、軍艦の攻撃 ×${GUNKAN_BOOST}`,
+    id: 'maki_comp_5', timing: '条件を満たす間', cards: ['uni_gunkan', 'ikura_gunkan', 'negitoro_gunkan'],
+    cond: `自分の机に巻物を同時に${MAKI_COMP_5}枚。`,
+    effect: `巻物${MAKI_COMP_5}枚以上の間、軍艦の攻撃 ×${GUNKAN_BOOST}。`,
   },
   {
-    id: 'hikari_zanmai', timing: '1試合に1回',
-    cond: `大葉トッピングのカードを累計${OBA_REQUIRED}枚召喚します。同じカードや別のターンの召喚も数えます。`,
-    effect: '切れ味スタック +3',
-    note: '切れ味は光り物の攻撃に加算され、一部のカード効果で消費します。',
+    id: 'hikari_zanmai', timing: '1試合に1回', cards: ['saba', 'aji', 'kohada'],
+    cond: `大葉つきを累計${OBA_REQUIRED}枚召喚（同じカードも可）。`,
+    effect: '切れ味 +3。光り物の攻撃に加算。',
+    note: '切れ味は一部のカード効果で消費。',
   },
   {
-    id: 'umi_zanmai', timing: '新しいペアごと',
-    cond: '自分の机に、まだペアを組んでいない「いか」系と「たこ」系を揃えます。',
-    effect: '机にある海鮮カードが50%の威力で再攻撃',
-    note: '1枚につきペア成立は1回です。ペアになったカードも机に残ります。',
+    id: 'umi_zanmai', timing: '新しいペアごと', cards: ['ika', 'tako', 'ebi'],
+    cond: '自分の机に未ペアの「いか」系＋「たこ」系。',
+    effect: '机の海鮮が50%の威力で再攻撃。',
+    note: 'ペアは1枚1回。成立後も机に残ります。',
   },
   {
-    id: 'niku_matsuri', timing: '各ターンに1回',
-    cond: '同じターンに肉寿司を2枚召喚します。',
-    effect: 'そのターン、肉寿司の終盤強化ボーナス ×2',
-    note: '相手のお腹の量で増える分だけが2倍になります。',
+    id: 'niku_matsuri', timing: '各ターンに1回', cards: ['wagyu', 'yakiniku'],
+    cond: '同じターンに肉寿司を2枚召喚。',
+    effect: 'そのターン、肉寿司の終盤強化 ×2。',
+    note: '相手のお腹による攻撃の増加分だけ2倍。',
   },
 ]
 
 export function StaffHelpModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [bookOpen, setBookOpen] = useState(false)
+  const [spread, setSpread] = useState(0)
+  const [turn, setTurn] = useState<1 | -1 | null>(null)
+  const pageId = useId()
+  const reducedMotion = useReducedMotion()
+  const currentSpread = HELP_SPREADS[spread]
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const opener = document.activeElement
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [])
+
+  const turnPage = (direction: 1 | -1) => {
+    const next = spread + direction
+    if (turn !== null || next < 0 || next >= HELP_SPREADS.length) return
+    setSpread(next)
+    if (!reducedMotion) setTurn(direction)
+  }
+
   return (
-    <motion.div
-      className="absolute inset-0 z-30 flex items-center justify-center"
+    <motion.dialog
+      ref={dialogRef}
+      className="help-menu-overlay"
+      aria-label="遊び方のお品書き"
+      onCancel={(event) => { event.preventDefault(); onClose() }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}
+      transition={{ duration: reducedMotion ? 0 : 0.18 }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose() }}
     >
-      <motion.div
-        tabIndex={0} role="region" aria-label="ビルドとコンボの説明"
-        onClick={(e) => e.stopPropagation()}
-        initial={{ scale: 0.92, y: 14 }} animate={{ scale: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-        style={{
-          width: 420, maxWidth: '92%', maxHeight: '84%', overflowY: 'auto',
-          borderRadius: 14, background: '#faf7f2', border: '2px solid #d5cec2',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.7)', padding: '14px 16px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: '#44403c' }}>🧑‍🍳 店員さんの解説</span>
-          <button onClick={onClose} aria-label="店員さんの解説を閉じる" style={{ border: 'none', background: '#e7e2d8', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: '#78716c', fontWeight: 800 }}>✕</button>
-        </div>
-
-        <section style={{ background: '#e9eedf', border: '1px solid #b5c4a4', borderRadius: 8, padding: '9px 10px', marginBottom: 12, color: '#415438' }}>
-          <h3 style={{ fontSize: 12, fontWeight: 800, marginBottom: 5 }}>サイドメニューは専用の1枠</h3>
-          <p style={{ fontSize: 11, lineHeight: 1.75 }}>最初の注文で、レーンを流れるサイドメニューか注文タブレットから、300円で1品だけ購入できます。どちらで買っても、購入後はもう1品買えません。寿司20枚や特急3回の枠は使いません。対戦中の自分のターンに0APで使用・設置します。使用後の追加購入や交換はできません。</p>
-          <p style={{ fontSize: 10, lineHeight: 1.75, marginTop: 5 }}>ラーメンはAPを使ってから、お腹＋5でAPを1回復。初めて使用したターンを含む自分の3ターンだけ使えます。</p>
-        </section>
-
-        <p style={{ fontSize: 11, fontWeight: 800, color: '#b45309', margin: '0 0 6px' }}>■ ビルド（アーキタイプ）とは</p>
-        <p style={{ fontSize: 10, color: '#57534e', margin: '0 0 8px', lineHeight: 1.6 }}>
-          同じ系統の寿司を集めるとデッキに軸ができます。系統はカード左上のラベルで確認できます。
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
-          {BUILD_GUIDE.map((b) => (
-            <div key={b.label} style={{ borderRadius: 8, background: 'white', border: `1px solid ${b.color}44`, padding: '6px 8px' }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: b.color }}>● {b.label}</span>
-              <p style={{ fontSize: 9, color: '#57534e', margin: '3px 0 0', lineHeight: 1.5 }}>{b.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 11, fontWeight: 800, color: '#b45309', margin: '0 0 6px' }}>■ コンボ（役）</p>
-        <p style={{ fontSize: 10, color: '#57534e', margin: '0 0 8px', lineHeight: 1.6 }}>
-          コンボごとに、累計の召喚数・机に同時にある枚数・同じターンの召喚数を確認します。条件と発動回数に合わせてカードを集めましょう。
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-          {COMBO_GUIDE.map((c) => (
-            <div key={c.id} style={{ borderRadius: 8, background: 'white', border: '1px solid #e0d9cc', padding: '8px 9px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '3px 8px' }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#44403c' }}>{COMBO_META[c.id].name.replace(/！+$/, '')}</span>
-                <span style={{ fontSize: 9, color: '#78716c' }}>{c.timing}</span>
+      <div className={`help-book-stage ${bookOpen ? 'is-open' : 'is-closed'}`}>
+        <button className="help-menu-close" onClick={onClose} aria-label="遊び方を閉じる" autoFocus>×</button>
+        <AnimatePresence initial={false} mode="wait">
+          {!bookOpen ? (
+            <motion.button
+              key="cover"
+              className="help-book-cover"
+              aria-label="お品書きの表紙を開く"
+              onClick={() => { setSpread(0); setTurn(null); setBookOpen(true) }}
+              initial={{ rotateY: reducedMotion ? 0 : -85, opacity: 0 }}
+              animate={{ rotateY: 0, opacity: 1 }}
+              exit={{ rotateY: reducedMotion ? 0 : -105, opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.35, ease: 'easeInOut' }}
+              style={{ transformOrigin: 'left center' }}
+            >
+              <span className="help-book-cover-eyebrow">寿司デッキバトル</span>
+              <span className="help-book-cover-title">お品書き</span>
+              <span className="help-book-cover-seal">遊び方</span>
+              <span className="help-book-cover-open">表紙を開く <span aria-hidden="true">→</span></span>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="pages"
+              className="help-book-spread"
+              initial={{ rotateY: reducedMotion ? 0 : 8, opacity: 0 }}
+              animate={{ rotateY: 0, opacity: 1 }}
+              exit={{ rotateY: reducedMotion ? 0 : 8, opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.25, ease: 'easeOut' }}
+            >
+              <div className="help-book-pages" id={`${pageId}-spread`}>
+                {[0, 1].map((side) => (
+                  <section
+                    key={side}
+                    className={`help-book-page ${side === 0 ? 'help-book-page--builds' : 'help-book-page--combos'}`}
+                    aria-labelledby={`${pageId}-${side}-heading`}
+                  >
+                    <div className="help-book-page-content">
+                      <header className="help-book-page-heading">
+                        <p className="help-book-running-title">{currentSpread.running[side]}</p>
+                        <h2 id={`${pageId}-${side}-heading`}>{currentSpread.title}</h2>
+                        <p className="help-menu-intro">{currentSpread.intro[side]}</p>
+                      </header>
+                      {spread === 0 ? (
+                        <div className="help-menu-builds">
+                          {BUILD_GUIDE.slice(side * 3, side * 3 + 3).map((build) => {
+                            const card = getCardById(build.cardId)
+                            return (
+                              <article className="help-menu-build" key={build.label}>
+                                <div className="help-menu-dish">
+                                  <div className="help-menu-art" aria-hidden="true">{card && <SushiArt card={card} size="100%" />}</div>
+                                  <h3>{build.label}</h3>
+                                </div>
+                                <p className="help-menu-specialty">{build.specialty}</p>
+                                <p className="help-menu-description">{build.desc}</p>
+                              </article>
+                            )
+                          })}
+                        </div>
+                      ) : spread === 1 ? (
+                        <div className="help-menu-combo-list">
+                          {COMBO_GUIDE.slice(side * 3, side * 3 + 3).map((combo) => (
+                            <article className="help-menu-combo" key={combo.id}>
+                              <div className="help-menu-platter" aria-hidden="true">{combo.cards.map((cardId) => {
+                                const card = getCardById(cardId)
+                                return card ? <SushiArt key={cardId} card={card} size="100%" /> : null
+                              })}</div>
+                              <div className="help-menu-combo-heading">
+                                <h3>{COMBO_META[combo.id].name.replace(/！+$/, '')}</h3>
+                                <span className="help-menu-timing">{combo.timing}</span>
+                              </div>
+                              <p className="help-menu-description">{combo.cond}</p>
+                              <p className="help-menu-effect">{combo.effect}</p>
+                              {combo.note && <p className="help-menu-note">{combo.note}</p>}
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="help-menu-combo-list">
+                          {SIDE_MENUS.slice(side * 3, side * 3 + 3).map((menu) => (
+                            <article className="help-menu-combo help-menu-side" key={menu.id}>
+                              <div className="help-menu-platter" aria-hidden="true"><SideMenuArt id={menu.id} /></div>
+                              <div className="help-menu-combo-heading">
+                                <h3>{menu.name}</h3>
+                                <span className="help-menu-timing">¥{menu.price.toLocaleString()}</span>
+                              </div>
+                              <p className="help-menu-description">{menu.effect}</p>
+                              <p className="help-menu-note">{menu.timing}</p>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="help-book-page-bottom"><span>{currentSpread.footer}</span><span>{['一', '二', '三', '四', '五', '六'][spread * 2 + side]}</span></div>
+                  </section>
+                ))}
+                {turn !== null && (
+                  <motion.div
+                    className="help-book-turning-leaf"
+                    aria-hidden="true"
+                    style={{ width: '50%', ...(turn === 1 ? { right: 0 } : { left: 0 }), transformOrigin: turn === 1 ? 'left center' : 'right center' }}
+                    initial={{ rotateY: 0, opacity: 1 }}
+                    animate={{ rotateY: turn === 1 ? -180 : 180, opacity: [1, 1, 0] }}
+                    transition={{ duration: 0.48, ease: 'easeInOut', opacity: { times: [0, 0.85, 1], duration: 0.48 } }}
+                    onAnimationComplete={() => setTurn(null)}
+                  />
+                )}
               </div>
-              <p style={{ fontSize: 10, color: '#57534e', margin: '5px 0 0', lineHeight: 1.6 }}>{c.cond}</p>
-              <p style={{ fontSize: 10, color: '#0891b2', fontWeight: 700, margin: '3px 0 0', lineHeight: 1.6 }}>{c.effect}</p>
-              {c.note && <p style={{ fontSize: 9, color: '#78716c', margin: '3px 0 0', lineHeight: 1.6 }}>{c.note}</p>}
-            </div>
-          ))}
-        </div>
-
-      </motion.div>
-    </motion.div>
+              <footer className="help-book-controls">
+                <button onClick={() => { setTurn(null); setBookOpen(false) }}>表紙に戻る</button>
+                <nav className="help-book-pagination" aria-label="見開きをめくる">
+                  <button disabled={spread === 0 || turn !== null} aria-controls={`${pageId}-spread`} onClick={() => turnPage(-1)} aria-label="前の見開きへ">← 前へ</button>
+                  <span role="status">{spread + 1} / {HELP_SPREADS.length} <span>見開き</span></span>
+                  <button disabled={spread === HELP_SPREADS.length - 1 || turn !== null} aria-controls={`${pageId}-spread`} onClick={() => turnPage(1)} aria-label="次の見開きへ">次へ →</button>
+                </nav>
+              </footer>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.dialog>
   )
 }
