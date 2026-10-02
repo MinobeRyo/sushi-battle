@@ -206,8 +206,12 @@ function InboundDonArt({ paint }: { paint: Paint }) {
       </g>
     })}
     {beef.map(([x, y, rotation], i) => <g key={i} transform={`translate(${x} ${y}) rotate(${rotation})`}>
+      <path d="M-13-25Q-21-16-19 1Q-20 22-10 28Q1 33 12 24Q22 10 18-7Q16-29 3-30Q-5-30-13-25Z" transform="translate(1 5)" fill="#623d32" opacity=".2" />
+      <path d="M-13-25Q-21-16-19 1Q-20 22-10 28Q1 33 12 24Q22 10 18-7Q16-29 3-30Q-5-30-13-25Z" transform="translate(0 3.8)" fill="#a95759" stroke="#835145" strokeWidth="1" />
       <path d="M-13-25Q-21-16-19 1Q-20 22-10 28Q1 33 12 24Q22 10 18-7Q16-29 3-30Q-5-30-13-25Z" fill="#785344" />
       <path d="M-12-23Q-19-15-17 1Q-18 21-9 26Q1 30 11 22Q20 10 16-7Q14-27 3-28Q-5-28-12-23Z" fill={i % 2 ? '#bf4e58' : '#d7646b'} />
+      <path d="M-14 3Q-17 15-8 22Q0 27 10 19" fill="none" stroke="#e78689" strokeWidth="2.1" strokeLinecap="round" opacity=".55" />
+      <path d="M-7 30Q3 32 12 26" fill="none" stroke="#d7787a" strokeWidth="1.7" strokeLinecap="round" />
       <path d="M-14-13Q-4-9 13-15M-16-3Q-3 2 16-4M-15 8Q-5 13 14 6M-11 18Q-2 23 9 17" fill="none" stroke="#ec9a9d" strokeWidth=".8" strokeLinecap="round" opacity=".8" />
       <path d="M-10-22Q-6-17-8-11M3 5Q1 9 5 14" fill="none" stroke="#f0b7b4" strokeWidth=".7" opacity=".75" />
     </g>)}
