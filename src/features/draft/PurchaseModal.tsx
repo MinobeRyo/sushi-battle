@@ -1,23 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Card } from '../../types'
-
-const EFFECT_LABELS: Record<string, string> = {
-  digest_stop_1t: '相手の消化を1ターン止める',
-  self_digest_5: '自分のお腹 -5',
-  digest_boost_2: '机にいる間 毎ターンの消化 +2',
-  multi_base: 'マグロ・えびのbaseも兼ねる',
-  kireta_stack: '切れ味スタック +1',
-  kireta_consume_x3: '切れ味スタック全消費 ×3ダメージ（消費は攻撃後）',
-  kireta_consume_2_draw_2: '切れ味2を消費して2枚ドロー',
-  chain_on_kaisen_summon: '海鮮召喚時に連鎖攻撃',
-  draw_1: '召喚時、カードを1枚引く',
-  draw_2: '召喚時、カードを2枚引く',
-  ap_next_1: '次のターンだけ AP +1',
-  belly_boost_70: '相手お腹 >70 で攻撃 +8',
-  belly_boost_65: '相手お腹 >65 で攻撃 +6',
-  belly_boost_60: '相手お腹 >60 で攻撃 +5',
-  belly_boost_persist_50: '机にいる間 相手お腹 >50 で攻撃 +2',
-}
+import { EFFECT_FULL } from '../battle/battlePresentation'
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   akami: '赤身', makimono: '巻物', hikari: '光り物',
@@ -113,7 +96,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
               className="rounded-lg p-2 mb-3 text-xs text-amber-300 leading-relaxed"
               style={{ background: 'rgba(120,53,15,0.4)' }}
             >
-              ✨ {EFFECT_LABELS[card.effect] ?? card.effect}
+              ✨ {EFFECT_FULL[card.effect] ?? '効果の説明は準備中です'}
             </div>
           )}
 
