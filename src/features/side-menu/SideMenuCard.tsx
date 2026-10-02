@@ -20,7 +20,7 @@ export type SideMenuCardProps = {
 }
 
 const LIFETIME: Record<SideMenuId, string> = {
-  karaage: '1回使い切り', fries: '常時', tempura: '常時', ramen: '3ターン', miso: '常時', chawanmushi: '1回使い切り',
+  karaage: '1回使い切り', fries: '常時', tempura: '常時', ramen: '3ターン', miso: '常時', chawanmushi: '1回使い切り', inbound_don: '常時',
 }
 
 /** 購入・発動の判定は呼び出し元で行い、このコンポーネントは表示だけを担当します。 */

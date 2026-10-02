@@ -81,6 +81,7 @@ const draftEngineSrc = read(path.join(SRC, 'features/draft/draftEngine.ts'))
 
 const cards = parseCards(cardsSrc)
 const { GENERATED_CARDS } = loadTs('src/data/cards.ts')
+const { SIDE_MENUS } = loadTs('src/data/sideMenus.ts')
 
 const K = {
   MAX_BELLY: parseConst(battleSrc, 'MAX_BELLY'),
@@ -198,7 +199,7 @@ const COMBOS = [
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩', color: 'niku',
     trigger: '都度発動 · ターンに1回', state: 'impl',
     cond: `同じターンに生ハムを合計 <strong>${K.NIKU_REQUIRED}体</strong> 生贄にする`,
-    effect: `即時 <strong>+${K.NIKU_DAMAGE}</strong> ダメージ（ガリで防御可能）`,
+    effect: `即時 <strong>+${K.NIKU_DAMAGE}</strong> ダメージ（コンボのためガリでは防御できない）`,
     lists: [
       ['生ハムを生成するカード', cs => cs.filter(c => c.effect?.startsWith('generate_namahamu_'))],
       ['生贄で攻撃を強化するカード', cs => cs.filter(c => c.effect?.startsWith('sacrifice_namahamu_'))],
@@ -461,10 +462,14 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
   <div class="subhead"><h3>ダメージ計算</h3><span>game/battleRules.ts の calcFieldDmg</span></div>
   <div class="kw">
-    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
+    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 設置中のサイドメニューによる強化 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
     <div><code>総ダメージ（表の列）</code><p>攻撃力 × 持続ターン。バフ・ボーナスを含まない素の値</p></div>
   </div>
+
+  <div class="subhead"><h3>サイドメニュー ${SIDE_MENUS.length}品</h3><span>初回注文で専用1枠・各品の価格で購入</span></div>
+  <p class="lede">寿司20枚・机8枠・特急3回とは別枠。自分の手番に0APで使用・設置します。購入後の交換や追加注文はできません。</p>
+  <div class="kw">${SIDE_MENUS.map(menu => `<div><code>${esc(menu.name)}（${menu.price}円）</code><p>${esc(menu.effect)}<br><span class="users">${esc(menu.timing)}</span></p></div>`).join('')}</div>
 </section>
 
 <section id="cards">

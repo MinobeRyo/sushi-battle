@@ -196,22 +196,26 @@ test('同じターンの1体+1体の生贄で肉祭りが即時5ダメージ、�
   assert.equal(result.events.some(event => event.type === 'combo'), false)
 })
 
-test('和牛2体の生贄による肉祭りはガリ防御を待ち、回答後に同じ手番を続ける', () => {
+test('和牛2体の肉祭りはガリを消費せず即時5ダメージを与え、通常攻撃だけ半減する', () => {
   const state = make(['wagyu'])
   state.players[1].field = hams(2)
   const result = play(state, 'wagyu', 2)
-  assert.equal(result.state.phase, 'defending')
-  assert.deepEqual(result.state.pendingAttack, { attackerId: 1, defenderId: 2, amount: 5, source: 'summon' })
-  assert.equal(result.state.players[2].belly, 0)
+  assert.equal(result.state.phase, 'playing')
+  assert.equal(result.state.pendingAttack, null)
+  assert.equal(result.state.players[2].belly, 5)
+  assert.equal(result.state.players[2].gari, 2)
   assert.equal(result.state.players[1].sacrificedThisTurn, 2)
   assert.equal(countNamahamu(result.state.players[1].field), 0)
   assert.equal(result.state.players[1].ap, 6)
-  const defended = step(result.state, { type: 'respond_defense', playerId: 2, useGari: true }).state
+  assert.equal(result.state.activePlayerId, 1)
+  const attack = step(result.state, { type: 'end_turn', playerId: 1 }).state
+  assert.equal(attack.pendingAttack.amount, 28)
+  assert.equal(attack.players[2].belly, 5)
+  const defended = step(attack, { type: 'respond_defense', playerId: 2, useGari: true }).state
   assert.equal(defended.players[2].gari, 1)
-  assert.equal(defended.players[2].belly, 0)
+  assert.equal(defended.players[2].belly, 17, '即時5 + 通常28の半分14 - ターン開始の消化2')
   assert.equal(defended.phase, 'playing')
-  assert.equal(defended.activePlayerId, 1)
-  assert.equal(calcFieldDmg(defended.players[1].field, {}), 28)
+  assert.equal(defended.activePlayerId, 2)
 })
 
 test('ターンをまたぐ生贄は合算せず、肉祭りは次の自分ターンに再び発動できる', () => {
@@ -278,7 +282,9 @@ test('CPUは最大数を選び、机が満杯でも生贄で空けて召喚で�
   const result = step(state, actions[0])
   assert.equal(countNamahamu(result.state.players[2].field), 1)
   assert.equal(result.state.players[2].field.length, 7)
-  assert.equal(result.state.pendingAttack.amount, 5)
+  assert.equal(result.state.pendingAttack, null)
+  assert.equal(result.state.players[1].belly, 5)
+  assert.equal(result.state.players[1].gari, 1)
 })
 
 test('CPUは満杯の机でもラーメンでAPを補い、生贄召喚まで進める', () => {
@@ -298,6 +304,30 @@ test('CPUは満杯の机でもラーメンでAPを補い、生贄召喚まで進
   assert.equal(result.players[2].belly, 5)
   assert.equal(result.players[2].ap, 0)
   assert.equal(result.players[2].field.length, 7)
+})
+
+for (const [id, count, expected] of [['karubi', 0, 9], ['karubi', 1, 18], ['wagyu', 1, 22], ['wagyu', 2, 32]]) {
+  test(`インバウン丼の設置後は${id}の生贄${count}体で攻撃${expected}、肉祭りは5のまま`, () => {
+    let state = make([id], { sideMenu: 'inbound_don' })
+    state.players[1].field = hams(count)
+    state = step(state, { type: 'use_side_menu', playerId: 1 }).state
+    const result = play(state, id, count)
+    assert.equal(calcFieldDmg(result.state.players[1].field, {}), expected)
+    assert.equal(result.state.players[2].belly, count === 2 ? 5 : 0)
+    assert.equal(result.state.players[2].gari, 2)
+    assert.equal(result.state.pendingAttack, null)
+  })
+}
+
+test('未設置・相手だけ設置したインバウン丼は自分の生贄攻撃を強化しない', () => {
+  for (const activeEnemy of [false, true]) {
+    const state = make(['wagyu'], { sideMenu: 'inbound_don', p2SideMenu: 'inbound_don' })
+    state.players[1].field = hams(2)
+    if (activeEnemy) state.players[2].sideMenu.status = 'active'
+    const result = play(state, 'wagyu', 2)
+    assert.equal(calcFieldDmg(result.state.players[1].field, {}), 28)
+    assert.equal(result.state.players[2].belly, 5)
+  }
 })
 
 console.log(`\n肉寿司の生成・生贄: ${passed}件成功`)

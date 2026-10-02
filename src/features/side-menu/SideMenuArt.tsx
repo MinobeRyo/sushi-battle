@@ -185,6 +185,56 @@ function ChawanmushiArt({ paint }: { paint: Paint }) {
   </>
 }
 
+function InboundDonArt({ paint }: { paint: Paint }) {
+  const beef = [[108, 69, 48], [125, 66, 51], [141, 70, 48], [155, 75, 43], [169, 83, 38], [180, 93, 31], [178, 103, 20]]
+  const uni = [[59, 83, 32, .78], [76, 76, 43, .83], [89, 82, 35, .92], [51, 95, 35, .78], [65, 99, 54, .9], [82, 99, 27, .89], [100, 101, 38, .94], [68, 113, 66, .78], [85, 116, 78, .92], [107, 116, 61, .89], [125, 113, 52, .9], [144, 114, 45, .82], [161, 112, 67, .78], [78, 92, 49, .88], [96, 109, 61, .89], [120, 106, 40, .84]]
+  return <>
+    <ellipse cx="120" cy="153" rx="85" ry="13" fill="#593c24" opacity=".13" />
+    <path d="M87 139V149Q120 160 153 149V139Z" fill="#20221f" />
+    <path d="M24 88Q31 136 91 149Q119 159 153 149Q209 134 216 88Z" fill="#222522" stroke="#121a16" strokeWidth="1.3" />
+    <path d="M38 110Q60 139 96 145" fill="none" stroke="#667061" strokeWidth="2" opacity=".4" strokeLinecap="round" />
+    <ellipse cx="120" cy="88" rx="96" ry="38" fill="#dbb968" stroke="#c9a655" strokeWidth="2" />
+    <ellipse cx="120" cy="88" rx="85" ry="30" fill="#e9ca80" />
+    <ellipse cx="120" cy="89" rx="74" ry="25" fill={paint.plate} />
+    {Array.from({ length: 220 }, (_, i) => {
+      const angle = i * 2.39996, radius = Math.sqrt((i + .5) / 220)
+      const x = 120 + Math.cos(angle) * radius * 72, y = 89 + Math.sin(angle) * radius * 23
+      return <g key={i} transform={`translate(${x} ${y}) rotate(${i * 137.5 % 180})`}>
+        <ellipse cy=".55" rx={1.8 + (i % 3) * .2} ry=".86" fill="#d7cebb" opacity=".8" />
+        <ellipse rx={1.8 + (i % 3) * .2} ry=".78" fill={i % 4 ? '#fff9ed' : '#eee7d8'} />
+        {i % 3 === 0 && <path d="M-1-.2L.8-.2" stroke="#fffdf5" strokeWidth=".35" strokeLinecap="round" />}
+      </g>
+    })}
+    {beef.map(([x, y, rotation], i) => <g key={i} transform={`translate(${x} ${y}) rotate(${rotation})`}>
+      <path d="M-13-25Q-21-16-19 1Q-20 22-10 28Q1 33 12 24Q22 10 18-7Q16-29 3-30Q-5-30-13-25Z" fill="#785344" />
+      <path d="M-12-23Q-19-15-17 1Q-18 21-9 26Q1 30 11 22Q20 10 16-7Q14-27 3-28Q-5-28-12-23Z" fill={i % 2 ? '#bf4e58' : '#d7646b'} />
+      <path d="M-14-13Q-4-9 13-15M-16-3Q-3 2 16-4M-15 8Q-5 13 14 6M-11 18Q-2 23 9 17" fill="none" stroke="#ec9a9d" strokeWidth=".8" strokeLinecap="round" opacity=".8" />
+      <path d="M-10-22Q-6-17-8-11M3 5Q1 9 5 14" fill="none" stroke="#f0b7b4" strokeWidth=".7" opacity=".75" />
+    </g>)}
+    {uni.map(([x, y, rotation, scale], i) => <g key={i} transform={`translate(${x} ${y}) rotate(${rotation}) scale(${scale})`}>
+      <path d="M-1-27Q-7-24-7-19L-9-14L-8-8Q-11-2-8 4L-9 9L-6 16Q-5 23 0 28Q5 21 6 15L8 11L7 5Q11-1 8-6L9-12L6-17Q6-23 2-27Q0-29-1-27Z" fill={i % 3 === 0 ? '#ef850e' : i % 3 === 1 ? '#e77505' : '#ed921c'} stroke="#df740b" strokeWidth=".55" />
+      <path d="M0-24Q-3-17-1-10Q2-3-1 4Q-3 13 0 23" fill="none" stroke="#cc6208" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M-3-21Q-6-15-4-8M-5-5Q-7 1-4 7M-4 11L-2 19M3-21Q6-16 4-10M5-6Q7 1 4 7M4 11L2 20" fill="none" stroke="#ffaf43" strokeWidth="1.05" strokeLinecap="round" />
+      {Array.from({ length: 15 }, (_, j) => <path key={j} d={`M${(j % 2 ? 3 : -5) + Math.sin(j * 2 + i)} ${-19 + j * 2.7}l1.8 .65`} stroke={j % 3 ? '#ffaf43' : '#db6d0a'} strokeWidth=".6" strokeLinecap="round" opacity=".85" />)}
+    </g>)}
+    {Array.from({ length: 31 }, (_, i) => {
+      const a = i * 2.39996, r = 18 * Math.sqrt((i + .5) / 31)
+      const x = 121 + Math.cos(a) * r, y = 88 + Math.sin(a) * r * .55
+      return <g key={i}>
+        <circle cx={x} cy={y} r={3.7 + (i % 3) * .3} fill={i % 3 ? '#ee721e' : '#f58927'} stroke="#e26714" strokeWidth=".5" />
+        <circle cx={x + .6} cy={y + .5} r="1.65" fill="#d94410" opacity=".65" />
+        <ellipse cx={x - 1.1} cy={y - 1.2} rx="1.05" ry=".65" fill="#ffe2a5" opacity=".9" />
+      </g>
+    })}
+    <g fill="#4d8537" stroke="#3c6b31" strokeWidth=".5">
+      <path d="M119 81Q104 80 108 72Q117 69 119 81Z" />
+      <path d="M120 80Q112 68 120 66Q129 68 120 80Z" />
+      <path d="M121 82Q123 70 132 74Q138 82 121 82Z" />
+      <path d="M111 75L120 82L128 77M120 70V80" fill="none" stroke="#a3b86e" strokeWidth=".6" />
+    </g>
+  </>
+}
+
 /** 多数のカードにも軽量に表示できる、外部画像・WebGL 不要の料理イラストです。 */
 export function SideMenuArt({ id, className, size, decorative = true }: SideMenuArtProps) {
   const instanceId = `side-art-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
@@ -210,6 +260,7 @@ export function SideMenuArt({ id, className, size, decorative = true }: SideMenu
       {id === 'ramen' && <RamenArt paint={paint} />}
       {id === 'miso' && <MisoArt paint={paint} />}
       {id === 'chawanmushi' && <ChawanmushiArt paint={paint} />}
+      {id === 'inbound_don' && <InboundDonArt paint={paint} />}
     </svg>
   )
 }

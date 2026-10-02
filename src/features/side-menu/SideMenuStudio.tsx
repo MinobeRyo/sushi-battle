@@ -3,12 +3,16 @@ import type { ReactNode } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 import { OrthographicCamera, PCFShadowMap } from 'three'
+import { CARDS, GENERATED_CARDS } from '../../data/cards'
 import { SideMenuModel } from './models/SideMenuModel'
 import { SIDE_MENU_CATALOG } from './sideMenuCatalog'
 import type { SideMenuId } from './sideMenuCatalog'
+import '../catalog/CardCatalogScreen.css'
 import './SideMenuStudio.css'
 
 type ViewMode = 'collection' | 'detail'
+const COLLECTION_COLUMNS = 3
+const COLLECTION_ROWS = Math.ceil(SIDE_MENU_CATALOG.length / COLLECTION_COLUMNS)
 
 function Icon({ name }: { name: 'grid' | 'focus' | 'rotate' | 'reset' | 'arrow' }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -35,7 +39,7 @@ function CameraRig({ mode, reset, rotating }: { mode: ViewMode; reset: number; r
     if (!(camera instanceof OrthographicCamera)) return
     camera.position.set(...(mode === 'collection' ? [0, 10, 11] : [3.4, 4.6, 6]) as [number, number, number])
     camera.zoom = mode === 'collection'
-      ? Math.min(size.width / 10.1, size.height / 7.7)
+      ? Math.min(size.width / 10.1, size.height / (4.45 + (COLLECTION_ROWS - 1) * 3.25))
       : Math.min(size.width / 4.3, size.height / 3.8)
     camera.lookAt(0, 0.45, 0)
     camera.updateProjectionMatrix()
@@ -49,8 +53,8 @@ function CameraRig({ mode, reset, rotating }: { mode: ViewMode; reset: number; r
 function Dish({ id, index, selected, mode, onSelect }: {
   id: SideMenuId; index: number; selected: boolean; mode: ViewMode; onSelect: (id: SideMenuId) => void
 }) {
-  const x = mode === 'collection' ? (index % 3 - 1) * 3.05 : 0
-  const z = mode === 'collection' ? (Math.floor(index / 3) - 0.5) * 3.25 : 0
+  const x = mode === 'collection' ? (index % COLLECTION_COLUMNS - (COLLECTION_COLUMNS - 1) / 2) * 3.05 : 0
+  const z = mode === 'collection' ? (Math.floor(index / COLLECTION_COLUMNS) - (COLLECTION_ROWS - 1) / 2) * 3.25 : 0
   return <group position={[x, 0, z]}>
     <mesh position={[0, -0.065, 0]} receiveShadow>
       <cylinderGeometry args={[1.33, 1.36, 0.12, 64]} />
@@ -91,9 +95,11 @@ function StudioScene({ selected, mode, reset, rotating, onSelect }: {
 export type SideMenuStudioProps = {
   /** 図鑑への組み込み時に指定。ページ再読み込みなしで元の図鑑へ戻る。 */
   onBack?: () => void
+  /** 共通ヘッダーからタイトルへ戻る。寿司図鑑への切り替えとは分けて指定する。 */
+  onTitle?: () => void
 }
 
-export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
+export default function SideMenuStudio({ onBack, onTitle }: SideMenuStudioProps = {}) {
   const [selected, setSelected] = useState<SideMenuId>('ramen')
   const [mode, setMode] = useState<ViewMode>('collection')
   const [rotating, setRotating] = useState(false)
@@ -101,22 +107,33 @@ export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
   const [ready, setReady] = useState(false)
   const dish = SIDE_MENU_CATALOG.find(item => item.id === selected)!
   const index = SIDE_MENU_CATALOG.indexOf(dish)
+  const returnUrl = window.location.pathname + window.location.search
 
-  return <main className="side-studio" aria-label="サイドメニュー図鑑">
-    <header className="side-studio-header">
-      {onBack
-        ? <button type="button" className="side-studio-brand" onClick={onBack} aria-label="寿司カード図鑑へ戻る"><span className="side-studio-seal">寿</span><span>寿司バトル<small>SUSHI BATTLE</small></span></button>
-        : <a className="side-studio-brand" href={window.location.pathname + window.location.search} aria-label="寿司バトルのタイトルへ戻る"><span className="side-studio-seal">寿</span><span>寿司バトル<small>SUSHI BATTLE</small></span></a>}
-      <span className="side-studio-header-note">{onBack ? 'カード図鑑 / サイドメニュー' : 'サイドメニュー / モデルプレビュー'}</span>
-      {onBack
-        ? <button type="button" className="side-studio-back" onClick={onBack}>寿司の図鑑へ戻る <Icon name="arrow" /></button>
-        : <a className="side-studio-back" href={window.location.pathname + window.location.search}>ゲームへ戻る <Icon name="arrow" /></a>}
+  return <main className="card-catalog side-studio" aria-labelledby="side-catalog-title">
+    <header className="catalog-header">
+      <div className="catalog-header-inner">
+        {onTitle
+          ? <button type="button" className="catalog-back" onClick={onTitle}>← タイトルへ</button>
+          : onBack
+            ? <button type="button" className="catalog-back" onClick={onBack}>← 寿司の図鑑へ</button>
+            : <a className="catalog-back" href={returnUrl}>← タイトルへ</a>}
+        <h1 id="side-catalog-title">サイドメニュー図鑑</h1>
+        <span className="catalog-total">全{SIDE_MENU_CATALOG.length}種</span>
+      </div>
     </header>
 
-    <section className="side-studio-intro">
-      <div><p className="side-studio-eyebrow">SIDE MENU COLLECTION <span>— SIX DISHES</span></p><h1>もう一皿、<span>勝負の一手。</span></h1></div>
-      <p className="side-studio-lead">六つのサイドメニューを、立体で。<br />気になる一皿を選んで、じっくりご覧ください。</p>
-    </section>
+    <div className="catalog-content">
+      <nav className="catalog-sections" aria-label="図鑑の種類">
+        {onBack
+          ? <button type="button" onClick={onBack}>寿司カード <small>{CARDS.length + GENERATED_CARDS.length}種</small><span aria-hidden="true">↗</span></button>
+          : <button type="button" onClick={() => window.location.assign(returnUrl)}>ゲームへ戻る <span aria-hidden="true">↗</span></button>}
+        <span aria-current="page">サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small></span>
+      </nav>
+      <p className="catalog-intro">{SIDE_MENU_CATALOG.length}種のサイドメニューを、立体でじっくり。<br />一覧から気になる一皿を選び、料理や効果の説明をご覧ください。</p>
+      <div className="catalog-results-bar">
+        <p role="status">{mode === 'collection' ? SIDE_MENU_CATALOG.length : 1} / {SIDE_MENU_CATALOG.length}種を表示</p>
+      </div>
+      <p className="catalog-guide">料理を選ぶと詳細を表示します。「一皿ずつ」で拡大し、ドラッグで回転・スクロールでズームできます。</p>
 
     <div className="side-studio-layout">
       <section className="side-studio-viewer" aria-label="サイドメニューの3Dプレビュー">
@@ -149,15 +166,15 @@ export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
       </section>
 
       <aside className="side-studio-detail" aria-label="選んだメニューの詳細">
-        <div className="side-studio-detail-top"><span>本日のお品書き</span><span>0{index + 1} <i>/ 06</i></span></div>
+        <div className="side-studio-detail-top"><span>本日のお品書き</span><span>{String(index + 1).padStart(2, '0')} <i>/ {String(SIDE_MENU_CATALOG.length).padStart(2, '0')}</i></span></div>
         <div className="side-studio-dish-info" key={dish.id}>
           <p className="side-studio-category" style={{ color: dish.accent }}>{dish.category}</p>
           <h2>{dish.name}</h2><p className="side-studio-english">{dish.english}</p>
           <p className="side-studio-description">{dish.description}</p>
-          <div className="side-studio-effect"><span>バトルでの効果案</span><p>{dish.effect}</p><small>{dish.timing}</small></div>
+          <div className="side-studio-effect"><span>バトルでの効果</span><p>{dish.effect}</p><small>{dish.timing}</small></div>
         </div>
         <button className="side-studio-inspect" onClick={() => setMode(mode === 'detail' ? 'collection' : 'detail')}>
-          {mode === 'detail' ? '六つのお品書きに戻る' : 'この一皿を拡大'}<Icon name={mode === 'detail' ? 'grid' : 'arrow'} />
+          {mode === 'detail' ? 'お品書き一覧に戻る' : 'この一皿を拡大'}<Icon name={mode === 'detail' ? 'grid' : 'arrow'} />
         </button>
         <p className="side-studio-slot-note">サイドメニュースロットは1枠。<br />購入できるのは、1試合に一品だけ。</p>
       </aside>
@@ -168,6 +185,7 @@ export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
         <span className="side-studio-menu-number">0{itemIndex + 1}</span><span><strong>{item.name}</strong><small>{item.english}</small></span><span className="side-studio-menu-dot" style={{ background: item.accent }} />
       </button>)}
     </nav>
-    <footer className="side-studio-footer"><span>SUSHI BATTLE — SIDE MENU STUDIES</span><span>サイドメニューの効果は設計案です。</span></footer>
+    <p className="side-studio-footer">最初の注文で1品購入し、自分のターンに0APで使用できます。</p>
+    </div>
   </main>
 }

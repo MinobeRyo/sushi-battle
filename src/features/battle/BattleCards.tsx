@@ -37,12 +37,13 @@ function shortEffect(card: Card) {
 }
 
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, fieldCards, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, fieldCards, sacrificeAttackBonus = 0, onPlay, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
   kiretaStack: number
   fieldCards: FieldCard[]
+  sacrificeAttackBonus?: number
   onPlay: (sacrificeCount?: number) => void
   onClose: () => void
 }) {
@@ -68,7 +69,7 @@ export function CardDetailSheet({
   const selectedSacrifices = !needsSacrificeChoice ? 0
     : sacrificeSelection?.cardKey === cardKey && sacrificeSelection.count <= maxSacrifices
       ? sacrificeSelection.count : null
-  const sacrificeBonus = getSacrificeBonus(card)
+  const sacrificeBonus = getSacrificeBonus(card) + sacrificeAttackBonus
   const selectedAttackBonus = (selectedSacrifices ?? 0) * sacrificeBonus
   const lacksFieldSpace = selectedSacrifices !== null && fieldCards.length - selectedSacrifices >= FIELD_MAX
   const canConfirm = canPlay && isPresent && selectedSacrifices !== null && !lacksFieldSpace
@@ -164,6 +165,7 @@ export function CardDetailSheet({
               <span>場に <strong>{availableNamahamu}体</strong></span>
             </div>
             <p>残して毎ターン攻撃するか、消費してこの寿司を強化できます。</p>
+            {sacrificeAttackBonus > 0 && <p>インバウン丼：生贄1体につき、さらに攻撃 +{sacrificeAttackBonus}（下の数値に含みます）。</p>}
             <div className="battle-sacrifice-options" role="group" aria-labelledby={sacrificeHeadingId}>
               {Array.from({ length: maxSacrifices + 1 }, (_, count) => {
                 const needsSpace = fieldCards.length - count >= FIELD_MAX

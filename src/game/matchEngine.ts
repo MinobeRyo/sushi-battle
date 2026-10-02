@@ -1,9 +1,9 @@
 import type { Card } from '../types'
-import { CARDS } from '../data/cards'
-import { isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
+import { CARDS, NAMAHAM_CARD } from '../data/cards'
+import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, GARI_REDUCTION, getCpuDeck, getCpuReorderDeck, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -14,7 +14,7 @@ export type MatchOptions = {
 
 function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
   return {
-    id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP, gari: INIT_GARI,
+    id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP, gari: INIT_GARI[id],
     summonedIds: [], summonedArch: {}, drawBonus: 0, attackBuff: {}, combosFired: [],
     kiretaStack: 0, thisTurnBases: [], thisTurnArch: {}, digestStopTurns: 0,
     apNextBonus: 0, nikuMatsuri: false, sacrificedThisTurn: 0, kiretaSpent: false,
@@ -91,7 +91,8 @@ function resolveAttack(state: MatchState, attack: PendingAttack, amount: number,
 }
 
 function startAttack(state: MatchState, attack: PendingAttack, events: MatchEvent[]) {
-  if (attack.amount > 0 && state.players[attack.defenderId].gari > 0) {
+  // ガリは通常攻撃だけが対象。カード効果・コンボの追加ダメージは即座に確定する。
+  if (attack.source === 'end_turn' && attack.amount > 0 && state.players[attack.defenderId].gari > 0) {
     state.pendingAttack = attack
     state.phase = 'defending'
     events.push({ type: 'defense_requested', attack: { ...attack } })
@@ -125,6 +126,12 @@ function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
   menu.usedThisTurn = true
   addLog(state, `${label(state, id)}: ${SIDE_MENU_BY_ID[menu.id].name}を使用`)
   switch (menu.id) {
+    case 'inbound_don':
+      menu.status = 'active'
+      // 試合中続くネタ別強化として保持し、既存の場・今後の生成・表示に同じ値を使う。
+      player.attackBuff[NAMAHAM_CARD.base] = (player.attackBuff[NAMAHAM_CARD.base] ?? 0) + INBOUND_DON_ATTACK_BONUS
+      addLog(state, `${label(state, id)}: 生ハムの攻撃 +${INBOUND_DON_ATTACK_BONUS}・生贄1体につき攻撃 +${INBOUND_DON_SACRIFICE_BONUS}`)
+      break
     case 'karaage':
       menu.status = 'used'
       damage(state, id, 15, events)
@@ -172,6 +179,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     combosFired: player.combosFired, attackBuff: player.attackBuff,
     drawBonus: player.drawBonus, nikuMatsuri: player.nikuMatsuri,
     sacrificeCount, sacrificedThisTurn: player.sacrificedThisTurn,
+    sacrificeAttackBonus: activeSideMenu(player, 'inbound_don') ? INBOUND_DON_SACRIFICE_BONUS : 0,
     kiretaSpent: player.kiretaSpent, enemyBelly: enemy.belly,
     turnAttackBonus: tempuraBonus,
   })
@@ -287,7 +295,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     if (action.useGari && state.players[action.playerId].gari < 1) return reject('no_gari')
     const next = structuredClone(state)
     const attack = next.pendingAttack!
-    const reduction = action.useGari ? Math.min(attack.amount, GARI_REDUCTION) : 0
+    const reduction = action.useGari ? calcGariReduction(attack.amount) : 0
     if (action.useGari) {
       next.players[action.playerId].gari -= 1
       addLog(next, `${label(next, action.playerId)}がガリを使用: ダメージ -${reduction}（残り${next.players[action.playerId].gari}個）`)
@@ -339,11 +347,13 @@ export function getCpuDefenseAction(state: MatchState): MatchAction | null {
   const attack = state.pendingAttack
   if (state.mode !== 'cpu' || state.phase !== 'defending' || attack?.defenderId !== 2) return null
   const cpu = state.players[2]
+  const reduction = calcGariReduction(attack.amount)
   const avoidsDefeat = cpu.belly + attack.amount >= MAX_BELLY
-    && cpu.belly + Math.max(0, attack.amount - GARI_REDUCTION) < MAX_BELLY
+    && cpu.belly + attack.amount - reduction < MAX_BELLY
   return {
     type: 'respond_defense', playerId: 2,
-    useGari: cpu.gari > 0 && (attack.amount >= GARI_REDUCTION || avoidsDefeat),
+    // 小さな攻撃で使い切らず、8以上軽減できる攻撃（半減なら16以上）まで温存する。
+    useGari: cpu.gari > 0 && (reduction >= 8 || avoidsDefeat),
   }
 }
 
@@ -360,7 +370,7 @@ export function getCpuActions(state: MatchState): MatchAction[] {
     const menu = cpu.sideMenu
     const canUse = !getSideMenuUseError(planned, 2)
     const useMenu = canUse && menu && (
-      menu.id === 'fries' || menu.id === 'tempura' || menu.id === 'miso'
+      menu.id === 'fries' || menu.id === 'tempura' || menu.id === 'miso' || menu.id === 'inbound_don'
       || (menu.id === 'chawanmushi' && (cpu.belly >= 15 || cpu.skippedDigestionThisTurn > 0 || cpu.digestStopTurns > 0))
       || (menu.id === 'karaage' && cpu.belly < 85
         && (planned.players[1].belly >= 50 || cpu.hand.some(card => card.archetype.includes('niku'))))

@@ -1,6 +1,6 @@
 import type { Card } from '../types'
 import { CARDS, NAMAHAM_CARD } from '../data/cards'
-import type { FieldCard, RandomSource } from './types'
+import type { FieldCard, PlayerId, RandomSource } from './types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 export const MAX_BELLY = 100
@@ -11,9 +11,15 @@ export const FIELD_MAX = 8
 
 export const INIT_AP = 2
 
-export const INIT_GARI = 2
+// 現在はP1が先攻、P2が後攻。後攻には防御の機会を1回多く配る。
+export const INIT_GARI: Readonly<Record<PlayerId, number>> = { 1: 1, 2: 2 }
 
-export const GARI_REDUCTION = 8
+export const GARI_REDUCTION_RATE = 0.5
+
+/** 軽減量は切り捨て、受けるダメージの端数は切り上げる。 */
+export function calcGariReduction(amount: number) {
+  return Math.floor(amount * GARI_REDUCTION_RATE)
+}
 
 const DIGESTION_MAX = 5
 
@@ -184,12 +190,13 @@ type SummonInput = {
   nikuMatsuri: boolean
   sacrificedThisTurn?: number
   sacrificeCount?: number
+  sacrificeAttackBonus?: number
   kiretaSpent: boolean
   enemyBelly: number
   turnAttackBonus?: number
 }
 
-type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount'> & {
+type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount' | 'sacrificeAttackBonus'> & {
   sacrificedThisTurn: number
   extraDmg: number
   stopOppDigest: boolean
@@ -286,9 +293,10 @@ export function applySummon(input: SummonInput): SummonResult {
   })
   const sacrificedThisTurn = (input.sacrificedThisTurn ?? 0) + sacrificeCount
   const summonedCard = toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)
-  const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeCount * getSacrificeBonus(card)
+  const sacrificeBonus = sacrificeCount * (getSacrificeBonus(card) + (input.sacrificeAttackBonus ?? 0))
+  const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeBonus
   if (attackBonus) summonedCard.turnAttackBonus = attackBonus
-  if (sacrificeCount) logs.push(`生ハム${sacrificeCount}体を生贄にして、${card.name}の攻撃 +${sacrificeCount * getSacrificeBonus(card)}`)
+  if (sacrificeCount) logs.push(`生ハム${sacrificeCount}体を生贄にして、${card.name}の攻撃 +${sacrificeBonus}`)
   let field = [...remainingField, summonedCard]
   const generateCount = card.effect === 'generate_namahamu_1' ? 1 : card.effect === 'generate_namahamu_2' ? 2 : 0
   if (generateCount) {
@@ -296,7 +304,7 @@ export function applySummon(input: SummonInput): SummonResult {
     for (let index = 0; index < actualCount; index++) {
       field.push(toField(NAMAHAM_CARD, `${summonedCard.fid}:namahamu:${index + 1}`))
     }
-    if (actualCount) logs.push(`生ハム${actualCount}体を机に生成（攻撃1・自分の3ターン）`)
+    if (actualCount) logs.push(`生ハム${actualCount}体を机に生成（基本攻撃1・自分の3ターン）`)
     if (actualCount < generateCount) logs.push(`机の空き枠が足りず、生ハム${generateCount - actualCount}体を生成できませんでした`)
   }
 

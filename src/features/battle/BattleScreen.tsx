@@ -1,5 +1,6 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
+import { INBOUND_DON_SACRIFICE_BONUS } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
@@ -149,26 +150,30 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         </header>
 
         <div className="battle-arena" ref={arenaRef} role="region" aria-label="机と手札" tabIndex={0}>
-          <div className="battle-side-menus">
-            <BattleSideMenuSlot label={opponentLabel} menu={s.cSideMenu} />
-            <BattleSideMenuSlot label={activeLabel} menu={s.pSideMenu} canAct={isPlayerTurn}
-              ap={s.pAP} maxAP={s.pMaxAP} onUse={useSideMenu} />
-          </div>
           <div className="battle-tables">
-            <BattleTable label={opponentLabel} cards={s.cField} isEnemy
-              attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} nikuMatsuri={s.cNikuMatsuri}
-              floats={floats.filter(item => item.target === 'cpu')} flash={s.flash === 'cpu'}
-              onShowStatus={() => setStatusSide('opponent')}
-              onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'opponent' })}>
-              <ComboStatusBar st={opponentStatus} />
-            </BattleTable>
-            <BattleTable label={activeLabel} cards={s.pField}
-              attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} enemyBelly={s.cBelly} nikuMatsuri={s.pNikuMatsuri}
-              floats={floats.filter(item => item.target === 'player')} flash={s.flash === 'player'}
-              onShowStatus={() => setStatusSide('player')}
-              onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'player' })}>
-              <ComboStatusBar st={playerStatus} />
-            </BattleTable>
+            <div className="battle-player-area">
+              <BattleTable label={opponentLabel} cards={s.cField} isEnemy
+                attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} nikuMatsuri={s.cNikuMatsuri}
+                floats={floats.filter(item => item.target === 'cpu')} flash={s.flash === 'cpu'}
+                onShowStatus={() => setStatusSide('opponent')}
+                onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'opponent' })}>
+                <ComboStatusBar st={opponentStatus} />
+              </BattleTable>
+              <BattleSideMenuSlot label={opponentLabel} menu={s.cSideMenu}
+                detailsResetKey={`${s.phase}:${s.turn}:${s.activePlayer}`} />
+            </div>
+            <div className="battle-player-area">
+              <BattleTable label={activeLabel} cards={s.pField}
+                attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} enemyBelly={s.cBelly} nikuMatsuri={s.pNikuMatsuri}
+                floats={floats.filter(item => item.target === 'player')} flash={s.flash === 'player'}
+                onShowStatus={() => setStatusSide('player')}
+                onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'player' })}>
+                <ComboStatusBar st={playerStatus} />
+              </BattleTable>
+              <BattleSideMenuSlot label={activeLabel} menu={s.pSideMenu} canAct={isPlayerTurn}
+                ap={s.pAP} maxAP={s.pMaxAP} onUse={useSideMenu}
+                detailsResetKey={`${s.phase}:${s.turn}:${s.activePlayer}`} />
+            </div>
           </div>
           <section className="battle-hand-section" ref={handRef} aria-label="手札エリア" tabIndex={-1}>
             <header className="battle-table-heading">
@@ -231,6 +236,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
             fieldCards={s.pField}
+            sacrificeAttackBonus={s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
             onPlay={count => { if (currentInspect?.canPlay) playCard(currentInspect.card, count) }}

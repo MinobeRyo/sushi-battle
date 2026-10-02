@@ -52,6 +52,7 @@
   padding: 12px;
 }
 .battle-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.battle-player-area { display: grid; grid-template-columns: minmax(0, 1fr) var(--battle-field-width); align-items: start; gap: 10px; min-width: 0; }
 .battle-table {
   position: relative;
   min-width: 0;
@@ -121,6 +122,10 @@
   .battle-phase-hint { display: none; }
   .battle-log-preview { display: none; }
   .battle-end-turn { padding-inline: 16px; }
+}
+
+@container battle (max-width: 360px) {
+  .battle-player-area .battle-field-cards { padding-inline: 2px; scroll-padding-inline: 2px; }
 }
 
 @media (max-height: 740px) {

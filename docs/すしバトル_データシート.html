@@ -206,10 +206,14 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
   <div class="subhead"><h3>ダメージ計算</h3><span>game/battleRules.ts の calcFieldDmg</span></div>
   <div class="kw">
-    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が5枚以上なら、軍艦タグのカードは最後に <strong>×1.5</strong>（切り捨て）</p></div>
+    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 設置中のサイドメニューによる強化 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が5枚以上なら、軍艦タグのカードは最後に <strong>×1.5</strong>（切り捨て）</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
     <div><code>総ダメージ（表の列）</code><p>攻撃力 × 持続ターン。バフ・ボーナスを含まない素の値</p></div>
   </div>
+
+  <div class="subhead"><h3>サイドメニュー 7品</h3><span>初回注文で専用1枠・各品の価格で購入</span></div>
+  <p class="lede">寿司20枚・机8枠・特急3回とは別枠。自分の手番に0APで使用・設置します。購入後の交換や追加注文はできません。</p>
+  <div class="kw"><div><code>唐揚げ（300円）</code><p>自分と相手のお腹を、それぞれ15増やす。同時に満腹になった場合は使用者が敗北する。<br><span class="users">0AP・1回使い切り</span></p></div><div><code>ポテト（300円）</code><p>自分のターンに2枚目の寿司を出したとき、1枚ドローする。<br><span class="users">0APで設置・永続・各自分ターンに1回</span></p></div><div><code>天ぷら盛り合わせ（300円）</code><p>双方が、それぞれのターンで最初に出す「えび系または肉寿司」1枚の攻撃を、そのターンだけ＋3。効果は重複せず、設置前に出した寿司には適用しない。<br><span class="users">0APで設置・永続・双方に適用</span></p></div><div><code>ラーメン（300円）</code><p>自分のお腹を5増やして、APを1回復する。使用は任意。APが満タンのときは使用できない。<br><span class="users">0AP・出したターンを含む自分の3ターン・各ターンに1回</span></p></div><div><code>あおさの味噌汁（300円）</code><p>自分の消化量を2増やす。消化停止中は追加分も停止する。<br><span class="users">0APで設置・永続</span></p></div><div><code>茶碗蒸し（300円）</code><p>自分のお腹を15減らし、消化停止を解除する。このターン開始時に止められた消化も一度だけ取り戻す。<br><span class="users">0AP・1回使い切り</span></p></div><div><code>インバウン丼（500円）</code><p>自分の生ハムの通常攻撃を＋2し、生贄1体につき、その寿司の攻撃をさらに＋2する。すでに場にいる生ハムと、以降に生成する生ハムが対象。肉祭りの追加ダメージは変わらない。<br><span class="users">0APで設置・永続・自分だけに適用</span></p></div></div>
 </section>
 
 <section id="cards">
@@ -323,7 +327,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
       <span class="trig">都度発動 · ターンに1回</span>
       <dl>
         <dt>条件</dt><dd>同じターンに生ハムを合計 <strong>2体</strong> 生贄にする</dd>
-        <dt>効果</dt><dd>即時 <strong>+5</strong> ダメージ（ガリで防御可能）</dd>
+        <dt>効果</dt><dd>即時 <strong>+5</strong> ダメージ（コンボのためガリでは防御できない）</dd>
         <dt>生ハムを生成するカード</dt><dd><strong>2枚</strong> — ローストビーフ寿司 · 牛タン寿司</dd><dt>生贄で攻撃を強化するカード</dt><dd><strong>2枚</strong> — 和牛にぎり · カルビ寿司</dd>
         <dt>備考</dt><dd>生贄の使用は任意で、カルビ・和牛で使った合計を数えます。各ターン1回まで。お腹条件ボーナスの倍増はありません。</dd>
       </dl>

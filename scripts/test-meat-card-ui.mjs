@@ -60,10 +60,16 @@ function createHarness(cardId, fieldIds) {
     cursor = 0
     return module.exports.CardDetailSheet(props)
   }
+  const textContent = value => Array.isArray(value) ? value.map(textContent).join('')
+    : value && typeof value === 'object' && value.props ? textContent(value.props.children)
+      : typeof value === 'string' || typeof value === 'number' ? String(value) : ''
   const descendants = value => Array.isArray(value) ? value.flatMap(descendants)
     : value && typeof value === 'object' && value.props ? [value, ...descendants(value.props.children)] : []
   return {
     props, plays,
+    textContent,
+    get nodes() { return descendants(BattleHarness()) },
+    get attackText() { return textContent(this.nodes.find(node => node.props.className === 'battle-detail-attack')) },
     get closes() { return closes },
     get buttons() { return descendants(BattleHarness()).filter(node => node.type === 'button') },
     get confirm() { return this.buttons.find(node => node.props.className === 'battle-detail-play') },
@@ -128,4 +134,25 @@ test('AP不足・別カード・生ハム減少では以前の選択で召喚し
   h.buttons.find(node => node.props.className === 'battle-detail-cancel').props.onClick()
   assert.equal(h.closes, 1)
   assert.deepEqual(h.plays, [])
+})
+
+for (const [id, count, bonus] of [['karubi', 1, 9], ['wagyu', 2, 20]]) {
+  test(`インバウン丼設置時の${id}は選択肢と攻撃予測へ生贄強化を含める`, () => {
+    const h = createHarness(id, Array(count).fill('namahamu'))
+    h.props.sacrificeAttackBonus = 2
+    assert.ok(h.textContent(h.choices[count]).includes(`攻撃 +${bonus}`))
+    h.choices[count].props.onClick()
+    assert.equal(h.attackText, `${cards.getCardById(id).attack} +${bonus}（生贄）`)
+    h.confirm.props.onClick()
+    assert.deepEqual(h.plays, [count])
+  })
+}
+
+test('生ハムの詳細表示はインバウン丼の通常攻撃+2を表示し、肉寿司には付けない', () => {
+  const ham = createHarness('namahamu', [])
+  ham.props.attackBuff = { '生ハム': 2 }
+  assert.equal(ham.attackText, '1 +2')
+  const meat = createHarness('gyutan', [])
+  meat.props.attackBuff = { '生ハム': 2 }
+  assert.equal(meat.attackText, '5')
 })

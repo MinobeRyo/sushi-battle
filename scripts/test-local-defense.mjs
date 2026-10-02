@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
+const { SIDE_MENUS } = loadTs('src/data/sideMenus.ts')
 const byId = id => structuredClone(CARDS.find(card => card.id === id))
 const cardInstance = (id, playerId, suffix = id) => ({ ...byId(id), instanceId: `test:p${playerId}:${suffix}` })
 let passed = 0
@@ -95,23 +96,15 @@ const prepareCombo = (state, playerId) => {
 }
 
 console.log('\n[ローカル防御] CPU停止・再開・同端末の手渡し')
-test('CPUの召喚コンボは回答まで停止し、回答後に次の召喚と終了攻撃へ進む', h => {
+test('CPUの召喚コンボは停止せず、終了攻撃だけ回答を待って半減する', h => {
   prepareCombo(h.state, 2)
   h.game.endTurn()
   h.advance(200 + 700)
-  assert.equal(h.game.s.phase, 'defending')
-  assert.equal(h.state.pendingAttack.source, 'summon')
-  assert.equal(h.state.players[2].hand.length, 1)
-  assert.equal(h.state.players[1].belly, 0)
-  const waitingRevision = h.state.revision
-  h.advance(5000)
-  assert.equal(h.state.revision, waitingRevision)
-  const respond = h.game.respondDefense
-  respond(true)
-  respond(true)
-  assert.equal(h.state.players[1].gari, 1, '連打でガリを重複消費しない')
-  assert.equal(h.state.players[1].belly, 2)
   assert.equal(h.game.s.phase, 'cpu')
+  assert.equal(h.state.pendingAttack, null)
+  assert.equal(h.state.players[2].hand.length, 1)
+  assert.equal(h.state.players[1].belly, 10)
+  assert.equal(h.state.players[1].gari, 1)
   h.advance(449)
   assert.equal(h.state.players[2].hand.length, 1)
   h.advance(1)
@@ -119,31 +112,45 @@ test('CPUの召喚コンボは回答まで停止し、回答後に次の召喚�
   h.advance(900)
   assert.equal(h.game.s.phase, 'defending')
   assert.equal(h.state.pendingAttack.source, 'end_turn')
-  h.game.respondDefense(false)
+  assert.equal(h.state.pendingAttack.amount, 18)
+  const waitingRevision = h.state.revision
+  h.advance(5000)
+  assert.equal(h.state.revision, waitingRevision)
+  const respond = h.game.respondDefense
+  respond(true)
+  respond(true)
+  assert.equal(h.state.players[1].gari, 0, '先攻のガリは1回分だけで、連打で重複消費しない')
+  assert.equal(h.state.players[1].belly, 17, 'コンボ10＋通常攻撃の半分9−消化2')
   assert.equal(h.game.s.phase, 'player')
   assert.equal(h.state.activePlayerId, 1)
   assert.equal(h.state.turn, 2)
 })
 
-test('CPUもガリで回答し、召喚時は人間の手番を維持する', h => {
+test('人間の召喚コンボにはCPU防御を挟まず、終了攻撃にはCPUがガリで回答する', h => {
   prepareCombo(h.state, 1)
   h.game.playCard(h.state.players[1].hand[0])
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.state.pendingAttack, null)
+  assert.equal(h.state.players[2].belly, 10)
+  assert.equal(h.state.players[2].gari, 2)
+  assert.equal(h.state.activePlayerId, 1)
+  h.game.playCard(h.game.s.pHand[0]) // たまごを加え、通常攻撃を18にする。
+  h.game.endTurn()
+  h.advance(200)
   assert.equal(h.game.s.phase, 'waiting')
+  assert.equal(h.state.pendingAttack.source, 'end_turn')
+  assert.equal(h.state.pendingAttack.amount, 18)
   const waitingRevision = h.state.revision
   h.game.respondDefense(true)
   h.game.endTurn()
-  h.game.playCard(h.state.players[1].hand[0])
+  h.game.playCard(cardInstance('tamago', 1, 'blocked'))
   assert.equal(h.state.revision, waitingRevision, 'CPUの回答中に人間が割り込めない')
   h.advance(550)
   assert.equal(h.state.players[2].gari, 1)
-  assert.equal(h.state.players[2].belly, 2)
-  assert.equal(h.game.s.phase, 'player')
-  assert.equal(h.state.activePlayerId, 1)
-  h.game.endTurn()
-  h.advance(200 + 550)
-  assert.equal(h.state.players[2].gari, 0)
+  assert.equal(h.state.players[2].belly, 17, 'コンボ10＋通常攻撃の半分9−消化2')
   assert.equal(h.game.s.phase, 'cpu')
   h.game.restart()
+  assert.deepEqual([h.state.players[1].gari, h.state.players[2].gari], [1, 2], '再戦では先攻1個・後攻2個へ戻す')
   const freshState = structuredClone(h.state)
   h.advance(10000)
   assert.deepEqual(h.state, freshState, 'リスタート後に古いCPU操作が走らない')
@@ -159,28 +166,26 @@ test('ガリが0なら防御待ちを挟まずCPU攻撃が完了する', h => {
   assert.equal(h.state.activePlayerId, 1)
 })
 
-test('同端末の召喚防御は相手へ渡してから回答し、攻撃者へ戻る', h => {
+test('同端末の召喚コンボでは端末を渡さず、そのまま残りAPで召喚できる', h => {
   prepareCombo(h.state, 1)
   h.game.setInspect({ card: h.state.players[1].hand[0], canPlay: true })
   h.game.playCard(h.state.players[1].hand[0])
-  assert.equal(h.game.s.phase, 'pass')
-  assert.equal(h.game.s.passToPlayerId, 2)
-  assert.deepEqual(h.game.s.pHand, [], '受け渡し中は手札を描画しない')
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.game.s.passToPlayerId, null)
+  assert.equal(h.state.pendingAttack, null)
+  assert.ok(h.game.s.pHand.every(card => card.instanceId.includes(':p1:')))
   assert.equal(h.game.inspect, null)
+  assert.equal(h.state.players[2].belly, 10)
+  const afterCombo = structuredClone(h.state)
   h.game.respondDefense(true)
-  assert.equal(h.state.players[2].gari, 2, '受け渡す前に回答できない')
   h.game.handlePassReady()
-  assert.equal(h.game.s.phase, 'defending')
-  assert.equal(h.game.s.activePlayer, 2)
-  assert.ok(h.game.s.pHand.every(card => card.instanceId.includes(':p2:')))
-  h.game.respondDefense(true)
-  assert.equal(h.game.s.phase, 'pass')
-  assert.equal(h.game.s.passToPlayerId, 1)
-  assert.deepEqual(h.game.s.pHand, [])
-  h.game.handlePassReady()
+  assert.deepEqual(h.state, afterCombo, '防御も手渡しも要求していないため操作を無視する')
+  h.game.playCard(h.game.s.pHand[0])
   assert.equal(h.game.s.phase, 'player')
   assert.equal(h.game.s.activePlayer, 1)
-  assert.equal(h.game.s.cGari, 1)
+  assert.equal(h.state.players[1].field.length, 2)
+  assert.equal(h.state.players[1].ap, afterCombo.players[1].ap - 1)
+  assert.equal(h.game.s.cGari, 2)
 }, 'two_player')
 
 test('同端末の終了攻撃を防御した後は、そのまま防御側の手番になる', h => {
@@ -196,6 +201,22 @@ test('同端末の終了攻撃を防御した後は、そのまま防御側の�
   assert.equal(h.game.s.passToPlayerId, null)
   assert.equal(h.game.s.activePlayer, 2)
   assert.equal(h.state.activePlayerId, 2)
+}, 'two_player')
+
+test('同端末で双方がガリを使った後、再戦では先攻1個・後攻2個へ戻る', h => {
+  for (const playerId of [1, 2]) {
+    h.game.playCard(h.game.s.pHand[0])
+    h.game.endTurn()
+    h.advance(200)
+    h.game.handlePassReady()
+    assert.equal(h.game.s.phase, 'defending')
+    assert.equal(h.state.pendingAttack.defenderId, playerId === 1 ? 2 : 1)
+    h.game.respondDefense(true)
+  }
+  assert.deepEqual([h.state.players[1].gari, h.state.players[2].gari], [0, 1])
+  h.game.restart()
+  assert.deepEqual([h.state.players[1].gari, h.state.players[2].gari], [1, 2])
+  assert.deepEqual([h.state.activePlayerId, h.state.turn, h.game.s.phase], [1, 1, 'player'])
 }, 'two_player')
 
 test('同端末の追加注文も各本人へ渡し、最後に手番プレイヤーへ戻す', h => {
@@ -224,16 +245,14 @@ test('同端末の追加注文も各本人へ渡し、最後に手番プレイ�
 test('防御中のサイドメニュー使用を止め、回答後の使用・召喚SE・再戦時の復元を保つ', h => {
   prepareCombo(h.state, 2)
   h.game.endTurn()
-  h.advance(200 + 700)
+  h.advance(200 + 700 + 450 + 900)
   assert.equal(h.game.s.phase, 'defending')
+  assert.equal(h.state.pendingAttack.source, 'end_turn')
   assert.equal(h.game.s.pSideMenu.id, 'miso')
   const waitingState = structuredClone(h.state)
   h.game.useSideMenu()
   assert.deepEqual(h.state, waitingState, '防御の選択中はサイドメニューを使えない')
   h.game.respondDefense(true)
-  h.advance(450 + 900)
-  assert.equal(h.game.s.phase, 'defending')
-  h.game.respondDefense(false)
   assert.equal(h.game.s.phase, 'player')
   h.game.useSideMenu()
   assert.equal(h.game.s.pSideMenu.status, 'active')
@@ -241,12 +260,13 @@ test('防御中のサイドメニュー使用を止め、回答後の使用・�
   h.game.playCard(h.game.s.pHand[0])
   assert.equal(h.summonCount, previousSummons + 1, '召喚成功時のSE通知を維持する')
   h.game.restart()
-  assert.equal(h.game.s.pGari, 2)
+  assert.equal(h.game.s.pGari, 1)
+  assert.equal(h.game.s.cGari, 2)
   assert.equal(h.game.s.pSideMenu.id, 'miso')
   assert.equal(h.game.s.pSideMenu.status, 'ready')
 }, 'cpu', { sideMenu: 'miso' })
 
-for (const sideMenu of ['karaage', 'fries', 'tempura', 'ramen', 'miso', 'chawanmushi']) {
+for (const { id: sideMenu } of SIDE_MENUS) {
   test(`CPU戦の追加注文後も未使用の${sideMenu}を使用できる`, h => {
     for (const player of Object.values(h.state.players)) {
       player.hand = []
@@ -291,7 +311,7 @@ for (const sideMenu of ['karaage', 'fries', 'tempura', 'ramen', 'miso', 'chawanm
   }, 'two_player', { sideMenu, p2SideMenu: sideMenu })
 }
 
-test('ローカル召喚は選択した生贄数を適用し、肉祭り防御後も操作を続けられる', h => {
+test('ローカル召喚は選択した生贄数を適用し、肉祭りはガリを消費せず即時に与える', h => {
   const player = h.state.players[1]
   player.hand = ['roast_beef', 'wagyu'].map(id => cardInstance(id, 1))
   player.ap = 8
@@ -300,11 +320,29 @@ test('ローカル召喚は選択した生贄数を適用し、肉祭り防御�
   h.game.playCard(h.game.s.pHand[0], 2)
   assert.equal(h.game.s.pSacrificedThisTurn, 2)
   assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 0)
-  assert.equal(h.game.s.phase, 'waiting')
-  h.advance(550)
   assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.state.pendingAttack, null)
+  assert.equal(h.state.players[2].belly, 5)
+  assert.equal(h.state.players[2].gari, 2)
   assert.equal(h.game.s.pNikuMatsuri, true)
   assert.equal(h.summonCount, 2, '生成だけでは召喚SEを重複させない')
 })
+
+test('ローカルのインバウン丼は設置後の生成と生贄に反映し、召喚後も手番を維持する', h => {
+  const player = h.state.players[1]
+  player.hand = ['roast_beef', 'wagyu'].map(id => cardInstance(id, 1))
+  player.ap = 8
+  h.game.useSideMenu()
+  assert.equal(h.state.players[1].ap, 8)
+  assert.equal(h.state.players[1].attackBuff['生ハム'], 2)
+  h.game.playCard(h.game.s.pHand[0])
+  assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 2)
+  h.game.playCard(h.game.s.pHand[0], 2)
+  assert.equal(h.game.s.pField.find(c => c.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(h.state.players[2].belly, 5)
+  assert.equal(h.state.players[2].gari, 2)
+  assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.state.pendingAttack, null)
+}, 'cpu', { sideMenu: 'inbound_don' })
 
 console.log(`\nローカル防御・追加注文・肉寿司: ${passed}件成功`)

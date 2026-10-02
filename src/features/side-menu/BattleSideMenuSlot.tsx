@@ -1,18 +1,25 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { SideMenuState } from '../../game/types'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
 import { SideMenuArt } from './SideMenuArt'
 import './BattleSideMenuSlot.css'
 
-export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP = 0, onUse }: {
+export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP = 0, onUse, detailsResetKey }: {
   label: string
   menu: SideMenuState | null
   canAct?: boolean
   ap?: number
   maxAP?: number
   onUse?: () => void
+  detailsResetKey?: string
 }) {
   const instanceId = useId()
+  const detailsRef = useRef<HTMLDivElement>(null)
+  const detailsId = `${instanceId}-details`
+  // 防御やプレイヤー交代の画面より前に説明が残らないようにする。
+  useEffect(() => {
+    if (detailsRef.current?.matches(':popover-open')) detailsRef.current.hidePopover()
+  }, [detailsResetKey, menu?.id])
   const dish = menu ? SIDE_MENU_BY_ID[menu.id] : null
   const isRamen = menu?.id === 'ramen'
   const isInstant = menu?.id === 'karaage' || menu?.id === 'chawanmushi'
@@ -33,36 +40,39 @@ export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP 
   return <section className="battle-side-slot" aria-label={`${label}のサイドメニュースロット`}
     data-state={menu?.status ?? 'empty'} data-owner={!!onUse}>
     <header className="battle-side-heading">
-      <h2>{label}のサイド</h2>
-      {menu && <span className="battle-side-state">
-        {isRamen && menu.status === 'active'
-          ? <>{onUse ? '自分' : '相手'}の残り <strong>{menu.turnsLeft}</strong> ターン</> : status}
-      </span>}
+      <h2>サイドメニュー</h2>
+      <span className="battle-side-state">{menu ? status : '未購入'}</span>
     </header>
     {menu && dish ? <>
-      <div className="battle-side-main">
-        <div className="battle-side-art"><SideMenuArt id={menu.id} decorative /></div>
-        <div className="battle-side-content">
+      <button type="button" className="battle-side-inspect" popoverTarget={detailsId}
+        aria-label={`${dish.name}の効果を確認`}>
+        <span className="battle-side-art"><SideMenuArt id={menu.id} decorative /></span>
+        <strong className="battle-side-name">{dish.name}</strong>
+        {isRamen && menu.status === 'active' && <span className="battle-side-remaining">残り {menu.turnsLeft} ターン</span>}
+        {isRamen && menu.status === 'active' && menu.usedThisTurn && !onUse
+          && <span className="battle-side-used">今ターン使用済み</span>}
+        <span className="battle-side-hint">効果を確認</span>
+      </button>
+      {showAction && <div className="battle-side-action-area">
+        <button type="button" className="battle-side-use" disabled={!!blockedReason}
+          aria-label={`${dish.name}：${actionLabel}`}
+          aria-describedby={`${instanceId}-effect${blockedReason ? ` ${instanceId}-reason` : ''}`}
+          onClick={() => { if (!blockedReason) onUse?.() }}>{actionLabel}</button>
+        {blockedReason && <p className="battle-side-action-reason" id={`${instanceId}-reason`}>{blockedReason}</p>}
+      </div>}
+      <div id={detailsId} ref={detailsRef} popover="auto" role="dialog" className="battle-side-details"
+        aria-labelledby={`${instanceId}-name`}>
+        <header>
           <h3 id={`${instanceId}-name`}>{dish.name}</h3>
-          <p id={`${instanceId}-effect`}>{dish.summary}</p>
-        </div>
-        {showAction && <div className="battle-side-action-area">
-          {blockedReason && <p className="battle-side-action-reason" id={`${instanceId}-reason`}>{blockedReason}</p>}
-          <button type="button" className="battle-side-use" disabled={!!blockedReason}
-            aria-label={`${dish.name}：${actionLabel}`}
-            aria-describedby={`${instanceId}-effect${blockedReason ? ` ${instanceId}-reason` : ''}`}
-            onClick={() => { if (!blockedReason) onUse?.() }}>{actionLabel}</button>
-        </div>}
+          <button type="button" popoverTarget={detailsId} popoverTargetAction="hide"
+            aria-label="効果の説明を閉じる">閉じる</button>
+        </header>
+        <div className="battle-side-detail-art"><SideMenuArt id={menu.id} decorative /></div>
+        <p id={`${instanceId}-effect`}>{dish.effect}</p>
+        <p className="battle-side-timing">{dish.timing}</p>
+        {isRamen && <p>初回の使用で効果が始まります。自分のターン終了ごとに残りが1減り、使用しなかったターンも数えます。</p>}
+        {finished && <p>この試合では使い切りました。追加購入・交換はできません。</p>}
       </div>
-      <details className="battle-side-details" key={menu.id}>
-        <summary>効果の詳細</summary>
-        <div>
-          <p>{dish.effect}</p>
-          <p className="battle-side-timing">{dish.timing}</p>
-          {isRamen && <p>初回の使用で効果が始まります。自分のターン終了ごとに残りが1減り、使用しなかったターンも数えます。</p>}
-          {finished && <p>この試合では使い切りました。追加購入・交換はできません。</p>}
-        </div>
-      </details>
-    </> : <p className="battle-side-empty">未購入</p>}
+    </> : <div className="battle-side-empty"><p>専用1枠<br />購入は1試合に1品まで</p></div>}
   </section>
 }
