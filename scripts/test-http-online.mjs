@@ -219,7 +219,7 @@ try {
     const after = retry.snapshot.match
     assert.equal(after.revision, before.match.revision + 1)
     assert.equal(after.you.gari, 1)
-    assert.equal(after.you.belly, 0, 'ガリ1個で8の攻撃をすべて軽減する')
+    assert.equal(after.you.belly, 2, '8の攻撃を半減して4受け、手番開始時に2消化する')
     assert.equal(after.pendingAttack, null)
     assert.equal(after.activePlayerId, 2)
     assert.equal(after.phase, 'playing')

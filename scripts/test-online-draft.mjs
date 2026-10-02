@@ -46,9 +46,9 @@ function battleAction(f, peer, command = {}) {
     actionId: `battle-${++actionId}`, type: 'end_turn', ...command }
 }
 
-function defenseFixture() {
+function defenseFixture(cardId = 'tamago') {
   const f = fixture()
-  assert.deepEqual(f.send(f.host, { type: 'order', cardId: 'tamago' }), { ok: true })
+  assert.deepEqual(f.send(f.host, { type: 'order', cardId }), { ok: true })
   f.finish()
   assert.deepEqual(f.service.handle(f.host, 'match:action', battleAction(f, f.host, {
     type: 'play_card', cardInstanceId: f.read(f.host).match.you.hand[0].instanceId,
@@ -323,9 +323,10 @@ try {
     assert.equal(host.phase, 'defending')
     assert.deepEqual(host.pendingAttack, { attackerId: 1, defenderId: 2, amount: 4, source: 'end_turn' })
     assert.deepEqual(guest.pendingAttack, host.pendingAttack)
-    assert.equal(host.you.gari, 2)
+    assert.equal(host.you.gari, 1)
     assert.equal(host.opponent.gari, 2)
     assert.equal(guest.you.gari, 2)
+    assert.equal(guest.opponent.gari, 1)
     assert.equal(host.opponent.belly, f.beforeAttack.opponent.belly)
     assert.deepEqual(host.you.field, f.beforeAttack.you.field)
     assert.equal(host.activePlayerId, 1)
@@ -386,6 +387,63 @@ try {
     assert.equal(after.you.belly, 2, 'たまごの4ダメージが確定した後、次のターン開始時に2消化する')
     assert.equal(after.activePlayerId, 2)
     assert.equal(after.pendingAttack, null)
+  })
+
+  await test('オンラインでも奇数の通常攻撃は半減後の端数を切り上げる', () => {
+    const f = defenseFixture('ebi_avocado')
+    assert.equal(f.read(f.guest).match.pendingAttack.amount, 5)
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+      type: 'respond_defense', useGari: true,
+    })), { ok: true })
+    const after = f.read(f.guest).match
+    assert.equal(after.you.belly, 1, '5ダメージを2軽減して3受けた後、2消化する')
+    assert.equal(after.you.gari, 1)
+    assert.equal(after.phase, 'playing')
+    assert.equal(after.pendingAttack, null)
+    assert.equal(f.read(f.host).match.opponent.belly, 1)
+  })
+
+  await test('召喚コンボの固定ダメージは両者へ即時反映し、ガリを要求も消費もしない', () => {
+    const f = fixture()
+    for (const cardId of ['maguro', 'chutoro', 'otoro']) {
+      assert.deepEqual(f.send(f.host, { type: 'order', cardId }), { ok: true })
+      assert.deepEqual(f.send(f.host, { type: 'pickup' }), { ok: true })
+    }
+    f.finish()
+    const battle = (peer, command) => assert.deepEqual(
+      f.service.handle(peer, 'match:action', battleAction(f, peer, command)), { ok: true })
+    const endRound = () => {
+      for (const peer of [f.host, f.guest]) {
+        battle(peer, { type: 'end_turn' })
+        if (f.read(peer).match.phase === 'defending') {
+          battle(peer === f.host ? f.guest : f.host, { type: 'respond_defense', useGari: false })
+        }
+      }
+    }
+    const play = cardId => {
+      const card = f.read(f.host).match.you.hand.find(card => card.id === cardId)
+      assert.ok(card)
+      battle(f.host, { type: 'play_card', cardInstanceId: card.instanceId })
+    }
+    endRound() // AP3にしてからマグロ、中トロ、大トロを順番に召喚する。
+    for (const cardId of ['maguro', 'chutoro']) {
+      play(cardId)
+      endRound()
+    }
+    const before = f.read(f.host).match
+    play('otoro')
+    const after = f.read(f.host).match
+    assert.equal(after.opponent.belly, before.opponent.belly + 10)
+    assert.equal(after.opponent.gari, 2)
+    assert.ok(after.you.combosFired.includes('akami_mori'))
+    assert.deepEqual([after.phase, after.pendingAttack, after.activePlayerId, after.turn],
+      ['playing', null, 1, before.turn])
+    assert.equal(f.read(f.guest).match.you.belly, after.opponent.belly)
+    assert.equal(f.read(f.guest).match.pendingAttack, null)
+    assert.deepEqual(f.service.handle(f.guest, 'match:action', battleAction(f, f.guest, {
+      type: 'respond_defense', useGari: true,
+    })), { ok: false, error: 'not_defending' })
+    assert.deepEqual(f.read(f.host).match, after)
   })
 
   await test('防御待ちの切断・再接続で攻撃とガリを保持し、復帰した本人だけが回答できる', () => {
