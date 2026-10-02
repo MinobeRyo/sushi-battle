@@ -3,9 +3,11 @@ import type { ReactNode } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 import { OrthographicCamera, PCFShadowMap } from 'three'
+import { CARDS } from '../../data/cards'
 import { SideMenuModel } from './models/SideMenuModel'
 import { SIDE_MENU_CATALOG } from './sideMenuCatalog'
 import type { SideMenuId } from './sideMenuCatalog'
+import '../catalog/CardCatalogScreen.css'
 import './SideMenuStudio.css'
 
 type ViewMode = 'collection' | 'detail'
@@ -91,9 +93,11 @@ function StudioScene({ selected, mode, reset, rotating, onSelect }: {
 export type SideMenuStudioProps = {
   /** 図鑑への組み込み時に指定。ページ再読み込みなしで元の図鑑へ戻る。 */
   onBack?: () => void
+  /** 共通ヘッダーからタイトルへ戻る。寿司図鑑への切り替えとは分けて指定する。 */
+  onTitle?: () => void
 }
 
-export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
+export default function SideMenuStudio({ onBack, onTitle }: SideMenuStudioProps = {}) {
   const [selected, setSelected] = useState<SideMenuId>('ramen')
   const [mode, setMode] = useState<ViewMode>('collection')
   const [rotating, setRotating] = useState(false)
@@ -101,22 +105,33 @@ export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
   const [ready, setReady] = useState(false)
   const dish = SIDE_MENU_CATALOG.find(item => item.id === selected)!
   const index = SIDE_MENU_CATALOG.indexOf(dish)
+  const returnUrl = window.location.pathname + window.location.search
 
-  return <main className="side-studio" aria-label="サイドメニュー図鑑">
-    <header className="side-studio-header">
-      {onBack
-        ? <button type="button" className="side-studio-brand" onClick={onBack} aria-label="寿司カード図鑑へ戻る"><span className="side-studio-seal">寿</span><span>寿司バトル<small>SUSHI BATTLE</small></span></button>
-        : <a className="side-studio-brand" href={window.location.pathname + window.location.search} aria-label="寿司バトルのタイトルへ戻る"><span className="side-studio-seal">寿</span><span>寿司バトル<small>SUSHI BATTLE</small></span></a>}
-      <span className="side-studio-header-note">{onBack ? 'カード図鑑 / サイドメニュー' : 'サイドメニュー / モデルプレビュー'}</span>
-      {onBack
-        ? <button type="button" className="side-studio-back" onClick={onBack}>寿司の図鑑へ戻る <Icon name="arrow" /></button>
-        : <a className="side-studio-back" href={window.location.pathname + window.location.search}>ゲームへ戻る <Icon name="arrow" /></a>}
+  return <main className="card-catalog side-studio" aria-labelledby="side-catalog-title">
+    <header className="catalog-header">
+      <div className="catalog-header-inner">
+        {onTitle
+          ? <button type="button" className="catalog-back" onClick={onTitle}>← タイトルへ</button>
+          : onBack
+            ? <button type="button" className="catalog-back" onClick={onBack}>← 寿司の図鑑へ</button>
+            : <a className="catalog-back" href={returnUrl}>← タイトルへ</a>}
+        <h1 id="side-catalog-title">サイドメニュー図鑑</h1>
+        <span className="catalog-total">全{SIDE_MENU_CATALOG.length}種</span>
+      </div>
     </header>
 
-    <section className="side-studio-intro">
-      <div><p className="side-studio-eyebrow">SIDE MENU COLLECTION <span>— SIX DISHES</span></p><h1>もう一皿、<span>勝負の一手。</span></h1></div>
-      <p className="side-studio-lead">六つのサイドメニューを、立体で。<br />気になる一皿を選んで、じっくりご覧ください。</p>
-    </section>
+    <div className="catalog-content">
+      <nav className="catalog-sections" aria-label="図鑑の種類">
+        {onBack
+          ? <button type="button" onClick={onBack}>寿司カード <small>{CARDS.length}種</small><span aria-hidden="true">↗</span></button>
+          : <button type="button" onClick={() => window.location.assign(returnUrl)}>ゲームへ戻る <span aria-hidden="true">↗</span></button>}
+        <span aria-current="page">サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small></span>
+      </nav>
+      <p className="catalog-intro">六つのサイドメニューを、立体でじっくり。<br />一覧から気になる一皿を選び、料理や効果の説明をご覧ください。</p>
+      <div className="catalog-results-bar">
+        <p role="status">{mode === 'collection' ? SIDE_MENU_CATALOG.length : 1} / {SIDE_MENU_CATALOG.length}種を表示</p>
+      </div>
+      <p className="catalog-guide">料理を選ぶと詳細を表示します。「一皿ずつ」で拡大し、ドラッグで回転・スクロールでズームできます。</p>
 
     <div className="side-studio-layout">
       <section className="side-studio-viewer" aria-label="サイドメニューの3Dプレビュー">
@@ -168,6 +183,7 @@ export default function SideMenuStudio({ onBack }: SideMenuStudioProps = {}) {
         <span className="side-studio-menu-number">0{itemIndex + 1}</span><span><strong>{item.name}</strong><small>{item.english}</small></span><span className="side-studio-menu-dot" style={{ background: item.accent }} />
       </button>)}
     </nav>
-    <footer className="side-studio-footer"><span>SUSHI BATTLE — SIDE MENU STUDIES</span><span>サイドメニューの効果は設計案です。</span></footer>
+    <p className="side-studio-footer">サイドメニューの効果は設計案です。</p>
+    </div>
   </main>
 }
