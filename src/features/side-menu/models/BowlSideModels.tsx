@@ -349,28 +349,96 @@ export function ChawanmushiModel() {
   </group>
 }
 
+function beefFold(x: number, z: number, index: number) {
+  return 0.022 * Math.sin(z * 6.5 + index * 0.55) + 0.013 * Math.cos(x * 8 - index * 0.4)
+}
+
+function beefTop(x: number, z: number, radius: number, index: number) {
+  return beefFold(x, z, index) + 0.076 + 0.01 * (1 - radius * radius) - 0.009 * radius ** 8
+}
+
 function RoastBeefSlice({ position, rotation, index }: { position: Point; rotation: number; index: number }) {
-  const shape = useMemo(() => {
+  const geometry = useMemo(() => {
     const slice = new THREE.Shape()
     slice.moveTo(-0.18, -0.35)
     slice.bezierCurveTo(-0.3, -0.25, -0.27, 0.01, -0.24, 0.19)
     slice.bezierCurveTo(-0.21, 0.39, -0.07, 0.43, 0.1, 0.36)
     slice.bezierCurveTo(0.29, 0.3, 0.26, 0.09, 0.23, -0.13)
     slice.bezierCurveTo(0.21, -0.35, 0.03, -0.43, -0.18, -0.35)
-    return slice
-  }, [])
-  return <group position={position} rotation={[0.025 + (index % 3) * 0.025, rotation, -0.055]}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
-      <extrudeGeometry args={[shape, { depth: 0.013, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, steps: 1 }]} />
-      <meshPhysicalMaterial color="#744b3d" roughness={0.59} clearcoat={0.15} />
-    </mesh>
-    <mesh position={[0, 0.019, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.95, 0.965, 1]} receiveShadow>
-      <shapeGeometry args={[shape, 24]} />
-      <meshPhysicalMaterial color={index % 2 ? '#bd4550' : '#cf5860'} roughness={0.49} clearcoat={0.24} side={THREE.DoubleSide} />
+    const segments = 64, rings = 18
+    const outline = slice.getSpacedPoints(segments).slice(0, -1)
+    const positions: number[] = [], colors: number[] = [], indices: number[] = []
+    const red = new THREE.Color(index % 2 ? '#b94751' : '#c85860')
+    const sear = new THREE.Color('#885946')
+    const shade = new THREE.Color()
+    const vertex = (x: number, y: number, z: number, color: THREE.Color) => {
+      positions.push(x, y, z)
+      colors.push(color.r, color.g, color.b)
+    }
+    const surfaceSize = 1 + rings * segments
+    for (let layer = 0; layer < 2; layer++) {
+      vertex(0, layer === 0 ? beefTop(0, 0, 0, index) : beefFold(0, 0, index), 0, red)
+      for (let ring = 1; ring <= rings; ring++) {
+        const radius = ring / rings
+        for (let i = 0; i < segments; i++) {
+          const x = outline[i].x * radius, z = -outline[i].y * radius
+          const grain = 0.0013 * Math.sin(x * 155 + z * 27 + index) * Math.cos(z * 43)
+          const y = layer === 0 ? beefTop(x, z, radius, index) + grain : beefFold(x, z, index) + 0.004 * radius * radius
+          shade.copy(red).multiplyScalar(0.96 + 0.035 * Math.sin(x * 143 + z * 21) + 0.025 * Math.cos(z * 31 + index))
+          // 周縁だけ薄く焼き色を付け、肉の中心は赤ピンクのまま残します。
+          if (ring === rings) shade.copy(sear).multiplyScalar(0.94 + 0.1 * Math.sin(i * 1.7 + index))
+          vertex(x, y, z, shade)
+        }
+      }
+      const offset = layer * surfaceSize
+      const face = (a: number, b: number, c: number) => {
+        if (layer === 0) indices.push(offset + a, offset + c, offset + b)
+        else indices.push(offset + a, offset + b, offset + c)
+      }
+      for (let i = 0; i < segments; i++) face(0, 1 + i, 1 + (i + 1) % segments)
+      for (let ring = 1; ring < rings; ring++) {
+        for (let i = 0; i < segments; i++) {
+          const next = (i + 1) % segments
+          const a = 1 + (ring - 1) * segments + i, b = 1 + ring * segments + i
+          const c = 1 + ring * segments + next, d = 1 + (ring - 1) * segments + next
+          face(a, b, c)
+          face(a, c, d)
+        }
+      }
+    }
+    // 側面にも赤身を通し、重なりの縁から柔らかい厚みが見えるようにします。
+    const sideRing = positions.length / 3
+    for (let i = 0; i < segments; i++) {
+      const x = outline[i].x * 1.012, z = -outline[i].y * 1.012
+      shade.copy(red).multiplyScalar(0.87 + 0.025 * Math.sin(i * 1.3))
+      vertex(x, beefFold(x, z, index) + 0.035, z, shade)
+    }
+    const topEdge = 1 + (rings - 1) * segments
+    const bottomEdge = surfaceSize + topEdge
+    for (let i = 0; i < segments; i++) {
+      const next = (i + 1) % segments
+      indices.push(topEdge + i, sideRing + next, sideRing + i, topEdge + i, topEdge + next, sideRing + next)
+      indices.push(sideRing + i, bottomEdge + next, bottomEdge + i, sideRing + i, sideRing + next, bottomEdge + next)
+    }
+    const result = new THREE.BufferGeometry()
+    result.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    result.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    result.setIndex(indices)
+    result.computeVertexNormals()
+    return result
+  }, [index])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <group position={position} rotation={[0.02, rotation, -0.025]}>
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshPhysicalMaterial vertexColors roughness={0.49} clearcoat={0.3} clearcoatRoughness={0.32} side={THREE.DoubleSide} />
     </mesh>
     {[-2, -1, 0, 1, 2].map(i => <FoodCurve key={i}
-      points={[[-0.17, 0.024, i * 0.105 - 0.03], [-0.075, 0.025, i * 0.105 + 0.015], [0.05, 0.025, i * 0.105 - 0.012], [0.18, 0.024, i * 0.105 + 0.03]]}
-      color={i % 2 ? '#df8b8c' : '#e9a2a1'} radius={0.003} />)}
+      points={[-0.16, -0.09, 0, 0.09, 0.17].map((x): Point => {
+        const z = i * 0.097 + Math.sin(x * 14 + i) * 0.012
+        const radius = Math.min(1, Math.hypot(x / 0.26, z / 0.4))
+        return [x, beefTop(x, z, radius, index) + 0.002, z]
+      })}
+      color={i % 2 ? '#de9295' : '#d98488'} radius={0.002} />)}
   </group>
 }
 
@@ -521,7 +589,7 @@ export function InboundDonModel() {
     <DonRice />
     {Array.from({ length: 8 }, (_, i) => {
       const angle = -1.02 + i * 0.355
-      return <RoastBeefSlice key={i} position={[Math.sin(angle) * 0.54 + 0.11, 0.716 + i * 0.013, -Math.cos(angle) * 0.49 - 0.035]} rotation={-angle + 0.28} index={i} />
+      return <RoastBeefSlice key={i} position={[Math.sin(angle) * 0.54 + 0.11, 0.697 + i * 0.025, -Math.cos(angle) * 0.49 - 0.035]} rotation={-angle + 0.28} index={i} />
     })}
     {DON_UNI.map(([x, z, rotation, scale], i) => <UniLobe key={i} position={[x, 0.75 + Math.floor(i / 3) * 0.012, z]} rotation={rotation} index={i} scale={scale} />)}
     <IkuraPile />
