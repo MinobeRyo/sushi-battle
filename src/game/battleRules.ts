@@ -1,6 +1,6 @@
 import type { Card } from '../types'
 import { CARDS } from '../data/cards'
-import type { FieldCard, RandomSource } from './types'
+import type { FieldCard, PlayerId, RandomSource } from './types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 export const MAX_BELLY = 100
@@ -11,9 +11,15 @@ export const FIELD_MAX = 8
 
 export const INIT_AP = 2
 
-export const INIT_GARI = 2
+// 現在はP1が先攻、P2が後攻。後攻には防御の機会を1回多く配る。
+export const INIT_GARI: Readonly<Record<PlayerId, number>> = { 1: 1, 2: 2 }
 
-export const GARI_REDUCTION = 8
+export const GARI_REDUCTION_RATE = 0.5
+
+/** 軽減量は切り捨て、受けるダメージの端数は切り上げる。 */
+export function calcGariReduction(amount: number) {
+  return Math.floor(amount * GARI_REDUCTION_RATE)
+}
 
 const DIGESTION_MAX = 5
 

@@ -310,7 +310,7 @@ test('サイドメニューのお腹増減はガリ防御を要求せず、所�
     assert.equal(state.players[1].belly, expected)
     assert.equal(state.phase, 'playing')
     assert.equal(state.pendingAttack, null)
-    assert.deepEqual([state.players[1].gari, state.players[2].gari], [2, 2])
+    assert.deepEqual([state.players[1].gari, state.players[2].gari], [1, 2])
   }
 })
 
@@ -331,7 +331,7 @@ test('ラーメンの残りターンと味噌汁の消化はガリ回答後に�
   state = step(state, { type: 'respond_defense', playerId: 2, useGari: true })
   assert.equal(state.phase, 'playing')
   assert.equal(state.players[1].sideMenu.turnsLeft, 2)
-  assert.equal(state.players[2].belly, 40, '攻撃12 - ガリ8 - 消化4')
+  assert.equal(state.players[2].belly, 42, 'お腹40 + 攻撃12の半分6 - 消化4')
   assert.equal(state.players[2].gari, 1)
   assert.equal(state.players[2].sideMenu.status, 'active')
 })
@@ -349,7 +349,7 @@ test('天ぷらの攻撃増加は防御する攻撃へ含め、回答まで維�
   assert.equal(state.players[2].belly, 20)
   state = step(state, { type: 'respond_defense', playerId: 2, useGari: true })
   assert.equal(state.players[1].field[0].turnAttackBonus, undefined)
-  assert.equal(state.players[2].belly, 20 + Math.max(0, total - 8) - 2)
+  assert.equal(state.players[2].belly, 20 + Math.ceil(total / 2) - 2)
   assert.equal(state.players[1].sideMenu.status, 'active')
 })
 
