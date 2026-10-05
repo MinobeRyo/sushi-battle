@@ -169,7 +169,12 @@ export function CardDetailSheet({
                 )
               })}
             </div>
-            <p className="battle-sacrifice-note">同じターンに合計2体を生贄にすると、肉祭りで追加5ダメージ・手札に0AP生ハム2枚追加・全生ハムの攻撃が試合中+1（累積）。1ターンに1回、手札7枚を超える分は追加されません。</p>
+            <div className="battle-sacrifice-note">
+              <p>肉祭り：同じターンに生ハムを計2体生贄（各ターン1回）。</p>
+              <p>即時5ダメージ（ガリ不可）。</p>
+              <p>0AP生ハム1枚を山札のランダムな位置に追加。</p>
+              <p>自分の全生ハムの攻撃+1（試合中・累積）。</p>
+            </div>
           </section>
         )}
 

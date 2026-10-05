@@ -76,7 +76,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   })
   if (st.nikuMatsuri) effects.push({
     id: 'niku', name: '肉祭り', value: '今ターン発動済',
-    description: 'このターンの肉祭りは発動済みです。即時5ダメージ・手札に0AP生ハム2枚追加・自分の全生ハムの攻撃が試合中+1（累積）。手札7枚を超える分は追加されません。同じターンには再発動しません。',
+    description: '今ターン発動済み（各ターン1回）。\n即時5ダメージ（ガリ不可）。\n山札のランダムな位置に0AP生ハム1枚追加。\n自分の全生ハムの攻撃+1（試合中・累積）。',
   })
 
   const akami = ['maguro', 'chutoro', 'otoro'].filter(id => st.summonedIds.includes(id)).length
@@ -102,7 +102,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   }, {
     id: 'niku_matsuri', name: '肉祭り',
     value: st.nikuMatsuri ? '今ターン発動済' : `${st.sacrificedThisTurn ?? 0}/2体（今ターン）`,
-    description: '同じターンに生ハムを合計2体生贄にすると、即時5ダメージ・手札に0AP生ハム2枚追加（7枚を超える分は追加なし）・自分の全生ハムの攻撃が試合中+1（累積）。既存手札・机・今後生成する生ハムも強化します。カルビ寿司・和牛にぎりで使った合計を数え、各ターンに1回です。',
+    description: '同じターンに生ハムを計2体生贄（各ターン1回）。\nカルビ・和牛の生贄数を合算。\n即時5ダメージ（ガリ不可）。\n山札のランダムな位置に0AP生ハム1枚追加。\n自分の全生ハムの攻撃+1（試合中・累積）。\n手札・山札・机・今後の生成分も強化。',
   }, {
     id: 'umi_zanmai', name: '海の幸三昧', value: `未使用 いか${pairCount('いか')}・たこ${pairCount('たこ')}`,
     description: 'いか・たこの召喚時、机の未使用の相方1枚と組み、海鮮の合計攻撃を50%にして切り捨て、通常のえび1枚につき固定+7で再攻撃します。えびはペア条件に数えず、通常攻撃・召喚連鎖には+7しません。使用済みペアは再利用できず、新しいペアなら何度でも発動します。',

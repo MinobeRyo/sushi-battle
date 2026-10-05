@@ -1,4 +1,6 @@
 .card-effect-text { color: inherit; }
+.card-effect-lines, .card-effect-line { display: block; }
+.card-effect-line + .card-effect-line { margin-top: 0.2em; }
 .card-effect-condition { color: inherit; }
 /* 明るい説明背景では落ち着いた灰色、暗い購入画面では控えめな明度にする。 */
 .card-effect-condition[data-active='false'] { color: var(--combo-effect-muted, #756d62); }
