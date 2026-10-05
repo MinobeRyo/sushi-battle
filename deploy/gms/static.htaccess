@@ -1,0 +1,8 @@
+# HTMLは毎回サーバーへ更新確認し、デプロイ後も古い画面が残るのを防ぐ。
+# ハッシュ付きのJS/CSS・画像・音声のキャッシュには影響しない。
+<IfModule mod_headers.c>
+  <FilesMatch "^(index|se-lab)\.html$">
+    Header onsuccess unset Cache-Control
+    Header always set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
