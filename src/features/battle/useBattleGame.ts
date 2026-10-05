@@ -152,10 +152,10 @@ export function useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu, onSumm
     tick()
   }
 
-  const playCard = (card: Card, sacrificeCount = 0) => {
+  const playCard = (card: Card, sacrificeCount = 0, targetFieldId?: string) => {
     if (view.current.busy || view.current.phase !== 'player') return
     if (!('instanceId' in card) || typeof card.instanceId !== 'string') return
-    if (dispatch({ type: 'play_card', playerId: view.current.viewer, cardInstanceId: card.instanceId, sacrificeCount })) {
+    if (dispatch({ type: 'play_card', playerId: view.current.viewer, cardInstanceId: card.instanceId, sacrificeCount, targetFieldId })) {
       setInspect(null)
       syncPhase()
     }

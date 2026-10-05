@@ -90,6 +90,8 @@ function test(label, run, mode = 'cpu', options = {}) {
 const prepareCombo = (state, playerId) => {
   const player = state.players[playerId]
   player.hand = [cardInstance('maguro', playerId), cardInstance('tamago', playerId)]
+  // この試験はコンボ後の防御進行を検証するため、赤身サーチが追加召喚を増やさない山札にする。
+  player.deck = player.deck.filter(card => !card.archetype.includes('akami'))
   player.summonedIds = ['chutoro', 'otoro']
   player.ap = 10
   player.apNextBonus = 5

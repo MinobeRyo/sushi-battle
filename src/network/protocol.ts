@@ -59,6 +59,7 @@ export type OnlineAction = {
   type: 'play_card' | 'end_turn' | 'use_side_menu' | 'respond_defense'
   cardInstanceId?: string
   sacrificeCount?: number
+  targetFieldId?: string
   useGari?: boolean
 }
 

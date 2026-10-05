@@ -16,8 +16,8 @@ const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 })
 
-// 描画された実コンポーネントのボタンを押し、送信される消費数を確認する。
-function createHarness(cardId, fieldIds) {
+// 描画された実コンポーネントのボタンを押し、消費数と破壊対象の送信を確認する。
+function createHarness(cardId, fieldIds, enemyIds = []) {
   const hooks = []
   let cursor = 0
   const react = {
@@ -48,12 +48,14 @@ function createHarness(cardId, fieldIds) {
   }, module, module.exports)
   const findCard = id => cards.getCardById(id) ?? cards.GENERATED_CARDS.find(card => card.id === id)
   const plays = []
+  const targetsSent = []
   let closes = 0
   const props = {
     inspect: { card: { ...findCard(cardId), instanceId: `hand:${cardId}` }, canPlay: true },
     attackBuff: {}, kiretaStack: 0,
     fieldCards: fieldIds.map((id, index) => rules.toField(findCard(id), `field:${index}`)),
-    onPlay: count => plays.push(count),
+    enemyFieldCards: enemyIds.map((id, index) => rules.toField(findCard(id), `enemy:${index}`)),
+    onPlay: (count, targetFieldId) => { plays.push(count); targetsSent.push(targetFieldId) },
     onClose: () => { closes += 1 },
   }
   function BattleHarness() {
@@ -66,7 +68,7 @@ function createHarness(cardId, fieldIds) {
   const descendants = value => Array.isArray(value) ? value.flatMap(descendants)
     : value && typeof value === 'object' && value.props ? [value, ...descendants(value.props.children)] : []
   return {
-    props, plays,
+    props, plays, targetsSent,
     textContent,
     get nodes() { return descendants(BattleHarness()) },
     get attackText() { return textContent(this.nodes.find(node => node.props.className === 'battle-detail-attack')) },
@@ -155,4 +157,65 @@ test('生ハムの詳細表示はインバウン丼の通常攻撃+2を表示し
   const meat = createHarness('gyutan', [])
   meat.props.attackBuff = { '生ハム': 2 }
   assert.equal(meat.attackText, '5')
+})
+
+
+test('サーモンは相手の持続型を明示選択し、同名個体の選んだIDだけを送る', () => {
+  const h = createHarness('salmon', ['namahamu'], ['tamago', 'namahamu', 'namahamu'])
+  h.props.enemyFieldCards[2].turnsLeft = 1
+  h.props.enemyCardAttack = () => 4
+  assert.equal(h.choices.length, 2, '相手の即時型と自分の生ハムは対象外')
+  assert.equal(h.confirm.props.disabled, true)
+  assert.equal(h.confirm.props.onClick, undefined)
+  assert.ok(h.textContent(h.choices[0]).includes('左から2枚目'))
+  assert.ok(h.textContent(h.choices[1]).includes('攻撃 4・残り1ターン'))
+  h.choices[1].props.onClick()
+  assert.equal(h.choices[1].props['aria-pressed'], true)
+  assert.deepEqual(h.plays, [], '対象選択だけでは手札もAPも消費しない')
+  h.confirm.props.onClick()
+  assert.deepEqual(h.plays, [0])
+  assert.deepEqual(h.targetsSent, ['enemy:2'])
+})
+
+test('サーモンは対象なしで通常召喚でき、派生サーモンは選択を求めない', () => {
+  const empty = createHarness('salmon', [], ['tamago'])
+  assert.equal(empty.choices.length, 0)
+  assert.equal(empty.confirm.props.disabled, false)
+  empty.confirm.props.onClick()
+  assert.deepEqual(empty.targetsSent, [undefined])
+  const other = cards.CARDS.find(card => card.base === 'サーモン' && card.id !== 'salmon')
+  assert.ok(other)
+  const derived = createHarness(other.id, [], ['namahamu'])
+  assert.equal(derived.choices.length, 0)
+  assert.equal(derived.confirm.props.disabled, false)
+})
+
+test('サーモンの選択キャンセル・召喚不可・対象消滅は操作を送信しない', () => {
+  const h = createHarness('salmon', [], ['namahamu', 'namahamu'])
+  h.choices[0].props.onClick()
+  h.props.inspect.canPlay = false
+  assert.ok(h.choices.every(choice => choice.props.disabled))
+  assert.equal(h.confirm.props.disabled, true)
+  assert.equal(h.confirm.props.onClick, undefined)
+  h.props.inspect.canPlay = true
+  h.props.enemyFieldCards.shift()
+  assert.equal(h.confirm.props.disabled, true, '消えた対象をそのまま送れない')
+  assert.equal(h.confirm.props.onClick, undefined)
+  h.choices[0].props.onClick()
+  assert.equal(h.confirm.props.disabled, false)
+  h.buttons.find(node => node.props.className === 'battle-detail-cancel').props.onClick()
+  assert.equal(h.closes, 1)
+  assert.deepEqual(h.plays, [])
+})
+
+test('別個体のサーモンや机のカード詳細には破壊対象の選択を引き継がない', () => {
+  const h = createHarness('salmon', [], ['namahamu'])
+  h.choices[0].props.onClick()
+  h.props.inspect.card = { ...h.props.inspect.card, instanceId: 'hand:second-salmon' }
+  assert.equal(h.confirm.props.disabled, true)
+  h.props.inspect.remainingTurns = 1
+  h.props.inspect.canPlay = false
+  assert.equal(h.choices.length, 0)
+  assert.equal(h.confirm, undefined)
+  assert.deepEqual(h.plays, [])
 })

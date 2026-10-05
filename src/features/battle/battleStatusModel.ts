@@ -87,7 +87,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   const combos: BattleStatusItem[] = [{
     id: 'akami_mori', name: '赤身三種盛り',
     value: st.combosFired.includes('akami_mori') ? '達成済' : `${akami}/3種`,
-    description: 'マグロ・中トロ・大トロを試合中にそれぞれ召喚すると、即時10ダメージと以降マグロ系の攻撃 +2。さらに鉄火巻きの開始時AP +1とビントロの召喚時2枚ドロー・お腹 −3が解禁されます。同じ種類の重複は数えず、1試合に1回です。',
+    description: 'マグロ・中トロ・大トロを試合中にそれぞれ召喚すると、即時10ダメージと以降マグロ系の攻撃 +2。さらに鉄火巻きの開始時AP +1、ビントロの召喚時2枚ドロー・お腹 −3、づけマグロの消化停止2回が解禁されます。同じ種類の重複は数えず、1試合に1回です。',
   }, {
     id: 'maki_comp_3', name: '巻物コンプ',
     value: st.combosFired.includes('maki_comp_3') ? '達成済' : `${maki}/${MAKI_COMP_3}枚`,

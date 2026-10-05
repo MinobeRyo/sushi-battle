@@ -10,6 +10,7 @@ import { useOnlineRoom, type OnlineRoomController } from './useOnlineRoom'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { useOnlineComboAnnouncements } from './useOnlineComboAnnouncements'
 import { canPlayOnlineCard } from './onlineBattleActions'
+import { getDestroyTargetError } from '../battle/battleEngine'
 import { ComboCutIn } from '../battle/ComboCutIn'
 import { AnimatePresence } from 'framer-motion'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
@@ -80,10 +81,12 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
   const game: BattleController = {
     s: toOnlineBattleView(match, phase), showLog, setShowLog,
     comboAnim, floats: [], inspect: currentInspect, setInspect, reorderStep: 'p',
-    playCard: (card, sacrificeCount = 0) => {
-      if (!canAct || !('instanceId' in card) || typeof card.instanceId !== 'string') return
+    playCard: (card, sacrificeCount = 0, targetFieldId) => {
+      if (!canPlayOnlineCard(match, canAct, card) || !('instanceId' in card) || typeof card.instanceId !== 'string') return
+      const currentCard = match.you.hand.find(item => item.instanceId === card.instanceId)
+      if (!currentCard || getDestroyTargetError(currentCard, match.opponent.field, targetFieldId)) return
       setInspect(null)
-      void room.playCard(card.instanceId, sacrificeCount)
+      void room.playCard(card.instanceId, sacrificeCount, targetFieldId)
     },
     endTurn: () => { if (canAct) { setInspect(null); void room.endTurn() } },
     useSideMenu: () => { if (canAct) { setInspect(null); void room.useSideMenu() } },

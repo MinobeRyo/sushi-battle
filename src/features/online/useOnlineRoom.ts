@@ -44,6 +44,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   card_not_in_hand: 'このカードはすでに手札にありません。',
   insufficient_ap: '召喚に必要なAPが足りません。',
   field_full: '机が満杯です。',
+  target_required: '破壊する相手の持続型を選んでください。',
+  invalid_target: 'そのカードは破壊できません。対象を選び直してください。',
   invalid_sacrifice_count: '生贄にする生ハムの数を選び直してください。',
   not_enough_namahamu: '机の生ハムが足りません。最新の状態をご確認ください。',
   side_menu_missing: 'サイドメニューを購入していません。',
@@ -271,7 +273,7 @@ export function useOnlineRoom() {
     }
   }, [invalidateRequests, showSnapshot, storeSession])
 
-  const sendAction = useCallback(async (type: OnlineAction['type'], cardInstanceId?: string, useGari?: boolean, sacrificeCount?: number) => {
+  const sendAction = useCallback(async (type: OnlineAction['type'], cardInstanceId?: string, useGari?: boolean, sacrificeCount?: number, targetFieldId?: string) => {
     if (pendingRef.current) return
     const match = snapshotRef.current?.match
     if (!match) {
@@ -282,6 +284,7 @@ export function useOnlineRoom() {
       matchId: match.matchId, actionId: actionId(), expectedRevision: match.revision, type,
       ...(cardInstanceId ? { cardInstanceId } : {}),
       ...(type === 'play_card' ? { sacrificeCount: sacrificeCount ?? 0 } : {}),
+      ...(type === 'play_card' && targetFieldId !== undefined ? { targetFieldId } : {}),
       ...(type === 'respond_defense' ? { useGari } : {}),
     }
     const result = await request(
@@ -292,7 +295,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  const playCard = useCallback((instanceId: string, sacrificeCount = 0) => sendAction('play_card', instanceId, undefined, sacrificeCount), [sendAction])
+  const playCard = useCallback((instanceId: string, sacrificeCount = 0, targetFieldId?: string) => sendAction('play_card', instanceId, undefined, sacrificeCount, targetFieldId), [sendAction])
   const draftAction = useCallback(async (command: DraftCommand) => {
     const draft = snapshotRef.current?.draft
     if (!draft || pendingRef.current) return false
