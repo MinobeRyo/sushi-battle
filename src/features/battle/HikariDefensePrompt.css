@@ -1,0 +1,11 @@
+.battle-hikari-defense { width: min(620px, calc(100vw - 24px)); border-color: #46899e; }
+.battle-hikari-defense__description { margin: 12px 0; color: #48606a; font-size: 14px; line-height: 1.7; }
+.battle-hikari-defense__targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 34dvh; overflow-y: auto; overscroll-behavior: contain; padding: 4px; }
+.battle-hikari-defense__targets button { display: flex; flex-direction: column; gap: 5px; padding: 10px; border: 2px solid #b5c6cb; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
+.battle-hikari-defense__targets small { color: #48606a; font-size: 11px; }
+.battle-hikari-defense__targets strong { color: #254f61; font-size: 15px; }
+.battle-hikari-defense__targets span { color: #8b3275; font-size: 16px; font-weight: 800; }
+.battle-hikari-defense__targets button[aria-pressed='true'] { border-color: #2d6c84; background: #dfeff4; }
+.battle-hikari-defense__targets button:disabled { opacity: .55; cursor: wait; }
+.battle-hikari-defense__targets button:focus-visible { outline: 3px solid #2469a0; outline-offset: 1px; }
+.battle-hikari-defense .battle-defense__choices button { min-height: 132px; }

@@ -6,7 +6,7 @@ export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
 export type RandomSource = () => number
 export type CardInstance = Card & { instanceId: string }
-export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number }
+export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number; defenseState?: 'reserved' | 'ready'; attackHalved?: boolean }
 
 export type SideMenuState = {
   id: SideMenuId
@@ -50,6 +50,14 @@ export type PendingAttack = {
   source: 'summon' | 'end_turn'
 }
 
+export type PendingReaction = {
+  attackerId: PlayerId
+  defenderId: PlayerId
+  defenseCardId: string
+  fixedDamage: number
+  kaisenReattack: boolean
+}
+
 // 通信・保存できるデータだけを持つ。演出、React、待ち時間は含めない。
 export type MatchState = {
   matchId: string
@@ -58,19 +66,21 @@ export type MatchState = {
   players: Record<PlayerId, MatchPlayer>
   activePlayerId: PlayerId
   turn: number
-  phase: 'playing' | 'defending' | 'reorder' | 'over'
+  phase: 'playing' | 'reacting' | 'defending' | 'reorder' | 'over'
   winnerId: PlayerId | null
   reorderPlayerId: PlayerId | null
   pendingAttack: PendingAttack | null
+  pendingReaction: PendingReaction | null
   revision: number
   nextInstanceId: number
   log: string[]
 }
 
 export type MatchAction =
-  | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number; targetFieldId?: string }
+  | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number; targetFieldId?: string; reserveDefense?: boolean }
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
+  | { type: 'respond_reaction'; playerId: PlayerId; useDefense: boolean; targetFieldId?: string }
   | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。
   | { type: 'complete_reorder'; playerId: PlayerId; cards: Card[] }
@@ -78,6 +88,8 @@ export type MatchAction =
 export type MatchEvent =
   | { type: 'summon'; playerId: PlayerId; cardInstanceId: string; cardId: string }
   | { type: 'damage'; playerId: PlayerId; amount: number }
+  | { type: 'reaction_requested'; reaction: PendingReaction }
+  | { type: 'reaction_resolved'; playerId: PlayerId; usedDefense: boolean; targetFieldId?: string }
   | { type: 'defense_requested'; attack: PendingAttack }
   | { type: 'defense_resolved'; playerId: PlayerId; usedGari: boolean; reduction: number }
   | { type: 'combo'; playerId: PlayerId; comboId: string }

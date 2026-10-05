@@ -141,7 +141,7 @@ console.log('\n[6] 海の幸三昧（いか＋たこのペアを消費・何度�
   const r1 = playAll(['ika', 'tako'])
   eq('いか→たこ でペア成立', r1.firedNames.includes('umi_zanmai'), true)
   eq('追加ダメージ内訳 連鎖3 + 連鎖6 + 再攻撃3 = 12', r1.extra, 12)
-  eq('再攻撃は 場の海鮮6 の50% = 3', r1.logs.some(l => l.includes('場の海鮮2枚が再攻撃 +3')), true)
+  eq('再攻撃は 場の海鮮6 の50% = 3', r1.st.kaisenReattackDamage, 3)
   eq('両方がペア消費済み', r1.st.field.map(c => c.kaisenPaired), [true, true])
   eq('消費済みでも海鮮タグは残る（再攻撃の対象）',
     r1.st.field.filter(c => c.archetype.includes('kaisen')).length, 2)

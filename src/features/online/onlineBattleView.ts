@@ -21,7 +21,7 @@ export function toOnlineBattleView(match: PublicMatch, phase: ViewPhase): Battle
     cKiretaStack: c.kiretaStack, cDigestStopTurns: c.digestStopTurns,
     cApNextBonus: c.apNextBonus, cNikuMatsuri: c.nikuMatsuri, cSacrificedThisTurn: c.sacrificedThisTurn ?? 0, cKiretaSpent: c.kiretaSpent,
     cSideMenu: c.sideMenu,
-    activePlayer: p.id, turn: match.turn, phase, pendingAttack: match.pendingAttack, passToPlayerId: null,
+    activePlayer: p.id, turn: match.turn, phase, pendingAttack: match.pendingAttack, pendingReaction: match.pendingReaction, passToPlayerId: null,
     winner: match.winnerId === null ? null : match.winnerId === p.id ? 'player' : 'cpu',
     log: match.log, flash: null,
   }

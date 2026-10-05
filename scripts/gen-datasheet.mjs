@@ -454,7 +454,8 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 
   <div class="subhead"><h3>ダメージ計算</h3><span>game/battleRules.ts の calcFieldDmg</span></div>
   <div class="kw">
-    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ baseバフ〈subBases 含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷら〉 ＋ 設置中のサイドメニューによる強化 ＋ 切れ味スタック〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦タグのカードは最後に <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）</p></div>
+    <div><code>1枚あたりの攻撃力</code><p>（攻撃力 ＋ ネタごとの強化〈兼用ネタを含む・最大値1つ〉 ＋ 今ターンの強化〈生贄・天ぷらなど〉 ＋ 設置中のサイドメニューによる強化 ＋ 切れ味〈光り物のみ〉 ＋ お腹条件ボーナス）<br>机の巻物が${K.MAKI_COMP_5}枚以上なら、軍艦は <strong>×${K.GUNKAN_BOOST}</strong>（切り捨て）<br>攻撃半減中：すべての強化後に <strong>×0.5</strong>（切り捨て）<br>半減は通常攻撃・海鮮の再攻撃に反映／固定ダメージは対象外</p></div>
+    <div><code>防御予約</code><p>サバ：切れ味1で予約（任意）<br>イワシ生姜：切れ味2で予約（任意）<br>自分の通常攻撃後：防御待機に変化（1枚まで）<br>次の相手ターン：召喚効果後・ダメージ前に使用か温存<br>相手の攻撃可能な1枚を、そのターンだけ半減<br>サバはランダム／イワシ生姜は選択<br>使用時・相手ターン終了時：防御札が消える</p></div>
     <div><code>持続ターン</code><p>持続型は <code>max(満腹度, 2)</code> ターン机に残り、毎ターン攻撃。即時型は召喚したターンのみ</p></div>
     <div><code>総ダメージ（表の列）</code><p>攻撃力 × 持続ターン。バフ・ボーナスを含まない素の値</p></div>
   </div>

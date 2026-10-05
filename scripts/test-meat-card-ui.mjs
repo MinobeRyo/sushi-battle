@@ -62,13 +62,14 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
   const findCard = id => cards.getCardById(id) ?? cards.GENERATED_CARDS.find(card => card.id === id)
   const plays = []
   const targetsSent = []
+  const reservationsSent = []
   let closes = 0
   const props = {
     inspect: { card: { ...findCard(cardId), instanceId: `hand:${cardId}` }, canPlay: true },
     attackBuff: {}, kiretaStack: 0,
     fieldCards: fieldIds.map((id, index) => rules.toField(findCard(id), `field:${index}`)),
     enemyFieldCards: enemyIds.map((id, index) => rules.toField(findCard(id), `enemy:${index}`)),
-    onPlay: (count, targetFieldId) => { plays.push(count); targetsSent.push(targetFieldId) },
+    onPlay: (count, targetFieldId, reserveDefense) => { plays.push(count); targetsSent.push(targetFieldId); reservationsSent.push(reserveDefense) },
     onClose: () => { closes += 1 },
   }
   function BattleHarness() {
@@ -81,7 +82,7 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
   const descendants = value => Array.isArray(value) ? value.flatMap(descendants)
     : value && typeof value === 'object' && value.props ? [value, ...descendants(value.props.children)] : []
   return {
-    props, plays, targetsSent,
+    props, plays, targetsSent, reservationsSent,
     textContent,
     effectMarkup(component = 'CardDetailSheet', overrides = {}) {
       cursor = 0
@@ -372,4 +373,156 @@ test('生ハムの説明は机・山札の供給元と肉祭りの累積強化�
     '生成専用：購入・デッキ編成不可',
   ])
   assert.doesNotMatch(description, /手札に(?:0AP生ハム)?2枚|手札7枚を超える/)
+})
+
+
+for (const [id, cost] of [['saba', 1], ['iwashi_shoga', 2]]) {
+  test(`${id}は通常召喚を初期選択とし、防御予約を明示選択して送る`, () => {
+    const h = createHarness(id, [])
+    h.props.kiretaStack = cost + 1
+    assert.equal(h.choices.length, 2)
+    assert.equal(h.choices[0].props['aria-pressed'], true)
+    h.confirm.props.onClick()
+    assert.deepEqual(h.reservationsSent, [false])
+    h.choices[1].props.onClick()
+    assert.equal(h.choices[1].props['aria-pressed'], true)
+    assert.match(h.textContent(h.confirm), new RegExp(`切れ味 −${cost}`))
+    assert.equal(h.attackText, `${cards.getCardById(id).attack} +1（切れ味）`)
+    h.confirm.props.onClick()
+    assert.deepEqual(h.reservationsSent, [false, true])
+  })
+}
+
+test('切れ味不足・消費済み・防御枠使用中でも通常召喚できる', () => {
+  for (const reason of ['insufficient', 'spent', 'reserved', 'ready']) {
+    const h = createHarness('iwashi_shoga', [])
+    h.props.kiretaStack = reason === 'insufficient' ? 1 : 3
+    h.props.kiretaSpent = reason === 'spent'
+    if (reason === 'reserved' || reason === 'ready') {
+      h.props.fieldCards = [{ ...rules.toField(cards.getCardById('saba'), 'guard'), defenseState: reason }]
+    }
+    assert.equal(h.choices[0].props.disabled, false, reason)
+    assert.equal(h.choices[1].props.disabled, true, reason)
+    assert.equal(h.confirm.props.disabled, false, reason)
+    h.confirm.props.onClick()
+    assert.deepEqual(h.reservationsSent, [false])
+  }
+})
+
+test('防御予約の選択後に切れ味不足やAP不足になれば送信しない', () => {
+  const h = createHarness('saba', [])
+  h.props.kiretaStack = 1
+  h.choices[1].props.onClick()
+  h.props.kiretaStack = 0
+  assert.equal(h.confirm.props.disabled, true)
+  assert.equal(h.confirm.props.onClick, undefined)
+  h.choices[0].props.onClick()
+  assert.equal(h.confirm.props.disabled, false)
+  h.props.inspect.canPlay = false
+  assert.equal(h.confirm.props.disabled, true)
+  assert.ok(h.choices.every(choice => choice.props.disabled))
+  assert.deepEqual(h.reservationsSent, [])
+})
+
+test('別の手札個体には防御予約を引き継がず、場のカードには選択を出さない', () => {
+  const h = createHarness('saba', [])
+  h.props.kiretaStack = 3
+  h.choices[1].props.onClick()
+  h.props.inspect.card = { ...cards.getCardById('iwashi_shoga'), instanceId: 'another-hand' }
+  assert.equal(h.choices[0].props['aria-pressed'], true)
+  h.confirm.props.onClick()
+  assert.deepEqual(h.reservationsSent, [false])
+  h.props.inspect.remainingTurns = 1
+  h.props.inspect.canPlay = false
+  assert.equal(h.choices.length, 0)
+})
+
+function createReactionHarness(defenseId = 'iwashi_shoga') {
+  const hooks = []
+  let cursor = 0
+  const react = {
+    useRef: initial => ({ current: initial }), useId: () => 'reaction', useEffect() {},
+    useState(initial) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = initial
+      return [hooks[index], value => { hooks[index] = value }]
+    },
+  }
+  const { HikariDefensePrompt } = loadComponent('HikariDefensePrompt', {
+    react, 'react/jsx-runtime': require('react/jsx-runtime'), './battleEngine': rules,
+    './DefensePrompt.css': {}, './HikariDefensePrompt.css': {},
+  })
+  const responses = []
+  const props = {
+    reaction: { attackerId: 2, defenderId: 1, defenseCardId: 'guard', fixedDamage: 5, kaisenReattack: false },
+    defenseCard: { ...rules.toField(cards.getCardById(defenseId), 'guard'), defenseState: 'ready' },
+    enemyField: ['tamago', 'tamago', 'ika'].map((id, index) => rules.toField(cards.getCardById(id), `enemy:${index}`)),
+    attackBuff: {}, kiretaStack: 0, enemyBelly: 0, ready: true,
+    onRespond: (useDefense, targetFieldId) => responses.push({ useDefense, targetFieldId }),
+  }
+  const textContent = value => Array.isArray(value) ? value.map(textContent).join('')
+    : value && typeof value === 'object' && value.props ? textContent(value.props.children)
+      : typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+  const descendants = value => Array.isArray(value) ? value.flatMap(descendants)
+    : value && typeof value === 'object' && value.props ? [value, ...descendants(value.props.children)] : []
+  return {
+    props, responses, textContent,
+    get buttons() { cursor = 0; return descendants(HikariDefensePrompt(props)).filter(node => node.type === 'button') },
+    get targets() { return this.buttons.filter(node => 'aria-pressed' in node.props) },
+    get use() { return this.buttons.find(node => node.props.className === 'battle-defense__use') },
+    get skip() { return this.buttons.find(node => node.props.className === 'battle-defense__keep') },
+  }
+}
+
+test('イワシの防御は即時型と同名個体を選択でき、指定fidを送る', () => {
+  const h = createReactionHarness()
+  h.props.attackBuff['たまご'] = 3
+  assert.equal(h.use.props.disabled, true)
+  assert.equal(h.use.props.onClick, undefined)
+  assert.equal(h.targets.length, 3)
+  assert.match(h.textContent(h.targets[1]), /左から2枚目.*たまご.*即時型/)
+  h.targets[1].props.onClick()
+  assert.deepEqual(h.responses, [])
+  assert.equal(h.use.props.disabled, false)
+  h.use.props.onClick()
+  assert.deepEqual(h.responses, [{ useDefense: true, targetFieldId: 'enemy:1' }])
+})
+
+test('防御対象の攻撃予測は場全体の軍艦倍率を含め、半減済みは重ねて割らない', () => {
+  const h = createReactionHarness()
+  h.props.enemyField = ['uni_gunkan', 'tekka_maki', 'kappa_maki', 'kanpyo_maki', 'natto_maki'].map((id, i) => {
+    const card = cards.getCardById(id)
+    assert.ok(card, id)
+    return rules.toField(card, `enemy:${i}`)
+  })
+  assert.match(h.textContent(h.targets[0]), /攻撃 30 → 15/)
+  h.props.enemyField[0].attackHalved = true
+  assert.match(h.textContent(h.targets[0]), /攻撃 15 → 15/)
+})
+
+test('退場した対象・別の防御個体・通信中の古い選択は送信しない', () => {
+  const h = createReactionHarness()
+  h.targets[0].props.onClick()
+  h.props.enemyField.shift()
+  assert.equal(h.use.props.disabled, true)
+  h.targets[0].props.onClick()
+  h.props.reaction = { ...h.props.reaction, defenseCardId: 'other-guard' }
+  assert.equal(h.use.props.disabled, true)
+  h.props.ready = false
+  assert.ok(h.buttons.every(button => button.props.disabled))
+  assert.equal(h.skip.props.onClick, undefined)
+  assert.deepEqual(h.responses, [])
+})
+
+test('サバは対象を選ばずランダム防御を送信し、見送りには対象を送らない', () => {
+  const h = createReactionHarness('saba')
+  assert.equal(h.targets.length, 0)
+  h.use.props.onClick()
+  h.skip.props.onClick()
+  assert.deepEqual(h.responses, [
+    { useDefense: true, targetFieldId: undefined }, { useDefense: false, targetFieldId: undefined },
+  ])
+  h.props.enemyField = [{ ...h.props.enemyField[0], defenseState: 'ready' }]
+  assert.equal(h.use.props.disabled, true)
+  assert.equal(h.skip.props.disabled, false)
 })

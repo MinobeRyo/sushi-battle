@@ -3,8 +3,8 @@ import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from '../data/cpuDecks'
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
-import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMori, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
+import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PendingReaction, PlayerId, RandomSource } from './types'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseCost, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMori, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -39,7 +39,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const state: MatchState = {
     matchId: options.matchId ?? 'local', mode: options.mode, cpuDeckId: cpuDeck?.id ?? null,
     players: { 1: newPlayer(1, options.sideMenu), 2: newPlayer(2, options.p2SideMenu) }, activePlayerId: 1,
-    turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null, pendingAttack: null,
+    turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null, pendingAttack: null, pendingReaction: null,
     revision: 0, nextInstanceId: 1,
     log: [cpuDeck ? `バトル開始！ ${cpuDeck.id === 'challenge' ? '挑戦CPU' : 'CPU'}：${cpuDeck.name}` : 'バトル開始！'],
   }
@@ -113,6 +113,7 @@ function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: P
   state.phase = 'over'
   state.reorderPlayerId = null
   state.pendingAttack = null
+  state.pendingReaction = null
   events.push({ type: 'game_over', winnerId: state.winnerId })
   return true
 }
@@ -134,6 +135,18 @@ function startAttack(state: MatchState, attack: PendingAttack, events: MatchEven
     return
   }
   resolveAttack(state, attack, attack.amount, events, random)
+}
+
+/** 召喚効果は確定済み。反応の後はダメージだけを再開する。 */
+function resumeSummonAttack(state: MatchState, reaction: PendingReaction, events: MatchEvent[], random: RandomSource) {
+  state.pendingReaction = null
+  state.phase = 'playing'
+  const attacker = state.players[reaction.attackerId]
+  const variableDamage = reaction.kaisenReattack
+    ? calcKaisenReattackDamage(attacker.field, attacker.attackBuff, attacker.kiretaStack, state.players[reaction.defenderId].belly) : 0
+  if (reaction.kaisenReattack) addLog(state, `${label(state, reaction.attackerId)}の海鮮再攻撃: ${variableDamage} ダメージ`)
+  startAttack(state, { attackerId: reaction.attackerId, defenderId: reaction.defenderId,
+    amount: reaction.fixedDamage + variableDamage, source: 'summon' }, events, random)
 }
 
 function activeSideMenu(player: MatchPlayer, id: SideMenuId) {
@@ -196,7 +209,7 @@ function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
   }
 }
 
-function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], random: RandomSource, sacrificeCount = 0, targetFieldId?: string) {
+function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], random: RandomSource, sacrificeCount = 0, targetFieldId?: string, reserveDefense?: boolean) {
   const player = state.players[id]
   const enemyId = otherPlayer(id)
   const enemy = state.players[enemyId]
@@ -213,7 +226,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     thisTurnBases: player.thisTurnBases, thisTurnArch: player.thisTurnArch,
     combosFired: player.combosFired, attackBuff: player.attackBuff,
     drawBonus: player.drawBonus, nikuMatsuri: player.nikuMatsuri,
-    sacrificeCount, sacrificedThisTurn: player.sacrificedThisTurn,
+    sacrificeCount, reserveDefense, sacrificedThisTurn: player.sacrificedThisTurn,
     sacrificeAttackBonus: activeSideMenu(player, 'inbound_don') ? INBOUND_DON_SACRIFICE_BONUS : 0,
     kiretaSpent: player.kiretaSpent, enemyBelly: enemy.belly,
     turnAttackBonus: tempuraBonus,
@@ -282,7 +295,17 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
   events.push({ type: 'summon', playerId: id, cardInstanceId: card.instanceId, cardId: card.id })
   for (const combo of result.fired) events.push({ type: 'combo', playerId: id, comboId: combo.id })
-  startAttack(state, { attackerId: id, defenderId: enemyId, amount: result.extraDmg, source: 'summon' }, events, random)
+  const defense = enemy.field.find(item => item.defenseState === 'ready')
+  const reaction: PendingReaction = {
+    attackerId: id, defenderId: enemyId, defenseCardId: defense?.fid ?? '',
+    fixedDamage: result.extraDmg - result.kaisenReattackDamage,
+    kaisenReattack: result.fired.some(combo => combo.id === 'umi_zanmai'),
+  }
+  if (defense && getDefenseTargets(player.field, player.attackBuff, player.kiretaStack, enemy.belly).length > 0) {
+    state.pendingReaction = reaction
+    state.phase = 'reacting'
+    events.push({ type: 'reaction_requested', reaction: { ...reaction } })
+  } else resumeSummonAttack(state, reaction, events, random)
 }
 
 function finishTurn(state: MatchState, events: MatchEvent[], random: RandomSource) {
@@ -305,10 +328,13 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   addCardToDeck(state, id, NAMAHAM_CARD, hamCount, random)
   if (hamCount > 0) addLog(state, `${label(state, id)}の焼肉寿司: 生ハム${hamCount}枚を山札に混ぜた（終了時ドロー前）`)
   player.field = player.field.map(card => {
-    const { turnAttackBonus: _, ...persistentCard } = card
-    return { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
-  })
-    .filter(card => card.turnsLeft > 0)
+    const { turnAttackBonus: _, attackHalved: __, ...persistentCard } = card
+    return card.defenseState === 'reserved'
+      ? { ...persistentCard, defenseState: 'ready' as const, turnsLeft: 1 }
+      : { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
+  }).filter(card => card.turnsLeft > 0)
+  // 次に戻る本人の防御は、相手の終了攻撃まで温存していてもここで失効する。
+  state.players[nextId].field = state.players[nextId].field.filter(card => card.defenseState !== 'ready')
   draw(player, 1 + player.drawBonus)
   if (player.kiretaSpent) {
     player.kiretaStack = 0
@@ -378,6 +404,38 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   const reject = (error: string): MatchResult => ({ state, events: [], error })
   if (action.playerId !== 1 && action.playerId !== 2) return reject('unknown_player')
   if (state.phase === 'over') return reject('game_over')
+  if (action.type === 'respond_reaction') {
+    const reaction = state.pendingReaction
+    if (state.phase !== 'reacting' || !reaction) return reject('not_reacting')
+    if (action.playerId !== reaction.defenderId) return reject('not_defender')
+    if (typeof action.useDefense !== 'boolean') return reject('invalid_reaction')
+    const defender = state.players[reaction.defenderId]
+    const defense = defender.field.find(card => card.fid === reaction.defenseCardId && card.defenseState === 'ready')
+    if (!defense || !getDefenseCost(defense)) return reject('invalid_reaction')
+    const attacker = state.players[reaction.attackerId]
+    const targets = getDefenseTargets(attacker.field, attacker.attackBuff, attacker.kiretaStack, defender.belly)
+    if (action.useDefense && getDefenseCost(defense) === 2) {
+      if (action.targetFieldId === undefined) return reject('target_required')
+      if (!targets.some(card => card.fid === action.targetFieldId)) return reject('invalid_target')
+    } else if (action.targetFieldId !== undefined) return reject('invalid_target')
+    if (action.useDefense && targets.length === 0) return reject('invalid_target')
+    const next = structuredClone(state)
+    let targetFieldId: string | undefined
+    if (action.useDefense) {
+      const target = getDefenseCost(defense) === 1
+        ? targets[Math.floor(random() * targets.length)] : targets.find(card => card.fid === action.targetFieldId)!
+      targetFieldId = target.fid
+      next.players[reaction.attackerId].field = next.players[reaction.attackerId].field.map(card =>
+        card.fid === target.fid ? { ...card, attackHalved: true } : card)
+      next.players[reaction.defenderId].field = next.players[reaction.defenderId].field.filter(card => card.fid !== defense.fid)
+      addLog(next, `${label(next, reaction.defenderId)}: ${defense.name}で${target.name}の攻撃をこのターン半減`)
+    } else addLog(next, `${label(next, reaction.defenderId)}は防御カードを温存`)
+    const events: MatchEvent[] = [{ type: 'reaction_resolved', playerId: action.playerId, usedDefense: action.useDefense,
+      ...(targetFieldId === undefined ? {} : { targetFieldId }) }]
+    resumeSummonAttack(next, reaction, events, random)
+    next.revision += 1
+    return { state: next, events }
+  }
   if (action.type === 'respond_defense') {
     if (state.phase !== 'defending' || !state.pendingAttack) return reject('not_defending')
     if (action.playerId !== state.pendingAttack.defenderId) return reject('not_defender')
@@ -419,6 +477,8 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     if (player.ap < player.hand[index].cost) return reject('insufficient_ap')
     const sacrificeError = getSacrificeError(player.hand[index], player.field, action.sacrificeCount)
     if (sacrificeError) return reject(sacrificeError)
+    const defenseError = getDefenseReserveError(player.hand[index], player.field, player.kiretaStack, player.kiretaSpent, action.reserveDefense)
+    if (defenseError) return reject(defenseError)
     const targetError = getDestroyTargetError(player.hand[index], state.players[otherPlayer(action.playerId)].field, action.targetFieldId)
     if (targetError) return reject(targetError)
     if (player.field.length - (action.sacrificeCount ?? 0) >= FIELD_MAX) return reject('field_full')
@@ -428,11 +488,25 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   } else if (action.type !== 'end_turn') return reject('unknown_action')
   const next = structuredClone(state)
   const events: MatchEvent[] = []
-  if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount, action.targetFieldId)
+  if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount, action.targetFieldId, action.reserveDefense)
   else if (action.type === 'use_side_menu') applySideMenu(next, action.playerId, events)
   else finishTurn(next, events, random)
   next.revision += 1
   return { state: next, events }
+}
+
+export function getCpuReactionAction(state: MatchState): MatchAction | null {
+  const reaction = state.pendingReaction
+  if (state.mode !== 'cpu' || state.phase !== 'reacting' || reaction?.defenderId !== 2) return null
+  const cpu = state.players[2]
+  const defense = cpu.field.find(card => card.fid === reaction.defenseCardId)
+  const attacker = state.players[reaction.attackerId]
+  const targets = getDefenseTargets(attacker.field, attacker.attackBuff, attacker.kiretaStack, cpu.belly)
+  const gunkanBoost = makimonoCount(attacker.field) >= MAKI_COMP_5
+  const target = targets.sort((a, b) => calcFieldDmg([b], attacker.attackBuff, attacker.kiretaStack, cpu.belly, { gunkanBoost })
+    - calcFieldDmg([a], attacker.attackBuff, attacker.kiretaStack, cpu.belly, { gunkanBoost }))[0]
+  return { type: 'respond_reaction', playerId: 2, useDefense: Boolean(defense && target),
+    ...(defense && target && getDefenseCost(defense) === 2 ? { targetFieldId: target.fid } : {}) }
 }
 
 export function getCpuDefenseAction(state: MatchState): MatchAction | null {
@@ -477,7 +551,9 @@ export function getCpuActions(state: MatchState): MatchAction[] {
       const sacrificeCount = Math.min(available, getSacrificeLimit(card))
       const target = getDestroyTargets(card, planned.players[1].field).sort((a, b) => b.attack - a.attack)[0]
       action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
-        ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}) }
+        ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}),
+        ...(getDefenseCost(card) > 0 && !getDefenseReserveError(card, cpu.field, cpu.kiretaStack, cpu.kiretaSpent, true)
+          ? { reserveDefense: true } : {}) }
     }
     const playedEffect = action.type === 'play_card'
       ? cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect : null

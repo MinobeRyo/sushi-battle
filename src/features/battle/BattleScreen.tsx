@@ -16,6 +16,7 @@ import { BattleTable } from './BattleTable'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
 import { DefensePrompt } from './DefensePrompt'
+import { HikariDefensePrompt } from './HikariDefensePrompt'
 import { BattleStatusDialog } from './BattleStatusDialog'
 import { BattleSideMenuSlot } from '../side-menu/BattleSideMenuSlot'
 import type { BattleSideStatus } from './battleStatusModel'
@@ -53,26 +54,29 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 }) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, respondDefense, handlePassReady, handleReorderComplete, restart,
+    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart,
   } = game
   const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
   const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
   // 状態ダイアログより優先して、双方のコンボ演出を見せる。
   useEffect(() => { if (comboAnim) setStatusSide(null) }, [comboAnim])
-  useEffect(() => { if (s.pendingAttack) setStatusSide(null) }, [s.pendingAttack])
+  useEffect(() => { if (s.pendingAttack || s.pendingReaction) setStatusSide(null) }, [s.pendingAttack, s.pendingReaction])
 
   // ── 表示用計算 ────────────────────────────────────────────────────────────
   const isPlayerTurn = s.phase === 'player'
+  const isReactionDefender = s.pendingReaction?.defenderId === s.activePlayer
   const isDefender = s.pendingAttack?.defenderId === s.activePlayer
   const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly, { nikuMatsuri: s.pNikuMatsuri })
   const opponentDmg = calcFieldDmg(s.cField, s.cAttackBuff, s.cKiretaStack, s.pBelly, { nikuMatsuri: s.cNikuMatsuri })
 
   const phaseLabel = s.phase === 'player' ? 'あなたのターン'
+    : s.phase === 'reacting' ? '光り物の防御を選んでください'
     : s.phase === 'defending' ? '防御を選んでください'
     : s.phase === 'animating' ? '攻撃中…'
     : s.phase === 'pass' ? 'プレイヤー交代'
     : s.phase === 'reorder' ? '追加注文中…'
     : s.phase === 'syncing' ? '通信待ち…'
+    : s.pendingReaction && !isReactionDefender ? '相手が光り物の防御を選択中…'
     : s.pendingAttack && !isDefender ? '相手が防御を選択中…'
     : s.phase === 'waiting' ? '相手のターン'
     : s.phase === 'over' ? '対戦終了'
@@ -247,7 +251,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             sacrificeAttackBonus={s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
-            onPlay={(count, targetFieldId) => { if (currentInspect?.canPlay) playCard(currentInspect.card, count, targetFieldId) }}
+            kiretaSpent={s.pKiretaSpent}
+            onPlay={(count, targetFieldId, reserveDefense) => { if (currentInspect?.canPlay) playCard(currentInspect.card, count, targetFieldId, reserveDefense) }}
             onClose={() => setInspect(null)}
           />
         )}
@@ -267,6 +272,14 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       <AnimatePresence mode="wait">
         {comboAnim && <ComboCutIn key={comboAnim.key} combo={comboAnim} />}
       </AnimatePresence>
+
+      {s.pendingReaction && isReactionDefender && (s.phase === 'reacting' || s.phase === 'syncing') && (
+        <HikariDefensePrompt reaction={s.pendingReaction}
+          defenseCard={s.pField.find(card => card.fid === s.pendingReaction!.defenseCardId)}
+          enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly}
+          ready={s.phase === 'reacting'} onRespond={respondReaction}
+          onLeave={mode === 'online' ? onBack : undefined} />
+      )}
 
       {s.pendingAttack && isDefender && (s.phase === 'defending' || s.phase === 'syncing') && (
         <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} gari={s.pGari}
@@ -295,7 +308,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             >
               <p style={{ fontSize: 'clamp(48px, 8vw, 80px)', marginBottom: 16 }}>🍣</p>
               <p style={{ fontSize: 'clamp(20px, 3.5vw, 32px)', fontWeight: 900, color: '#fde68a', marginBottom: 8 }}>
-                P{s.passToPlayerId} {s.pendingAttack ? 'の防御です' : 'の番です'}
+                P{s.passToPlayerId} {s.pendingAttack || s.pendingReaction ? 'の防御です' : 'の番です'}
               </p>
               <p style={{ fontSize: R.fmd, color: '#a8a29e', marginBottom: 32, lineHeight: 1.7 }}>
                 デバイスを P{s.passToPlayerId} に渡してください

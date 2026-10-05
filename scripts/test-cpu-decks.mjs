@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
 const { CPU_DECKS, CHALLENGE_CPU_DECK, chooseCpuDeck, getCpuDeck, getCpuReorderDeck } = loadTs('src/data/cpuDecks.ts')
-const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction } = loadTs('src/game/matchEngine.ts')
+const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction } = loadTs('src/game/matchEngine.ts')
 const { cpuChoose, FIELD_MAX, REORDER_BUDGET } = loadTs('src/game/battleRules.ts')
 const { toBattleView } = loadTs('src/features/battle/battleView.ts')
 const allDecks = [...CPU_DECKS, CHALLENGE_CPU_DECK]
@@ -149,7 +149,9 @@ test('最弱と全6固定デッキでCPUの操作・防御・追加注文を通�
     const random = seeded(42)
     for (let steps = 0; steps < 1000 && state.phase !== 'over'; steps++) {
       let action
-      if (state.phase === 'defending') {
+      if (state.phase === 'reacting') {
+        action = getCpuReactionAction(state) ?? { type: 'respond_reaction', playerId: state.pendingReaction.defenderId, useDefense: false }
+      } else if (state.phase === 'defending') {
         action = getCpuDefenseAction(state) ?? { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: true }
       } else if (state.phase === 'reorder') {
         action = { type: 'complete_reorder', playerId: 1, cards: getCpuReorderDeck('akami') }

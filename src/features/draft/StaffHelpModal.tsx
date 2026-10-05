@@ -41,7 +41,7 @@ const HELP_SPREADS = [
 const BUILD_GUIDE = [
   { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。三種盛りで攻撃・回復・カード補充・AP・妨害を強化。' },
   { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
-  { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'サバ・アジなどで切れ味を貯め、攻撃や効果に使います。' },
+  { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'アジなどで切れ味を貯め、攻撃・ドロー・防御予約に使います。' },
   { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
   { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '机への生成・焼肉や肉祭りの山札補充で生ハムを用意。カルビ・和牛の生贄に。' },
   { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃・ドロー・相手の持続型の除去で支えます。' },
@@ -69,7 +69,7 @@ const COMBO_GUIDE = [
     id: 'hikari_zanmai', timing: '1試合に1回', cards: ['saba', 'aji', 'kohada'],
     cond: `大葉つきを累計${OBA_REQUIRED}枚召喚（同じカードも可）。`,
     effect: '切れ味 +3。光り物の攻撃に加算。',
-    note: '切れ味は一部のカード効果で消費。',
+    note: 'サバ：切れ味1で防御予約（任意）。\nイワシ生姜：切れ味2で防御予約（任意）。\n通常攻撃後：防御待機に変化（1枚まで）。\n次の相手ターン：召喚効果後・ダメージ前に使用か温存。\n相手の攻撃可能な1枚を、そのターンだけ切り捨て半減。\nサバはランダム／イワシ生姜は選択。\n固定ダメージは半減しません。\n使用時・相手ターン終了時に防御札が消えます。',
   },
   {
     id: 'umi_zanmai', timing: '新しいペアごと', cards: ['ika', 'tako', 'ebi'],

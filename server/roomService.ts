@@ -34,7 +34,7 @@ function publicMatch(match: MatchState, playerId: PlayerId, comboEvents: PublicC
   const { hand: opponentHand, deck: opponentDeck, ...opponent } = match.players[otherPlayer(playerId)]
   return {
     matchId: match.matchId, revision: match.revision, activePlayerId: match.activePlayerId,
-    turn: match.turn, phase: match.phase, pendingAttack: match.pendingAttack, winnerId: match.winnerId,
+    turn: match.turn, phase: match.phase, pendingAttack: match.pendingAttack, pendingReaction: match.pendingReaction, winnerId: match.winnerId,
     you: { ...you, deckCount: deck.length },
     opponent: { ...opponent, handCount: opponentHand.length, deckCount: opponentDeck.length },
     log: match.log,
@@ -55,15 +55,23 @@ function snapshot(room: Room, playerId: PlayerId): RoomSnapshot {
 function validAction(value: unknown): value is OnlineAction {
   if (!value || typeof value !== 'object') return false
   const action = value as Partial<OnlineAction>
-  return typeof action.actionId === 'string' && action.actionId.length > 0 && action.actionId.length <= 128
+  const validTarget = action.targetFieldId === undefined || (typeof action.targetFieldId === 'string'
+    && action.targetFieldId.length > 0 && action.targetFieldId.length <= 200)
+  if (!(typeof action.actionId === 'string' && action.actionId.length > 0 && action.actionId.length <= 128
     && typeof action.matchId === 'string' && action.matchId.length > 0 && action.matchId.length <= 128
-    && Number.isSafeInteger(action.expectedRevision) && action.expectedRevision! >= 0
-    && (action.type === 'end_turn' || action.type === 'use_side_menu'
-      || (action.type === 'respond_defense' && typeof action.useGari === 'boolean') || (action.type === 'play_card'
-      && typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200
-      && (action.sacrificeCount === undefined || (Number.isSafeInteger(action.sacrificeCount) && action.sacrificeCount >= 0))
-      && (action.targetFieldId === undefined || (typeof action.targetFieldId === 'string'
-        && action.targetFieldId.length > 0 && action.targetFieldId.length <= 200))))
+    && Number.isSafeInteger(action.expectedRevision) && action.expectedRevision! >= 0)) return false
+  switch (action.type) {
+    case 'end_turn':
+    case 'use_side_menu': return true
+    case 'respond_defense': return typeof action.useGari === 'boolean'
+    case 'respond_reaction': return typeof action.useDefense === 'boolean' && validTarget
+    case 'play_card':
+      return typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200
+        && (action.sacrificeCount === undefined || (Number.isSafeInteger(action.sacrificeCount) && action.sacrificeCount >= 0))
+        && (action.reserveDefense === undefined || typeof action.reserveDefense === 'boolean')
+        && validTarget
+    default: return false
+  }
 }
 
 function validToken(value: unknown): value is string {
@@ -268,7 +276,8 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (!validAction(action)) return { ok: false, error: 'invalid_action' }
         const key = `${playerId}:${action.actionId}`
         const fingerprint = JSON.stringify([action.matchId, action.expectedRevision, action.type,
-          action.cardInstanceId ?? null, action.useGari ?? null, action.sacrificeCount ?? 0, action.targetFieldId ?? null])
+          action.cardInstanceId ?? null, action.useGari ?? null, action.sacrificeCount ?? 0, action.targetFieldId ?? null,
+          action.reserveDefense ?? false, action.useDefense ?? null])
         const previous = room.processed.get(key)
         if (previous) {
           sendState(room)
@@ -281,9 +290,11 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
           return { ok: false, error: room.match.matchId !== action.matchId ? 'stale_match' : 'stale_revision' }
         }
         const result = transitionMatch(room.match, action.type === 'play_card'
-          ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId!, sacrificeCount: action.sacrificeCount, targetFieldId: action.targetFieldId }
+          ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId!, sacrificeCount: action.sacrificeCount, targetFieldId: action.targetFieldId, reserveDefense: action.reserveDefense }
           : action.type === 'respond_defense'
             ? { type: 'respond_defense', playerId, useGari: action.useGari! }
+          : action.type === 'respond_reaction'
+            ? { type: 'respond_reaction', playerId, useDefense: action.useDefense!, targetFieldId: action.targetFieldId }
           : { type: action.type, playerId }, random)
         if (result.error) return { ok: false, error: result.error }
         room.match = result.state
