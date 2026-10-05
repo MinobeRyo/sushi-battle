@@ -242,26 +242,42 @@ test('中トロと大トロは基本数値を保ち、中トロの成立後回�
   }
 })
 
-test('三種盛りを成立させる中トロ・大トロ自身では追加効果を使わず、次の召喚から使う', () => {
-  for (const id of ['chutoro', 'otoro']) {
-    let state = make([id, id])
+test('三種を初めて揃える中トロ・大トロから追加効果を使い、コンボ本体は一度だけ発動する', () => {
+  for (const playerId of [1, 2]) for (const id of ['chutoro', 'otoro']) {
+    const state = make(); state.activePlayerId = playerId
+    const enemyId = playerId === 1 ? 2 : 1
     const history = ['maguro', 'chutoro', 'otoro'].filter(item => item !== id)
-    Object.assign(state.players[1], { belly: 15, summonedIds: history })
-    const deck = structuredClone(state.players[1].deck)
-    const first = play(state, id)
-    assert.ok(first.players[1].combosFired.includes('akami_mori'))
-    assert.equal(first.players[1].belly, 15)
-    assert.equal(first.players[1].apNextBonus, 0)
-    assert.deepEqual(first.players[1].deck, deck)
-    assert.equal(first.nextInstanceId, state.nextInstanceId)
-    assert.equal(first.players[2].belly, 10, '既存の三種盛り即時10は維持')
-    assert.equal(first.players[1].attackBuff['マグロ'], 2)
-    state = play(first, id)
-    assert.equal(state.players[1].belly, id === 'chutoro' ? 5 : 10)
-    assert.equal(state.players[1].apNextBonus, id === 'otoro' ? 1 : 0)
-    assert.equal(state.players[1].deck.length, deck.length + (id === 'otoro' ? 1 : 0))
-    assert.equal(state.players[2].belly, 10, '2回目に三種盛りを再発動しない')
+    Object.assign(state.players[playerId], { ap: 10, maxAP: 10, belly: 15, summonedIds: history,
+      hand: [instance(id, `first-${id}`), instance(id, `second-${id}`)] })
+    const deck = structuredClone(state.players[playerId].deck)
+    let next = state
+    for (const count of [1, 2]) {
+      const result = transitionMatch(freeze(next), action(next, id), keepOrder)
+      assert.equal(result.error, undefined)
+      assert.equal(result.events.filter(event => event.type === 'combo' && event.comboId === 'akami_mori').length,
+        count === 1 ? 1 : 0)
+      next = result.state
+      assert.ok(next.players[playerId].combosFired.includes('akami_mori'))
+      assert.equal(next.players[playerId].belly, Math.max(0, 15 - (id === 'chutoro' ? 10 : 5) * count))
+      assert.equal(next.players[playerId].apNextBonus, id === 'otoro' ? count : 0)
+      assert.equal(next.players[playerId].deck.length, deck.length + (id === 'otoro' ? count : 0))
+      assert.deepEqual(next.players[playerId].deck.slice(0, deck.length), deck)
+      assert.equal(next.nextInstanceId, state.nextInstanceId + (id === 'otoro' ? count : 0))
+      assert.equal(next.players[enemyId].belly, 10, '三種盛りの即時10は一度だけ')
+      assert.equal(next.players[playerId].attackBuff['マグロ'], 2, '永続+2も一度だけ')
+    }
   }
+})
+
+test('三種がまだ揃わない大トロは回復・生成・次AP・抽選を行わない', () => {
+  const state = make(['otoro'])
+  Object.assign(state.players[1], { belly: 15, summonedIds: ['chutoro'] })
+  const next = play(state, 'otoro', () => { throw Error('未成立の大トロでは生成抽選しない') })
+  assert.equal(next.players[1].belly, 15)
+  assert.equal(next.players[1].apNextBonus, 0)
+  assert.equal(next.players[1].combosFired.includes('akami_mori'), false)
+  assert.deepEqual(next.players[1].deck, state.players[1].deck)
+  assert.equal(next.nextInstanceId, state.nextInstanceId)
 })
 
 test('成立後の大トロは通常ビントロ1枚を山札に挿入し、手札満杯でも両プレイヤーの個体・順序を保つ', () => {
@@ -334,10 +350,11 @@ test('大トロの生成ビントロもツナ軍艦で軽減・マグロで探�
   assert.equal(field.effect, 'akami_draw_2_digest_3')
 })
 
-test('CPUは成立後の大トロで計画を区切り、生成位置とポテトの実ドロー後に再計画する', () => {
-  for (const value of [0, 1 - Number.EPSILON]) {
+test('CPUは初成立・既成立の大トロで計画を区切り、生成位置とポテトの実ドロー後に再計画する', () => {
+  for (const unlocked of [false, true]) for (const value of [0, 1 - Number.EPSILON]) {
     const state = make([], { mode: 'cpu', p2SideMenu: 'fries' }); state.activePlayerId = 2
-    Object.assign(state.players[2], { ap: 7, maxAP: 7, combosFired: ['akami_mori'], sushiPlayedThisTurn: 1,
+    Object.assign(state.players[2], { ap: 7, maxAP: 7, combosFired: unlocked ? ['akami_mori'] : [],
+      summonedIds: unlocked ? [] : ['maguro', 'chutoro'], sushiPlayedThisTurn: 1,
       hand: [instance('otoro', 'cpu-otoro')], deck: [instance('tamago', 'cpu-deck')] })
     state.players[2].sideMenu.status = 'active'
     const commands = getCpuActions(freeze(state))

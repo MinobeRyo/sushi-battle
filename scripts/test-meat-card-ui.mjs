@@ -258,10 +258,11 @@ for (const id of ['chutoro', 'otoro', 'bintoro', 'tekka_maki', 'duke_maguro']) t
   }
 })
 
-test('中トロ・大トロの追加効果は初回成立召喚の不発を説明する', () => {
+test('中トロ・大トロは初回成立召喚から有効と説明し成立前の手札は灰色に保つ', () => {
   for (const id of ['chutoro', 'otoro']) {
     const h = createHarness(id, [])
-    assert.match(h.effectMarkup(), /初めて三種が揃う召喚では発動しない/)
+    assert.match(h.effectMarkup(), /初めて三種が揃う召喚から有効/)
+    assert.doesNotMatch(h.effectMarkup(), /発動しない|追加効果なし/)
     assert.match(h.effectMarkup(), /data-active="false"/)
   }
   assert.match(createHarness('chutoro', []).effectMarkup(), /自分の満腹度を10回復/)

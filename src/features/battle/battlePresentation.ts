@@ -52,7 +52,7 @@ export const COMBO_EFFECT_PARTS: Record<string, { full: EffectTextPart[]; short:
   akami_digest_10: {
     full: [
       { text: '赤身三種盛り中：召喚時、自分の満腹度を10回復', combo: 'akami_mori' },
-      { text: '初めて三種が揃う召喚では発動しない' },
+      { text: '初めて三種が揃う召喚から有効' },
     ],
     short: [{ text: '赤身三種中・召喚時に満腹度10回復', combo: 'akami_mori' }],
   },
@@ -62,7 +62,7 @@ export const COMBO_EFFECT_PARTS: Record<string, { full: EffectTextPart[]; short:
       { text: '赤身三種盛り中：召喚時、自分の満腹度を5回復', combo: 'akami_mori' },
       { text: '赤身三種盛り中：次の自分の開始時、回復後AP・上限＋1', combo: 'akami_mori' },
       { text: '次APは1回だけ有効／重複可能' },
-      { text: '初めて三種が揃う召喚では発動しない' },
+      { text: '初めて三種が揃う召喚から有効' },
     ],
     short: [{ text: '赤身三種中・ビントロ1枚／回復5／次AP+1', combo: 'akami_mori' }],
   },
