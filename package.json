@@ -10,7 +10,7 @@
     "typecheck:server": "tsc -p tsconfig.server.json",
     "test:online": "node --import tsx scripts/test-online-draft.mjs && node --import tsx scripts/test-online-feedback.mjs && node --import tsx scripts/test-online.mjs && node --import tsx scripts/test-http-online.mjs && node scripts/test-room-transport.mjs && node --import tsx scripts/test-side-menu-online.mjs && node --import tsx scripts/test-meat-online.mjs && node --import tsx scripts/test-side-menu-reorder-online.mjs && node --import tsx scripts/test-salmon-online.mjs",
     "build": "tsc -b && vite build",
-    "test": "node scripts/test-battle-logic.mjs && node scripts/test-match-engine.mjs && node scripts/test-local-defense.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs && node scripts/test-battle-status.mjs && node scripts/test-side-menu-effects.mjs && node scripts/test-side-menu-draft.mjs && node scripts/test-meat-effects.mjs && node scripts/test-meat-card-ui.mjs && node scripts/test-salmon-effects.mjs && node scripts/test-akami-support.mjs && node scripts/test-kani-effects.mjs",
+    "test": "node scripts/test-battle-logic.mjs && node scripts/test-match-engine.mjs && node scripts/test-local-defense.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs && node scripts/test-battle-status.mjs && node scripts/test-side-menu-effects.mjs && node scripts/test-side-menu-draft.mjs && node scripts/test-meat-effects.mjs && node scripts/test-meat-card-ui.mjs && node scripts/test-salmon-effects.mjs && node scripts/test-akami-support.mjs && node scripts/test-kani-effects.mjs && node scripts/test-ika-refund.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

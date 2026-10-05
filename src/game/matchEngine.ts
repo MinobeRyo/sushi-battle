@@ -213,6 +213,11 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     kiretaSpent: result.kiretaSpent,
     ap: player.ap - card.cost, apNextBonus: player.apNextBonus + result.apNext,
   })
+  if (result.apRefund > 0) {
+    const restored = Math.max(0, Math.min(result.apRefund, player.maxAP - player.ap))
+    player.ap += restored
+    if (restored > 0) result.logs.push(`いかにぎり：机にたこがいるため、支払い後のAPを${restored}回復`)
+  }
   if (targetFieldId !== undefined) {
     // 対象の存在・所属・種類は、APや手札を消費する前に検証済み。
     const targetIndex = enemy.field.findIndex(target => target.fid === targetFieldId)

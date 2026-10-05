@@ -224,6 +224,7 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacri
   drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
   generateNamahamu: number // 肉祭りで手札に生成する枚数
   apNext: number    // 次のターンだけのAPボーナス
+  apRefund: number  // 召喚コスト支払い後、現在のAP上限まで回復
   fired: ComboMeta[]
   logs: string[]
 }
@@ -242,6 +243,7 @@ export function applySummon(input: SummonInput): SummonResult {
   let drawPersistIkaTako = false
   let generateNamahamu = 0
   let apNext = 0
+  let apRefund = 0
   let kiretaSpent = input.kiretaSpent
   // コハダで使い切ったあとは、数値上スタックが残っていても消費には使えない
   const usableKireta = () => (kiretaSpent ? 0 : kireta)
@@ -267,6 +269,9 @@ export function applySummon(input: SummonInput): SummonResult {
         belly = Math.max(0, belly - 3)
         logs.push(`赤身三種盛り：ビントロで最大2枚ドロー / お腹−${digested}`)
       }
+      break
+    case 'refund_ap_1_if_tako':
+      if (input.field.some(item => [item.base, ...(item.subBases ?? [])].includes('たこ'))) apRefund = 1
       break
     case 'ap_next_1':
       apNext = 1
@@ -458,7 +463,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamu, apNext, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamu, apNext, apRefund, fired, logs,
   }
 }
 

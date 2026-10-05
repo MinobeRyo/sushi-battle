@@ -11,6 +11,7 @@ import './BattleCards.css'
 
 const EFFECT_SHORT: Record<string, string> = {
   self_digest_5: '自分のお腹 −5',
+  refund_ap_1_if_tako: '机にたこ系がいれば AP +1',
   buff_current_makimono_2: '場の巻物（軍艦以外）攻撃 +2',
   draw_random_akami_1: '山札の赤身1枚を引く',
   digest_stop_akami_1_or_2: '消化停止1回・赤身三種後2回',

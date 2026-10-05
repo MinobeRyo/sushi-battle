@@ -613,7 +613,7 @@ export const CARDS: Card[] = [
     price: 200,
     attack: 7,
     fullness: 0,
-    effect: null,
+    effect: 'refund_ap_1_if_tako',
     archetype: ['general', 'kaisen'],
     lane: 'general',
   },
