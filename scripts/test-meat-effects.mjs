@@ -67,7 +67,7 @@ function test(name, run) { run(); passed++; console.log(`  ✓ ${name}`) }
 test('4種のAP・攻撃・生成/生贄効果を更新し、生ハムは購入とCPUデッキから除外する', () => {
   assert.deepEqual(['gyutan', 'roast_beef', 'karubi', 'wagyu'].map(id => [card(id).cost, card(id).attack, card(id).effect]), [
     [2, 5, 'generate_namahamu_1'], [4, 10, 'generate_namahamu_2'],
-    [3, 9, 'sacrifice_namahamu_1_7'], [4, 12, 'sacrifice_namahamu_2_8'],
+    [3, 9, 'sacrifice_namahamu_1_4'], [4, 12, 'sacrifice_namahamu_2_4'],
   ])
   assert.deepEqual([NAMAHAM_CARD.attack, NAMAHAM_CARD.type, NAMAHAM_CARD.fullness], [1, 'persist', 3])
   assert.deepEqual(GENERATED_CARDS, [NAMAHAM_CARD])
@@ -128,8 +128,8 @@ test('生ハムは自分のターン終了3回で消え、相手のターン終�
   }
 })
 
-test('省略・明示0では生贄なし、カルビ1体は+7、和牛2体は+16。古い生ハムから消費する', () => {
-  for (const [id, count, expected] of [['karubi', undefined, 9], ['karubi', 0, 9], ['karubi', 1, 16], ['wagyu', 1, 20], ['wagyu', 2, 28]]) {
+test('省略・明示0では生贄なし、カルビ1体は+4、和牛2体は+8。古い生ハムから消費する', () => {
+  for (const [id, count, expected] of [['karubi', undefined, 9], ['karubi', 0, 9], ['karubi', 1, 13], ['wagyu', 1, 16], ['wagyu', 2, 20]]) {
     const state = make([id])
     state.players[1].field = [hams(3)[0], ...fillers(1), ...hams(3).slice(1)]
     const result = play(state, id, count)
@@ -165,7 +165,7 @@ test('純関数も不正な生贄を無変更で拒否し、カウンタ省略�
   assert.deepEqual(input, before)
   assert.equal(applySummon(summonInput()).sacrificedThisTurn, 0)
   assert.equal(getSacrificeLimit(card('wagyu')), 2)
-  assert.equal(getSacrificeBonus(card('karubi')), 7)
+  assert.equal(getSacrificeBonus(card('karubi')), 4)
   assert.equal(getSacrificeError(card('wagyu'), [], 1), 'not_enough_namahamu')
 })
 
@@ -196,46 +196,80 @@ test('同じターンの1体+1体の生贄で肉祭りが即時5ダメージ、�
   assert.equal(result.events.some(event => event.type === 'combo'), false)
 })
 
-test('肉祭りは0AP・3ターンの生ハム2枚を手札に生成し、既存と将来の生ハムを同じように強化する', () => {
-  let state = make(['wagyu', 'gyutan'])
-  state.players[1].field = hams(3)
-  state.players[1].hand[2] = { ...NAMAHAM_CARD, instanceId: 'existing-hand-ham' }
-  const oldIds = state.players[1].hand.map(card => card.instanceId)
-  state = play(state, 'wagyu', 2).state
-  const player = state.players[1]
-  const generated = player.hand.filter(card => !oldIds.includes(card.instanceId))
-  assert.equal(generated.length, 2)
-  assert.equal(new Set(generated.map(card => card.instanceId)).size, 2)
-  assert.ok(generated.every(card => card.id === NAMAHAM_CARD.id && card.cost === 0
-    && card.attack === 1 && card.type === 'persist' && card.fullness === 3))
-  assert.equal(player.attackBuff[NAMAHAM_CARD.base], 1)
-  assert.equal(calcFieldDmg(player.field.filter(card => card.id === NAMAHAM_CARD.id), player.attackBuff), 2)
-  assert.equal(state.players[2].attackBuff[NAMAHAM_CARD.base] ?? 0, 0)
-  const ap = player.ap
-  state = play(state, NAMAHAM_CARD.id).state
-  assert.equal(state.players[1].ap, ap, '既存手札の生ハムも0APで召喚する')
-  assert.equal(calcFieldDmg([state.players[1].field.at(-1)], state.players[1].attackBuff), 2)
-  state = play(state, 'gyutan').state
-  state = play(state, NAMAHAM_CARD.id).state
-  const hamField = state.players[1].field.filter(card => card.id === NAMAHAM_CARD.id)
-  assert.equal(hamField.length, 4)
-  assert.ok(hamField.every(card => card.turnsLeft === 3))
-  assert.equal(calcFieldDmg(hamField, state.players[1].attackBuff), 8, '強化前の机・手札と強化後の直接生成・手札生成に各+1')
-  const ids = [...state.players[1].field.map(card => card.fid), ...state.players[1].hand.map(card => card.instanceId)]
-  assert.equal(new Set(ids).size, ids.length)
+test('旧effect IDは従来の生贄数と+7/+8を保持する', () => {
+  for (const [id, effect, limit, bonus, expected] of [
+    ['karubi', 'sacrifice_namahamu_1_7', 1, 7, 16], ['wagyu', 'sacrifice_namahamu_2_8', 2, 8, 28],
+  ]) {
+    const oldCard = { ...card(id), effect }
+    assert.equal(getSacrificeLimit(oldCard), limit)
+    assert.equal(getSacrificeBonus(oldCard), bonus)
+    const result = applySummon(summonInput({ card: oldCard, field: hams(limit), sacrificeCount: limit }))
+    assert.equal(calcFieldDmg(result.field, {}), expected)
+  }
 })
 
-test('肉祭りの生成は手札7枚までで、溢れをログに残し、強化と5ダメージは維持する', () => {
+test('肉祭りは山札のランダム位置へ生ハム1枚だけ追加し、手札・机へ出さず個体と順序を保つ', () => {
+  for (const value of [0, 0.5, 1 - Number.EPSILON]) {
+    const state = make(['wagyu'])
+    state.players[1].field = hams(2)
+    state.players[1].attackBuff[NAMAHAM_CARD.base] = 1
+    state.players[1].deck[0].cost = 0
+    const player = state.players[1]
+    const result = step(state, actionFor(state, 'wagyu', 2), () => value).state
+    const generated = result.players[1].deck.find(card => card.id === NAMAHAM_CARD.id)
+    assert.ok(generated)
+    const { instanceId, ...data } = generated
+    assert.deepEqual(data, NAMAHAM_CARD, '現在の累積+2をカードの基本攻撃に焼き込まない')
+    assert.equal(instanceId, `${state.matchId}:p1:${state.nextInstanceId}`)
+    const expectedDeck = [...player.deck]
+    expectedDeck.splice(Math.floor(value * (expectedDeck.length + 1)), 0, generated)
+    assert.deepEqual(result.players[1].deck, expectedDeck)
+    assert.deepEqual(result.players[1].hand, player.hand.slice(1))
+    assert.equal(countNamahamu(result.players[1].field), 0)
+    assert.equal(result.players[1].attackBuff[NAMAHAM_CARD.base], 2)
+    assert.equal(result.nextInstanceId, state.nextInstanceId + 1)
+    assert.deepEqual(result.players[2].deck, state.players[2].deck)
+    assert.deepEqual(result, step(state, actionFor(state, 'wagyu', 2), () => value).state)
+  }
+})
+
+test('肉祭りは満杯の手札や空山札でも追加でき、終了時に引いた個体は0AP・3ターンで強化される', () => {
   const state = make(['wagyu'])
-  state.players[1].field = hams(2)
+  state.players[1].field = hams(3)
   state.players[1].hand.push(...state.players[1].deck.splice(0, 2))
-  const result = play(state, 'wagyu', 2)
-  const player = result.state.players[1]
-  assert.equal(player.hand.length, 7)
-  assert.equal(player.hand.filter(card => card.id === NAMAHAM_CARD.id).length, 1)
-  assert.equal(player.attackBuff[NAMAHAM_CARD.base], 1)
-  assert.equal(result.state.players[2].belly, 5)
-  assert.ok(result.state.log.some(line => line.includes('生ハム') && line.includes('手札') && line.includes('1')))
+  state.players[1].deck = []
+  let next = play(state, 'wagyu', 2).state
+  assert.equal(next.players[1].hand.length, 6)
+  assert.equal(next.players[1].hand.some(c => c.id === NAMAHAM_CARD.id), false)
+  const generated = next.players[1].deck[0]
+  assert.equal(next.players[1].deck.length, 1)
+  assert.equal(calcFieldDmg(next.players[1].field.filter(c => c.id === NAMAHAM_CARD.id), next.players[1].attackBuff), 2)
+  next = end(next)
+  assert.equal(next.players[1].hand.length, 7)
+  assert.equal(next.players[1].deck.length, 0)
+  assert.deepEqual(next.players[1].hand.at(-1), generated)
+  next = end(next)
+  const ap = next.players[1].ap
+  next = play(next, NAMAHAM_CARD.id).state
+  const ham = next.players[1].field.find(c => c.fid === generated.instanceId)
+  assert.equal(next.players[1].ap, ap)
+  assert.equal(ham.turnsLeft, 3)
+  assert.equal(calcFieldDmg([ham], next.players[1].attackBuff), 2)
+})
+
+test('ローストビーフ→和牛生贄2体は通常30+肉祭り5、インバウン丼ありは通常34+5', () => {
+  for (const [sideMenu, expected] of [[null, 35], ['inbound_don', 39]]) {
+    let state = make(['roast_beef', 'wagyu'], { sideMenu })
+    if (sideMenu) state = step(state, { type: 'use_side_menu', playerId: 1 }).state
+    state = play(state, 'roast_beef').state
+    const result = play(state, 'wagyu', 2)
+    const immediate = result.events.filter(e => e.type === 'damage' && e.playerId === 2).reduce((sum, e) => sum + e.amount, 0)
+    const ending = step(result.state, { type: 'end_turn', playerId: 1 }).state
+    assert.equal(immediate, 5)
+    assert.equal(ending.pendingAttack.amount + immediate, expected)
+    assert.equal(result.state.players[1].hand.some(c => c.id === NAMAHAM_CARD.id), false)
+    assert.equal(result.state.players[1].deck.filter(c => c.id === NAMAHAM_CARD.id).length, 1)
+  }
 })
 
 test('和牛2体の肉祭りはガリを消費せず即時5ダメージを与え、通常攻撃だけ半減する', () => {
@@ -251,11 +285,11 @@ test('和牛2体の肉祭りはガリを消費せず即時5ダメージを与え
   assert.equal(result.state.players[1].ap, 6)
   assert.equal(result.state.activePlayerId, 1)
   const attack = step(result.state, { type: 'end_turn', playerId: 1 }).state
-  assert.equal(attack.pendingAttack.amount, 28)
+  assert.equal(attack.pendingAttack.amount, 20)
   assert.equal(attack.players[2].belly, 5)
   const defended = step(attack, { type: 'respond_defense', playerId: 2, useGari: true }).state
   assert.equal(defended.players[2].gari, 1)
-  assert.equal(defended.players[2].belly, 17, '即時5 + 通常28の半分14 - ターン開始の消化2')
+  assert.equal(defended.players[2].belly, 13, '即時5 + 通常20の半分10 - ターン開始の消化2')
   assert.equal(defended.phase, 'playing')
   assert.equal(defended.activePlayerId, 2)
 })
@@ -310,7 +344,7 @@ test('肉祭りは従来の腹条件ボーナスを倍増せず、生贄強化�
   assert.equal(calcFieldDmg(field, {}, 0, 70, { nikuMatsuri: true }), 20)
   assert.equal(calcFieldDmg(field, {}, 0, 70), 20)
   const result = applySummon(summonInput({ card: card('karubi'), field: hams(1), sacrificeCount: 1, turnAttackBonus: 3 }))
-  assert.equal(calcFieldDmg(result.field, {}), 19)
+  assert.equal(calcFieldDmg(result.field, {}), 16)
   assert.equal(result.summonedArch.niku, 1)
 })
 
@@ -324,16 +358,15 @@ test('CPUは最大数を選び、机が満杯でも生贄で空けて召喚で�
   const actions = getCpuActions(freeze(state))
   assert.deepEqual(state, before)
   assert.deepEqual(actions[0], { type: 'play_card', playerId: 2, cardInstanceId: 'cpu-wagyu', sacrificeCount: 2 })
-  assert.equal(actions.length, 2, '空いた最後の1枠には生成した生ハムを召喚する')
+  assert.equal(actions.length, 1, '肉祭りの挿入後に再計画し、山札の生ハムはまだ召喚しない')
   const result = step(state, actions[0])
   assert.equal(countNamahamu(result.state.players[2].field), 1)
   assert.equal(result.state.players[2].field.length, 7)
   assert.equal(result.state.pendingAttack, null)
   assert.equal(result.state.players[1].belly, 5)
   assert.equal(result.state.players[1].gari, 1)
-  const summoned = step(result.state, actions[1]).state
-  assert.equal(summoned.players[2].field.length, 8)
-  assert.equal(summoned.players[2].hand.filter(card => card.id === NAMAHAM_CARD.id).length, 1)
+  assert.equal(result.state.players[2].deck.filter(c => c.id === NAMAHAM_CARD.id).length, 1)
+  assert.equal(result.state.players[2].hand.length, 0)
 })
 
 test('CPUは満杯の机でもラーメンでAPを補い、生贄召喚まで進める', () => {
@@ -348,16 +381,16 @@ test('CPUは満杯の机でもラーメンでAPを補い、生贄召喚まで進
     { type: 'use_side_menu', playerId: 2 },
     { type: 'play_card', playerId: 2, cardInstanceId: 'cpu-ramen-wagyu', sacrificeCount: 2 },
   ])
-  assert.equal(actions.length, 3)
+  assert.equal(actions.length, 2)
   let result = state
   for (const action of actions) result = step(result, action).state
   assert.equal(result.players[2].belly, 5)
   assert.equal(result.players[2].ap, 0)
-  assert.equal(result.players[2].field.length, 8)
-  assert.equal(result.players[2].field.at(-1).id, NAMAHAM_CARD.id)
+  assert.equal(result.players[2].field.length, 7)
+  assert.equal(result.players[2].deck.filter(c => c.id === NAMAHAM_CARD.id).length, 1)
 })
 
-for (const [id, count, expected] of [['karubi', 0, 9], ['karubi', 1, 18], ['wagyu', 1, 22], ['wagyu', 2, 32]]) {
+for (const [id, count, expected] of [['karubi', 0, 9], ['karubi', 1, 15], ['wagyu', 1, 18], ['wagyu', 2, 24]]) {
   test(`インバウン丼の設置後は${id}の生贄${count}体で攻撃${expected}、肉祭りは5のまま`, () => {
     let state = make([id], { sideMenu: 'inbound_don' })
     state.players[1].field = hams(count)
@@ -370,13 +403,31 @@ for (const [id, count, expected] of [['karubi', 0, 9], ['karubi', 1, 18], ['wagy
   })
 }
 
+test('CPUは肉祭り→ポテトで実際に引いた手札に応じて再計画する', () => {
+  for (const value of [0, 1 - Number.EPSILON]) {
+    const state = make([], { mode: 'cpu', p2SideMenu: 'fries' })
+    state.activePlayerId = 2
+    Object.assign(state.players[2], { hand: [{ ...card('wagyu'), instanceId: 'cpu-wagyu' }],
+      deck: [{ ...card('tamago'), instanceId: 'cpu-draw' }], field: hams(2), ap: 4, sushiPlayedThisTurn: 1 })
+    state.players[2].sideMenu.status = 'active'
+    const commands = getCpuActions(freeze(state))
+    assert.equal(commands.length, 1)
+    let next = step(state, commands[0], () => value).state
+    assert.equal(next.players[2].hand[0].id, value === 0 ? NAMAHAM_CARD.id : 'tamago')
+    const following = getCpuActions(freeze(next))
+    assert.equal(following.length, value === 0 ? 1 : 0)
+    for (const command of following) next = step(next, command, () => value).state
+    assert.equal(next.players[2].ap, 0)
+  }
+})
+
 test('未設置・相手だけ設置したインバウン丼は自分の生贄攻撃を強化しない', () => {
   for (const activeEnemy of [false, true]) {
     const state = make(['wagyu'], { sideMenu: 'inbound_don', p2SideMenu: 'inbound_don' })
     state.players[1].field = hams(2)
     if (activeEnemy) state.players[2].sideMenu.status = 'active'
     const result = play(state, 'wagyu', 2)
-    assert.equal(calcFieldDmg(result.state.players[1].field, {}), 28)
+    assert.equal(calcFieldDmg(result.state.players[1].field, {}), 20)
     assert.equal(result.state.players[2].belly, 5)
   }
 })

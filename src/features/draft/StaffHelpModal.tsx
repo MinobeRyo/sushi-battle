@@ -34,24 +34,25 @@ const HELP_SPREADS = [
     kind: 'meat', sideMenuOffset: 0,
     title: '肉寿司と生ハム', footer: '肉寿司のお品書き',
     running: ['生ハムを用意する', '生贄で攻撃を強める'],
-    intro: ['生成した生ハムも机の8枠を使います。', '生贄の数は召喚時に選べます。'],
+    intro: ['生ハムは机・山札へ供給されます。', '生贄の数は召喚時に選択。古い生ハムから退場。'],
   },
 ]
 
 const BUILD_GUIDE = [
-  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。高い攻撃力と三種盛りの強化で攻めます。' },
+  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。三種盛りで攻撃に加え、AP・ドロー・妨害も強化。' },
   { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
   { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'サバ・アジなどで切れ味を貯め、攻撃や効果に使います。' },
   { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
-  { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '牛タン・ローストビーフで生ハムを作り、カルビ・和牛の生贄にして攻撃を強化。' },
-  { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃やドローで支えます。' },
+  { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '机への生成・焼肉や肉祭りの山札補充で生ハムを用意。カルビ・和牛の生贄に。' },
+  { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃・ドロー・相手の持続型の除去で支えます。' },
 ]
 
 const COMBO_GUIDE = [
   {
     id: 'akami_mori', timing: '1試合に1回', cards: ['maguro', 'chutoro', 'otoro'],
     cond: 'マグロ・中トロ・大トロを各1回召喚（累計）。',
-    effect: '相手のお腹 +10。以降、マグロ系の攻撃 +2。',
+    effect: '相手のお腹 +10。\nマグロ系の攻撃 +2（試合中）。',
+    note: '成立後の追加効果：\n鉄火巻き1枚ごとに開始時AP回復後 +1。\nビントロ召喚時、2枚ドロー。\nビントロ召喚時、自分のお腹−3。\nづけマグロの消化停止が2回。',
   },
   {
     id: 'maki_comp_3', timing: '1試合に1回', cards: ['kappa_maki', 'negitoro_maki', 'ikura_gunkan'],
@@ -73,24 +74,24 @@ const COMBO_GUIDE = [
   {
     id: 'umi_zanmai', timing: '新しいペアごと', cards: ['ika', 'tako', 'ebi'],
     cond: '自分の机に未ペアの「いか」系＋「たこ」系。',
-    effect: '机の海鮮が50%の威力で再攻撃。',
-    note: 'ペアは1枚1回。成立後も机に残ります。',
+    effect: '海鮮の合計攻撃50%で再攻撃（切り捨て）。\n再攻撃に通常のえび1枚ごと +7。',
+    note: 'ペアは1枚1回。成立後も机に残ります。\nえびの+7は通常攻撃・召喚連鎖には無効。',
   },
   {
     id: 'niku_matsuri', timing: '各ターンに1回', cards: ['namahamu', 'karubi', 'wagyu'],
     cond: '同じターンに生ハムを合計2体生贄に。',
-    effect: '即時5ダメージ。ガリでは防げません。',
-    note: 'カルビ・和牛で使った合計。次のターンには再発動できます。',
+    effect: '即時5ダメージ（ガリ不可）。\n山札に0AP生ハム1枚追加（ランダム位置）。\n全生ハムの攻撃+1（試合中・累積）。',
+    note: '今後生成する生ハムも強化。\n次のターンには再発動できます。',
   },
 ]
 
 const MEAT_GUIDE = [
-  { cardId: 'gyutan', title: '牛タン寿司', timing: '2AP・攻撃5', desc: '召喚時、生ハムを1体生成。', note: '寿司を置いた後の空き枠だけ生成します。' },
-  { cardId: 'roast_beef', title: 'ローストビーフ寿司', timing: '4AP・攻撃10', desc: '召喚時、生ハムを最大2体生成。', note: '空きが1枠なら1体、0枠なら生成なし。' },
-  { cardId: 'namahamu', title: '生ハム', timing: '攻撃1・3ターン持続', desc: '生成したターンを含む自分の3ターン攻撃。', note: '生成専用。購入やデッキ編成はできません。' },
-  { cardId: 'karubi', title: 'カルビ寿司', timing: '3AP・攻撃9', desc: '生ハムを0〜1体生贄に。1体で攻撃＋7。', note: '強化は召喚したターンだけ有効です。' },
-  { cardId: 'wagyu', title: '和牛にぎり', timing: '4AP・攻撃12', desc: '生ハムを0〜2体生贄に。1体につき攻撃＋8。', note: '生贄なしでも召喚できます。' },
-  { cardId: 'namahamu', title: '生贄の選び方', timing: '召喚時に数を選択', desc: '古い生ハムから退場し、机の枠が空きます。', note: '机が満杯でも、生贄で枠を空ければ召喚可能。' },
+  { cardId: 'gyutan', title: '牛タン寿司', timing: '2AP・攻撃5', desc: '召喚時、生ハムを1体、机に生成。', note: '寿司を置いた後の空き枠だけ生成します。' },
+  { cardId: 'roast_beef', title: 'ローストビーフ寿司', timing: '4AP・攻撃10', desc: '召喚時、生ハムを最大2体、机に生成。', note: '空きが1枠なら1体、0枠なら生成なし。' },
+  { cardId: 'yakiniku', title: '焼肉寿司', timing: '3AP・攻撃4・3ターン持続', desc: '自分のターン終了時、1枚につき生ハム1枚を山札に混ぜます。', note: '召喚ターンから最大3枚。通常攻撃後・ドロー前に追加。相手のお腹50以上で攻撃+2。' },
+  { cardId: 'namahamu', title: '生ハム', timing: '0AP・基本攻撃1・3ターン持続', desc: '机に出たターンを含む自分の3ターン攻撃。机の8枠を使います。', note: '生成専用で購入不可。肉祭りのたびに全生ハムの攻撃が試合中+1（累積）。' },
+  { cardId: 'karubi', title: 'カルビ寿司', timing: '3AP・攻撃9', desc: '生ハムを0〜1体生贄に。1体で攻撃＋4。', note: '強化は召喚したターンだけ。生贄で枠を空ければ、机が満杯でも召喚可能。' },
+  { cardId: 'wagyu', title: '和牛にぎり', timing: '4AP・攻撃12', desc: '生ハムを0〜2体生贄に。1体につき攻撃＋4（最大＋8）。', note: '強化は召喚したターンだけ。生贄なしでも召喚できます。' },
 ]
 
 export function StaffHelpModal({ onClose }: { onClose: () => void }) {

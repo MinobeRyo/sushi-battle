@@ -41,7 +41,7 @@ export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCo
         <h3>ストックと有効な効果</h3>
         <dl className="battle-effects-list">
           {effects.map(effect => <div key={effect.id}>
-            <dt>{effect.name}</dt><dd><strong>{effect.value}</strong><p>{effect.description}</p></dd>
+            <dt>{effect.name}</dt><dd><strong>{effect.value}</strong><p style={{ whiteSpace: 'pre-line' }}>{effect.description}</p></dd>
           </div>)}
         </dl>
       </section>
@@ -49,7 +49,7 @@ export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCo
         <h3>コンボの進捗</h3>
         <dl className="battle-combos-list">
           {combos.map(combo => <div key={combo.id}>
-            <dt>{combo.name}<span>{combo.value}</span></dt><dd>{combo.description}</dd>
+            <dt>{combo.name}<span>{combo.value}</span></dt><dd style={{ whiteSpace: 'pre-line' }}>{combo.description}</dd>
           </div>)}
         </dl>
       </section>

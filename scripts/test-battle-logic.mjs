@@ -176,11 +176,11 @@ console.log('\n[7] 肉祭り（同ターンに生ハム累計2体生贄・即時
   const second = applySummon({ ...first, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
   eq('生贄累計2体で発動', second.fired.map(item => item.id), ['niku_matsuri'])
   eq('肉祭りは即時+5', second.extraDmg, 5)
-  eq('肉祭りで手札用の生ハム2枚を要求する', second.generateNamahamu, 2)
+  eq('肉祭りで山札用の生ハム1枚を要求する', second.generateNamahamuDeck, 1)
   eq('肉祭りで生ハムを永続+1', second.attackBuff['生ハム'], 1)
   const third = applySummon({ ...second, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
   eq('同じターンは追加発動しない', [third.extraDmg, third.fired.length], [0, 0])
-  eq('同ターンの追加生贄では生成・強化を重ねない', [third.generateNamahamu, third.attackBuff['生ハム']], [0, 1])
+  eq('同ターンの追加生贄では生成・強化を重ねない', [third.generateNamahamuDeck, third.attackBuff['生ハム']], [0, 1])
   const field = [toField(byId('yakiniku')), toField(byId('ebi_ten'))]
   eq('肉祭りで腹条件ボーナスを倍増しない', calcFieldDmg(field, {}, 0, 70, { nikuMatsuri: true }), 20)
   eq('置換された和牛とローストビーフは腹条件で強化されない',

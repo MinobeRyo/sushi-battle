@@ -110,7 +110,7 @@ export const COMBO_META: Record<string, ComboMeta> = {
   },
   niku_matsuri: {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
-    desc: '生ハムを累計2体生贄：即時+5ダメージ / 手札に0AP生ハム2枚 / 生ハムの攻撃を対戦中+1（累積・各ターン1回）',
+    desc: '生ハムを累計2体生贄：即時+5ダメージ / 山札のランダムな位置に0AP生ハム1枚 / 生ハムの攻撃を対戦中+1（累積・各ターン1回）',
   },
 }
 
@@ -180,10 +180,14 @@ export function getDestroyTargetError(card: Card, enemyField: FieldCard[], targe
 }
 
 export function getSacrificeLimit(card: Card): number {
-  return card.effect === 'sacrifice_namahamu_1_7' ? 1 : card.effect === 'sacrifice_namahamu_2_8' ? 2 : 0
+  if (card.effect === 'sacrifice_namahamu_1_4' || card.effect === 'sacrifice_namahamu_1_7') return 1
+  if (card.effect === 'sacrifice_namahamu_2_4' || card.effect === 'sacrifice_namahamu_2_8') return 2
+  return 0
 }
 
 export function getSacrificeBonus(card: Card): number {
+  if (card.effect === 'sacrifice_namahamu_1_4' || card.effect === 'sacrifice_namahamu_2_4') return 4
+  // 保存済みの旧個体は、effect IDに対応する従来の数値を維持する。
   return card.effect === 'sacrifice_namahamu_1_7' ? 7 : card.effect === 'sacrifice_namahamu_2_8' ? 8 : 0
 }
 
@@ -227,7 +231,7 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacri
   stopOppDigestTurns: number
   drawNow: number   // 召喚時ドロー枚数
   drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
-  generateNamahamu: number // 肉祭りで手札に生成する枚数
+  generateNamahamuDeck: number // 肉祭りで山札のランダム位置に生成する枚数
   apNext: number    // 次のターンだけのAPボーナス
   apRefund: number  // 召喚コスト支払い後、現在のAP上限まで回復
   fired: ComboMeta[]
@@ -246,7 +250,7 @@ export function applySummon(input: SummonInput): SummonResult {
   let stopOppDigestTurns = 0
   let drawNow = 0
   let drawPersistIkaTako = false
-  let generateNamahamu = 0
+  let generateNamahamuDeck = 0
   let apNext = 0
   let apRefund = 0
   let kiretaSpent = input.kiretaSpent
@@ -455,7 +459,7 @@ export function applySummon(input: SummonInput): SummonResult {
   if (!nikuMatsuri && sacrificeCount > 0 && sacrificedThisTurn >= NIKU_REQUIRED) {
     nikuMatsuri = true
     extraDmg += NIKU_DAMAGE
-    generateNamahamu = 2
+    generateNamahamuDeck = 1
     attackBuff[NAMAHAM_CARD.base] = (attackBuff[NAMAHAM_CARD.base] ?? 0) + 1
     announce(COMBO_META.niku_matsuri)
   }
@@ -468,7 +472,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamu, apNext, apRefund, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamuDeck, apNext, apRefund, fired, logs,
   }
 }
 

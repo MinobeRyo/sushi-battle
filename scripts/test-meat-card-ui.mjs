@@ -161,7 +161,7 @@ test('AP不足・別カード・生ハム減少では以前の選択で召喚し
   assert.deepEqual(h.plays, [])
 })
 
-for (const [id, count, bonus] of [['karubi', 1, 9], ['wagyu', 2, 20]]) {
+for (const [id, count, bonus] of [['karubi', 1, 6], ['wagyu', 2, 12]]) {
   test(`インバウン丼設置時の${id}は選択肢と攻撃予測へ生贄強化を含める`, () => {
     const h = createHarness(id, Array(count).fill('namahamu'))
     h.props.sacrificeAttackBonus = 2
@@ -271,9 +271,11 @@ test('机の短い説明はそのカード所有者のコンボ状態を反映�
   assert.match(h.effectMarkup('FieldSushi', { card, isEnemy: true }), /data-active="true"/)
 })
 
-test('生ハムの生成専用説明は共通描画へ移した後も維持する', () => {
+test('生ハムは生成専用の説明と0AP・攻撃1・持続3ターンを表示する', () => {
   const h = createHarness('namahamu', [])
-  assert.match(h.effectMarkup(), /0AP・基本攻撃1・自分の3ターン持続/)
+  const stats = h.textContent(h.nodes.find(node => node.props.className === 'battle-detail-stats'))
+  assert.match(stats, /消費AP0攻撃力1持続ターン3ターン/)
+  assert.match(h.effectMarkup(), /生成専用：購入・デッキ編成不可/)
   assert.match(h.effectMarkup('HandSushi'), /生成専用・生贄にできる/)
   assert.doesNotMatch(h.effectMarkup(), /data-combo-condition=/)
 })
@@ -283,8 +285,8 @@ test('づけマグロは通常の消化停止1回を暗くせず、成立後の2
   for (const combosFired of [[], ['akami_mori']]) {
     h.props.combosFired = combosFired
     const html = h.effectMarkup()
-    assert.match(html, /<span>召喚時、相手のターン開始時の消化を1回止めます。<\/span>/)
-    assert.match(html, /data-combo-condition="akami_mori"[^>]*>自分が赤身三種盛りを成立させた後は2回停止。<\/span>/)
+    assert.match(html, /<span>召喚時：相手の開始時の消化を1回停止<\/span>/)
+    assert.match(html, /data-combo-condition="akami_mori"[^>]*>赤身三種盛り成立後：2回停止に強化<\/span>/)
   }
 })
 
@@ -295,4 +297,57 @@ test('三種成立が不要な赤身支援とイベント型のえびは暗く�
     h.props.combosFired = ['akami_mori', 'umi_zanmai']
     assert.doesNotMatch(h.effectMarkup(), /data-combo-condition=/)
   }
+})
+
+
+test('現行の全カードは対戦の手札・机・詳細で全文と短文の説明が欠けない', () => {
+  const plainText = html => html.replace(/<span class="card-effect-line">/g, '\n')
+    .replace(/<[^>]*>/g, '').replace(/^\n/, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
+  for (const card of [...cards.CARDS, ...cards.GENERATED_CARDS]) {
+    if (card.effect) {
+      assert.ok(presentation.EFFECT_FULL[card.effect], `${card.name}: 全文の登録が必要`)
+      assert.ok(presentation.EFFECT_SHORT[card.effect], `${card.name}: 短文の登録が必要`)
+    }
+    const h = createHarness(card.id, [])
+    // オンラインでも渡るシリアライズ済みの手札個体を使う。
+    h.props.inspect.card = JSON.parse(JSON.stringify(h.props.inspect.card))
+    const full = presentation.getCardEffectDescription(card)
+    const short = presentation.getCardEffectDescription(card, 'short')
+    for (const description of [full, short]) {
+      assert.ok(description.trim(), `${card.name}: 空の説明`)
+      assert.doesNotMatch(description, /準備中|詳細を確認|\[object Object\]/, card.name)
+    }
+    const fullMarkup = h.effectMarkup()
+    assert.equal((fullMarkup.match(/class="card-effect-line"/g) ?? []).length, full.split('\n').length, `${card.name}: 1効果1行`)
+    assert.ok(full.split('\n').every(line => line.trim() === line && line.length > 0), `${card.name}: 字下げ・空行なし`)
+    assert.equal(plainText(fullMarkup), full, `${card.name}: 手札の詳細（改行含め一致）`)
+    assert.equal(plainText(h.effectMarkup('HandSushi')), short, `${card.name}: 手札`)
+    const fieldCard = JSON.parse(JSON.stringify(rules.toField(card, `field:${card.id}`)))
+    assert.equal(plainText(h.effectMarkup('FieldSushi', { card: fieldCard })), short, `${card.name}: 机`)
+    h.props.inspect = { card: fieldCard, remainingTurns: fieldCard.turnsLeft, canPlay: false }
+    assert.equal(plainText(h.effectMarkup()), full, `${card.name}: 机の詳細`)
+  }
+})
+
+test('既知の旧焼肉カードは旧効果だけを説明し、新しい生ハム供給を誤表示しない', () => {
+  const h = createHarness('yakiniku', [])
+  h.props.inspect.card.effect = 'belly_boost_persist_50'
+  assert.match(h.effectMarkup(), /相手のお腹50以上：攻撃＋2/)
+  assert.match(h.effectMarkup('HandSushi'), /相手腹50以上で攻撃\+2/)
+  assert.doesNotMatch(h.effectMarkup(), /準備中|生ハム|山札/)
+  assert.match(presentation.getCardEffectDescription(cards.getCardById('yakiniku')), /山札/)
+})
+
+test('生ハムの説明は机・山札の供給元と肉祭りの累積強化を含む', () => {
+  const description = presentation.getCardEffectDescription(cards.NAMAHAM_CARD)
+  assert.deepEqual(description.split('\n'), [
+    '牛タン・ローストビーフ：机に生成',
+    '焼肉・肉祭り：山札のランダムな位置へ1枚追加',
+    'カルビ・和牛の生贄に使用可能',
+    '肉祭り：自分の生ハムの攻撃＋1（対戦中・累積）',
+    '生成専用：購入・デッキ編成不可',
+  ])
+  assert.doesNotMatch(description, /手札に(?:0AP生ハム)?2枚|手札7枚を超える/)
 })

@@ -4,13 +4,13 @@ import { CARDS, GENERATED_CARDS } from '../../data/cards'
 import { SIDE_MENU_CATALOG } from '../side-menu/sideMenuCatalog'
 import type { Archetype, Card, CardType } from '../../types'
 import { CardEffectText } from '../battle/CardEffectText'
+import { getCardEffectDescription } from '../battle/battlePresentation'
 import './CardCatalogScreen.css'
 
 const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
 const SideMenuStudio = lazy(() => import('../side-menu/SideMenuStudio'))
 const CATALOG_CARDS = [...CARDS, ...GENERATED_CARDS]
 const GENERATED_IDS = new Set(GENERATED_CARDS.map(card => card.id))
-const generatedNote = '牛タン寿司・ローストビーフ寿司の効果で机に生成されます。購入・デッキ編成はできません。机の8枠を使い、カルビ寿司・和牛にぎりの生贄にできます。'
 
 const ARCHETYPES: Record<Archetype, string> = {
   general: '汎用',
@@ -26,11 +26,6 @@ const ARCHETYPES: Record<Archetype, string> = {
 function normalizeSearch(value: string) {
   return value.normalize('NFKC').toLowerCase()
     .replace(/[ァ-ヶ]/g, character => String.fromCharCode(character.charCodeAt(0) - 0x60))
-}
-
-function cardEffect(card: Card) {
-  if (GENERATED_IDS.has(card.id)) return generatedNote
-  return <CardEffectText card={card} />
 }
 
 function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
@@ -56,12 +51,12 @@ function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
 
       <dl className="catalog-card-stats">
         <div><dt>価格</dt><dd>{generated ? '購入不可' : `¥${card.price}`}</dd></div>
-        <div><dt>消費AP</dt><dd>{generated ? '—' : card.cost}</dd></div>
+        <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
         <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
         <div><dt>滞在</dt><dd>{isPersist ? `${card.fullness}ターン` : '即時'}</dd></div>
       </dl>
 
-      <p className="catalog-card-effect"><span className="catalog-effect-label">効果</span>{cardEffect(card)}</p>
+      <p className="catalog-card-effect"><span className="catalog-effect-label">効果</span><CardEffectText card={card} /></p>
       <dl className="catalog-card-ingredients">
         <div><dt>ネタ</dt><dd>{bases}</dd></div>
         <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
@@ -156,11 +151,11 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
           </div>
           <dl className="catalog-card-stats">
             <div><dt>価格</dt><dd>{generated ? '購入不可' : `¥${card.price}`}</dd></div>
-            <div><dt>消費AP</dt><dd>{generated ? '—' : card.cost}</dd></div>
+            <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
             <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
             <div><dt>滞在</dt><dd>{card.type === 'persist' ? `${card.fullness}ターン` : '即時'}</dd></div>
           </dl>
-          <p className="catalog-card-effect"><span className="catalog-effect-label">この寿司の効果</span>{cardEffect(card)}</p>
+          <p className="catalog-card-effect"><span className="catalog-effect-label">この寿司の効果</span><CardEffectText card={card} /></p>
           <dl className="catalog-model-ingredients">
             <div><dt>ネタ</dt><dd>{[card.base, ...card.subBases ?? []].join('・')}</dd></div>
             <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
@@ -197,7 +192,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
     if (archetype !== 'all' && !card.archetype.includes(archetype)) return false
     const searchText = normalizeSearch([
       card.name, card.base, ...card.subBases ?? [], card.topping,
-      ...card.archetype.map(value => ARCHETYPES[value]), cardEffect(card),
+      ...card.archetype.map(value => ARCHETYPES[value]), getCardEffectDescription(card),
     ].join(' '))
     return searchTerms.every(term => searchText.includes(term))
   })
@@ -270,7 +265,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
           <p role="status">{filteredCards.length} / {CATALOG_CARDS.length}種を表示</p>
           {hasFilters && <button type="button" onClick={resetFilters}>条件をリセット</button>}
         </div>
-        <p className="catalog-guide">APは召喚に必要な食欲ポイントです。生成専用カードは購入できず、APを使わずに効果で机へ出ます。数値は強化前の基本値です。</p>
+        <p className="catalog-guide">APは召喚に必要な食欲ポイントです。生成専用の生ハムは購入できません。効果で机・山札へ加わります。山札から引いた生ハムは手札から0APで召喚できます。数値は強化前の基本値です。</p>
 
         {filteredCards.length > 0 ? (
           <div className="catalog-grid">

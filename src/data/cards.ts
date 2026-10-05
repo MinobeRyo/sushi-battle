@@ -671,7 +671,7 @@ export const CARDS: Card[] = [
     price: 400,
     attack: 12,
     fullness: 0,
-    effect: 'sacrifice_namahamu_2_8', // 生ハムを最大2体生贄にして、1体につき攻撃+8
+    effect: 'sacrifice_namahamu_2_4', // 生ハムを最大2体生贄にして、1体につき攻撃+4
     archetype: ['niku'],
     lane: 'build',
   },
@@ -685,7 +685,7 @@ export const CARDS: Card[] = [
     price: 300,
     attack: 9,
     fullness: 0,
-    effect: 'sacrifice_namahamu_1_7', // 生ハムを最大1体生贄にして、攻撃+7
+    effect: 'sacrifice_namahamu_1_4', // 生ハムを最大1体生贄にして、攻撃+4
     archetype: ['niku'],
     lane: 'build',
   },
@@ -775,7 +775,7 @@ export const CARDS: Card[] = [
   },
 ]
 
-// 料理の効果で机に、肉祭りで手札に生成する。購入候補・完成デッキには含めない。
+// 料理の効果で机に、肉祭りと焼肉寿司で山札に生成する。購入候補・完成デッキには含めない。
 export const NAMAHAM_CARD: Card = {
   id: 'namahamu', name: '生ハム', base: '生ハム', topping: null,
   type: 'persist', cost: 0, price: 0, attack: 1, fullness: 3,
