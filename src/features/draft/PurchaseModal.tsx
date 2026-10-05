@@ -1,30 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Card } from '../../types'
-
-const EFFECT_LABELS: Record<string, string> = {
-  digest_stop_1t: '相手の消化を1ターン止める',
-  self_digest_5: '自分のお腹 -5',
-  digest_boost_2: '机にいる間 毎ターンの消化 +2',
-  multi_base: 'マグロ・えびのbaseも兼ねる',
-  kireta_stack: '切れ味スタック +1',
-  kireta_consume_x3: '切れ味スタック全消費 ×3ダメージ（消費は攻撃後）',
-  kireta_consume_2_draw_2: '切れ味2を消費して2枚ドロー',
-  chain_on_kaisen_summon: '海鮮召喚時に連鎖攻撃',
-  draw_1: '召喚時、カードを1枚引く',
-  draw_2: '召喚時、カードを2枚引く',
-  draw_persist_ika_tako_1: '召喚時、山札の持続いか・たこからランダムに1枚引く。海の幸三昧の50%再攻撃後、このえび1枚につき固定 +7',
-  akami_ap_each_turn_1: '赤身三種盛り成立後、机の1枚につき自分の開始時に通常回復後のAP・当ターン上限 +1（通常上限10を超える）',
-  akami_draw_2_digest_3: '赤身三種盛り成立後、召喚時に2枚ドロー（手札7枚まで）＋自分のお腹 −3（下限0）',
-  generate_namahamu_1: '召喚後、机の空き枠に生ハム1体を生成（基本攻撃1・3ターン持続・肉祭りの強化対象）',
-  generate_namahamu_2: '召喚後、机の空き枠に生ハムを最大2体生成（基本攻撃1・3ターン持続・肉祭りの強化対象）',
-  sacrifice_namahamu_1_7: '召喚時、生ハムを0〜1体生贄にし、1体につき攻撃 +7。同ターンの生贄累計2体で肉祭り',
-  sacrifice_namahamu_2_8: '召喚時、生ハムを0〜2体生贄にし、1体につき攻撃 +8。同ターンの生贄累計2体で肉祭り',
-  ap_next_1: '次のターンだけ AP +1',
-  belly_boost_70: '相手お腹 >70 で攻撃 +8',
-  belly_boost_65: '相手お腹 >65 で攻撃 +6',
-  belly_boost_60: '相手お腹 >60 で攻撃 +5',
-  belly_boost_persist_50: '机にいる間 相手お腹 >50 で攻撃 +2',
-}
+import { EFFECT_FULL } from '../battle/battlePresentation'
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   akami: '赤身', makimono: '巻物', hikari: '光り物',
@@ -120,7 +96,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
               className="rounded-lg p-2 mb-3 text-xs text-amber-300 leading-relaxed"
               style={{ background: 'rgba(120,53,15,0.4)' }}
             >
-              ✨ {EFFECT_LABELS[card.effect] ?? card.effect}
+              ✨ {EFFECT_FULL[card.effect] ?? '効果の説明は準備中です'}
             </div>
           )}
 
