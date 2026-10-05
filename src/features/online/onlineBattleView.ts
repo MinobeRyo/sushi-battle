@@ -14,6 +14,7 @@ export function toOnlineBattleView(match: PublicMatch, phase: ViewPhase): Battle
     pNikuMatsuri: p.nikuMatsuri, pSacrificedThisTurn: p.sacrificedThisTurn ?? 0, pKiretaSpent: p.kiretaSpent,
     pSideMenu: p.sideMenu,
     cHandCount: c.handCount, cField: c.field, cDeckCount: c.deckCount, cBelly: c.belly,
+    cDeckLabel: null,
     cAP: c.ap, cMaxAP: c.maxAP, cGari: c.gari, cThisTurnArch: c.thisTurnArch,
     cSummonedIds: c.summonedIds, cSummonedArch: c.summonedArch,
     cDrawBonus: c.drawBonus, cAttackBuff: c.attackBuff, cCombosFired: c.combosFired,

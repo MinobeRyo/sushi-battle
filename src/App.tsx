@@ -7,6 +7,7 @@ import { BattleScreen } from './features/battle/BattleScreen'
 import { OnlineScreen } from './features/online/OnlineScreen'
 import type { Phase, Card } from './types'
 import type { SideMenuId } from './data/sideMenus'
+import type { CpuBattleMode } from './data/cpuDecks'
 
 type GameMode = 'cpu' | 'two_player'
 const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
@@ -18,6 +19,7 @@ export default function App() {
   const [isVerticalDemo] = useState(() => window.location.hash === '#vertical-draft-demo')
   const [phase, setPhase] = useState<Phase | 'online' | 'catalog'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
+  const [cpuBattleMode, setCpuBattleMode] = useState<CpuBattleMode>('random')
   const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
   const [p2Deck, setP2Deck] = useState<Card[]>([])
@@ -25,7 +27,7 @@ export default function App() {
   const [p2SideMenu, setP2SideMenu] = useState<SideMenuId | null>(null)
   const [showHandoff, setShowHandoff] = useState(false)
 
-  const handleModeSelect = (mode: 'cpu' | '2p' | 'online') => {
+  const handleModeSelect = (mode: 'weak' | 'cpu' | 'challenge' | '2p' | 'online') => {
     if (mode === 'online') {
       window.history.replaceState(null, '', '#online')
       setPhase('online')
@@ -33,6 +35,7 @@ export default function App() {
     }
     const gm: GameMode = mode === '2p' ? 'two_player' : 'cpu'
     setGameMode(gm)
+    setCpuBattleMode(mode === 'weak' ? 'weak' : mode === 'challenge' ? 'challenge' : 'random')
     setDraftPlayer(1)
     setP1Deck([])
     setP2Deck([])
@@ -114,6 +117,7 @@ export default function App() {
           sideMenu={p1SideMenu}
           p2SideMenu={gameMode === 'two_player' ? p2SideMenu : undefined}
           mode={gameMode}
+          cpuBattleMode={cpuBattleMode}
           onBack={handleBattleBack}
         />
       )}

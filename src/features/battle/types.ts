@@ -33,6 +33,7 @@ export type BattleView = {
   pKiretaSpent: boolean  // コハダで切れ味を使い切ったか（実際のリセットはターン終了時）
   // この端末から見た相手側（ローカル対戦用）
   cHandCount: number; cField: FieldCard[]; cDeckCount: number
+  cDeckLabel: string | null
   cBelly: number; cAP: number; cMaxAP: number; cGari: number
   cSummonedIds: string[]
   cSummonedArch: Record<string, number>

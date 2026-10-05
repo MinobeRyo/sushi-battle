@@ -98,6 +98,42 @@ const prepareCombo = (state, playerId) => {
 }
 
 console.log('\n[ローカル防御] CPU停止・再開・同端末の手渡し')
+test('最弱CPUは初回・再戦とも従来の汎用デッキを使う', h => {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal(h.state.cpuDeckId, 'weak')
+    assert.equal(h.game.s.cDeckLabel, '最弱')
+    assert.equal(h.state.players[2].hand.length + h.state.players[2].deck.length, 14)
+    if (attempt === 0) h.game.restart()
+  }
+}, 'cpu', { cpuBattleMode: 'weak' })
+
+test('通常CPUの再戦ではビルドを再抽選し、画面の相手名も更新する', h => {
+  const originalRandom = Math.random
+  try {
+    Math.random = () => 0
+    h.game.restart()
+    assert.equal(h.state.cpuDeckId, 'akami')
+    assert.equal(h.game.s.cDeckLabel, '赤身')
+    Math.random = () => 0.999999
+    h.game.restart()
+    assert.equal(h.state.cpuDeckId, 'niku')
+    assert.equal(h.game.s.cDeckLabel, '肉寿司')
+  } finally {
+    Math.random = originalRandom
+  }
+})
+test('挑戦モードは初回・再戦とも4500円の混合デッキを保持する', h => {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal(h.state.cpuDeckId, 'challenge')
+    assert.ok(h.game.s.cDeckLabel.includes('挑戦'))
+    const cpu = h.state.players[2]
+    const cards = [...cpu.hand, ...cpu.deck]
+    assert.equal(cards.length, 20)
+    assert.equal(cards.reduce((sum, card) => sum + card.price, 0), 4500)
+    if (attempt === 0) h.game.restart()
+  }
+}, 'cpu', { cpuBattleMode: 'challenge' })
+
 test('CPUの召喚コンボは停止せず、終了攻撃だけ回答を待って半減する', h => {
   prepareCombo(h.state, 2)
   h.game.endTurn()

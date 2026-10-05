@@ -1,13 +1,15 @@
 import type { Card } from '../types'
 import { CARDS, NAMAHAM_CARD } from '../data/cards'
+import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from '../data/cpuDecks'
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
 export type MatchOptions = {
+  cpuBattleMode?: CpuBattleMode
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode; matchId?: string
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
 }
@@ -33,15 +35,17 @@ function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSour
 }
 
 export function createMatch(options: MatchOptions, random: RandomSource = Math.random): MatchState {
+  const cpuDeck = options.mode === 'cpu' ? chooseCpuDeck(options.cpuBattleMode ?? 'random', random) : null
   const state: MatchState = {
-    matchId: options.matchId ?? 'local', mode: options.mode,
+    matchId: options.matchId ?? 'local', mode: options.mode, cpuDeckId: cpuDeck?.id ?? null,
     players: { 1: newPlayer(1, options.sideMenu), 2: newPlayer(2, options.p2SideMenu) }, activePlayerId: 1,
     turn: 1, phase: 'playing', winnerId: null, reorderPlayerId: null, pendingAttack: null,
-    revision: 0, nextInstanceId: 1, log: ['バトル開始！'],
+    revision: 0, nextInstanceId: 1,
+    log: [cpuDeck ? `バトル開始！ ${cpuDeck.id === 'challenge' ? '挑戦CPU' : 'CPU'}：${cpuDeck.name}` : 'バトル開始！'],
   }
   const fallback = CARDS.filter(card => card.lane === 'general').slice(0, 10)
   deal(state, 1, options.deck.length ? options.deck : fallback, random)
-  deal(state, 2, options.mode === 'cpu' ? getCpuDeck(random)
+  deal(state, 2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
     : options.p2Deck?.length ? options.p2Deck : fallback, random)
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
@@ -382,7 +386,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     if (next.mode === 'two_player' && action.playerId === next.activePlayerId) {
       next.reorderPlayerId = otherPlayer(action.playerId)
     } else {
-      if (next.mode === 'cpu') deal(next, 2, getCpuReorderDeck(random), random)
+      if (next.mode === 'cpu' && next.cpuDeckId) deal(next, 2, getCpuReorderDeck(next.cpuDeckId, random), random)
       next.phase = 'playing'
       next.reorderPlayerId = null
       addLog(next, '🍽 追加注文完了！ バトル再開')
