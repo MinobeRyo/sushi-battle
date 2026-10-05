@@ -20,6 +20,7 @@ await run('npm', ['run', 'build', '--', '--base=/~ryom13/sushi-battle/', '--outD
 await run(process.execPath, ['scripts/package-server.mjs'])
 await mkdir(output, { recursive: true })
 await cp(path.join(root, 'deploy/gms/api.php'), path.join(output, 'sushi-battle/api.php'))
+await cp(path.join(root, 'deploy/gms/static.htaccess'), path.join(output, 'sushi-battle/.htaccess'))
 for (const name of ['deploy.sh', 'deploy.cjs', 'ecosystem.config.cjs']) {
   await cp(path.join(root, 'deploy/gms', name), path.join(output, name))
 }
