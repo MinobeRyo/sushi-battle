@@ -280,3 +280,46 @@ test('固定ダメージで決着する場合も反応回答後だけ確定し�
   state = step(state, respond(state, true, 'attacker-0')).state
   assert.deepEqual([state.phase, state.winnerId, state.pendingReaction, state.pendingAttack], ['over', 2, null, null])
 })
+
+
+test('挑戦CPUの80%評価と20%従来判断の双方で、切れ味・消費済み・予約1枠を共通に守る', () => {
+  for (const roll of [0, 0.8]) for (const id of ['saba', 'iwashi_shoga']) {
+    for (const condition of ['available', 'empty', 'spent', 'reserved', 'ready']) {
+      const state = make(2, [id], 'cpu')
+      state.cpuDeckId = 'challenge'
+      if (condition === 'empty') state.players[2].kiretaStack = 0
+      if (condition === 'spent') state.players[2].kiretaSpent = true
+      if (condition === 'reserved' || condition === 'ready') {
+        state.players[2].field = [{ ...toField(card('saba'), 'existing-defense'), defenseState: condition }]
+      }
+      const before = structuredClone(state)
+      const plan = getCpuActions(freeze(state), () => roll)
+      assert.deepEqual(state, before)
+      assert.equal(plan.length, 1)
+      assert.equal(plan[0].reserveDefense, condition === 'available' ? true : undefined)
+      const next = step(state, plan[0]).state
+      assert.equal(next.players[2].kiretaStack,
+        state.players[2].kiretaStack - (condition === 'available' ? getDefenseCost(card(id)) : 0))
+    }
+  }
+})
+
+test('挑戦CPUの両判断経路は反応中に抽選せず停止し、防御使用後の実際の場から次を選ぶ', () => {
+  for (const roll of [0, 0.8]) {
+    let state = ready('saba', 1, ['tamago', 'tamago'], 'cpu')
+    state.cpuDeckId = 'challenge'
+    const first = getCpuActions(state, () => roll)
+    assert.equal(first.length, 1)
+    state = step(state, first[0]).state
+    assert.equal(state.phase, 'reacting')
+    assert.deepEqual(getCpuActions(state, () => { throw Error('反応待ちでは判断経路を抽選しない') }), [])
+    state = step(state, respond(state, true), () => 0).state
+    assert.equal(state.players[2].field[0].attackHalved, true)
+    const next = getCpuActions(state, () => roll)
+    assert.equal(next.length, 1)
+    assert.equal(next[0].cardInstanceId, 'attacker-1')
+    state = step(state, next[0]).state
+    assert.equal(state.phase, 'playing')
+    assert.equal(calcFieldDmg(state.players[2].field, {}), 6)
+  }
+})

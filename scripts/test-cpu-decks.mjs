@@ -152,11 +152,11 @@ test('最弱と全6固定デッキでCPUの操作・防御・追加注文を通�
       if (state.phase === 'reacting') {
         action = getCpuReactionAction(state) ?? { type: 'respond_reaction', playerId: state.pendingReaction.defenderId, useDefense: false }
       } else if (state.phase === 'defending') {
-        action = getCpuDefenseAction(state) ?? { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: true }
+        action = getCpuDefenseAction(state, random) ?? { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: true }
       } else if (state.phase === 'reorder') {
         action = { type: 'complete_reorder', playerId: 1, cards: getCpuReorderDeck('akami') }
       } else if (state.activePlayerId === 2) {
-        action = getCpuActions(state)[0] ?? { type: 'end_turn', playerId: 2 }
+        action = getCpuActions(state, random)[0] ?? { type: 'end_turn', playerId: 2 }
       } else {
         const player = state.players[1]
         const card = player.field.length < FIELD_MAX ? cpuChoose(player.hand, player.ap)[0] : null
