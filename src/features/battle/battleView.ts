@@ -1,4 +1,5 @@
 import type { MatchState, PlayerId } from '../../game/types'
+import { getCpuDeckDefinition } from '../../data/cpuDecks'
 import { otherPlayer } from '../../game/matchEngine'
 import type { BattleView, ViewPhase } from './types'
 
@@ -19,6 +20,8 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     pDigestStopTurns: p.digestStopTurns, pApNextBonus: p.apNextBonus,
     pNikuMatsuri: p.nikuMatsuri, pSacrificedThisTurn: p.sacrificedThisTurn ?? 0, pKiretaSpent: p.kiretaSpent,
     cHandCount: c.hand.length, cField: c.field, cDeckCount: c.deck.length, cBelly: c.belly, cGari: c.gari,
+    cDeckLabel: match.cpuDeckId === null ? null
+      : `${match.cpuDeckId === 'challenge' ? '挑戦 · ' : ''}${getCpuDeckDefinition(match.cpuDeckId).name}`,
     cAP: c.ap, cMaxAP: c.maxAP, cThisTurnArch: c.thisTurnArch,
     cSummonedIds: c.summonedIds, cSummonedArch: c.summonedArch,
     cDrawBonus: c.drawBonus, cAttackBuff: c.attackBuff, cCombosFired: c.combosFired,

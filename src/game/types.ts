@@ -1,5 +1,6 @@
 import type { Card } from '../types'
 import type { SideMenuId } from '../data/sideMenus'
+import type { CpuDeckId } from '../data/cpuDecks'
 
 export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
@@ -53,6 +54,7 @@ export type PendingAttack = {
 export type MatchState = {
   matchId: string
   mode: MatchMode
+  cpuDeckId: CpuDeckId | null
   players: Record<PlayerId, MatchPlayer>
   activePlayerId: PlayerId
   turn: number

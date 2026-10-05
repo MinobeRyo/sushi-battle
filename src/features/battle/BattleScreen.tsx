@@ -1,5 +1,6 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
+import type { CpuBattleMode } from '../../data/cpuDecks'
 import { INBOUND_DON_SACRIFICE_BONUS } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
@@ -26,6 +27,7 @@ export function BattleScreen({
   sideMenu,
   p2SideMenu,
   mode = 'cpu',
+  cpuBattleMode = 'random',
   onBack,
 }: {
   deck: Card[]
@@ -33,9 +35,10 @@ export function BattleScreen({
   sideMenu?: SideMenuId | null
   p2SideMenu?: SideMenuId | null
   mode?: 'cpu' | 'two_player'
+  cpuBattleMode?: CpuBattleMode
   onBack?: () => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode, sideMenu, p2SideMenu, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode={mode} onBack={onBack} />
 }
 
@@ -77,7 +80,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 
   const opponentLabel = mode !== 'cpu'
     ? `P${s.activePlayer === 1 ? 2 : 1}`
-    : 'CPU'
+    : s.cDeckLabel ? `CPU · ${s.cDeckLabel}` : 'CPU'
   const activeLabel = mode !== 'cpu' ? `P${s.activePlayer}` : 'あなた'
 
   const sideStatus = (opponent: boolean): BattleSideStatus => opponent ? {
