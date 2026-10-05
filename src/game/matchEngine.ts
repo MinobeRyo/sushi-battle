@@ -3,7 +3,7 @@ import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -62,6 +62,17 @@ function label(state: MatchState, id: PlayerId) {
 function draw(player: MatchPlayer, count: number) {
   const take = Math.min(count, Math.max(0, HAND_LIMIT - player.hand.length))
   player.hand.push(...player.deck.splice(0, take))
+}
+
+function drawPersistIkaTako(player: MatchPlayer, random: RandomSource): string {
+  if (player.hand.length >= HAND_LIMIT) return '手札上限のため、持続型いか・たこのドローなし'
+  const candidates = player.deck.flatMap((card, index) =>
+    card.type === 'persist' && (card.id === 'ika' || card.id === 'tako') ? [index] : [])
+  if (candidates.length === 0) return '山札に持続型の「いか」「たこ」がないため、ドローなし'
+  const index = candidates[Math.floor(random() * candidates.length)]
+  player.hand.push(...player.deck.splice(index, 1))
+  // 共有ログでは引いたカード名を明かさない。山札順序と個体IDも保持する。
+  return '山札から持続型の「いか」「たこ」をランダムに1枚引いた'
 }
 
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
@@ -161,7 +172,7 @@ function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
   }
 }
 
-function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], sacrificeCount = 0) {
+function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], random: RandomSource, sacrificeCount = 0) {
   const player = state.players[id]
   const enemyId = otherPlayer(id)
   const enemy = state.players[enemyId]
@@ -194,6 +205,17 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     ap: player.ap - card.cost, apNextBonus: player.apNextBonus + result.apNext,
   })
   draw(player, result.drawNow)
+  if (result.drawPersistIkaTako) result.logs.unshift(drawPersistIkaTako(player, random))
+  if (result.generateNamahamu > 0) {
+    const count = Math.min(result.generateNamahamu, Math.max(0, HAND_LIMIT - player.hand.length))
+    for (let i = 0; i < count; i++) {
+      player.hand.push({
+        ...structuredClone(NAMAHAM_CARD), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+      })
+    }
+    const overflow = result.generateNamahamu - count
+    result.logs.push(`生ハムを${count}枚手札に追加${overflow ? `（手札上限で${overflow}枚は追加できず）` : ''} / 生ハムの攻撃は対戦中＋${player.attackBuff[NAMAHAM_CARD.base]}`)
+  }
   if (activeSideMenu(player, 'fries') && player.sushiPlayedThisTurn === 2) {
     draw(player, 1)
     addLog(state, `${label(state, id)}: ポテトで1枚ドロー`)
@@ -268,6 +290,13 @@ function completeTurn(state: MatchState, events: MatchEvent[]) {
     : INIT_AP + state.turn - (nextId === 1 ? 1 : 0)
   next.maxAP = Math.min(baseAP, 10) + next.apNextBonus
   next.ap = next.maxAP
+  const tekkaBonus = tekkaApBonus(next.field, next.combosFired)
+  if (tekkaBonus > 0) {
+    // 通常回復後に加算し、ラーメン等の回復上限と表示もこのターンだけ揃える。
+    next.ap += tekkaBonus
+    next.maxAP += tekkaBonus
+    addLog(state, `${label(state, nextId)}の鉄火巻き: AP回復後に＋${tekkaBonus}`)
+  }
   if (next.apNextBonus > 0) addLog(state, `⚡ ${label(state, nextId)}の一時APボーナス +${next.apNextBonus}！`)
   next.apNextBonus = 0
   events.push({ type: 'turn_started', playerId: nextId })
@@ -336,7 +365,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   } else if (action.type !== 'end_turn') return reject('unknown_action')
   const next = structuredClone(state)
   const events: MatchEvent[] = []
-  if (action.type === 'play_card') summon(next, action.playerId, index, events, action.sacrificeCount)
+  if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount)
   else if (action.type === 'use_side_menu') applySideMenu(next, action.playerId, events)
   else finishTurn(next, events)
   next.revision += 1
@@ -385,6 +414,12 @@ export function getCpuActions(state: MatchState): MatchAction[] {
       const sacrificeCount = Math.min(available, getSacrificeLimit(card))
       action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
         ...(getSacrificeLimit(card) ? { sacrificeCount } : {}) }
+    }
+    // 抽選結果が未確定の手札を使う操作は予約せず、実際の召喚後に再計画する。
+    if (action.type === 'play_card'
+      && cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect === 'draw_persist_ika_tako_1') {
+      actions.push(action)
+      break
     }
     const result = transitionMatch(planned, action)
     if (result.error) break

@@ -5,7 +5,7 @@ import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
 const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction } = loadTs('src/game/matchEngine.ts')
-const { INIT_GARI, GARI_REDUCTION_RATE } = loadTs('src/game/battleRules.ts')
+const { INIT_GARI, GARI_REDUCTION_RATE, toField } = loadTs('src/game/battleRules.ts')
 const byId = id => {
   const card = CARDS.find(c => c.id === id)
   assert.ok(card, `カードが見つかりません: ${id}`)
@@ -31,9 +31,9 @@ const play = (state, id, playerId = state.activePlayerId) => {
   assert.ok(card, `P${playerId}の手札に${id}が必要です`)
   return { type: 'play_card', playerId, cardInstanceId: card.instanceId }
 }
-const step = (state, action) => {
+const step = (state, action, random = keepOrder) => {
   const before = clone(state)
-  const result = transitionMatch(deepFreeze(state), action, keepOrder)
+  const result = transitionMatch(deepFreeze(state), action, random)
   assert.equal(result.error, undefined)
   assert.deepEqual(state, before, '入力状態を変更してはいけません')
   assert.equal(result.state.revision, state.revision + 1)
@@ -160,6 +160,156 @@ test('明太子の2枚ドローは空き1枠だけ引き、溢れる1枚は山�
   assert.deepEqual(next.players[1].deck.map(c => c.instanceId), deckBefore.slice(1))
   assert.ok(next.players[1].hand.some(c => c.instanceId === deckBefore[0]))
   assert.equal(allInstanceIds(next).length, allInstanceIds(state).length)
+})
+test('えびは持続いか・たこの個体からランダムに1枚移し、残りの山札順序と個体IDを保持する', () => {
+  const state = make({ deck: [
+    byId('ebi'), ...copies('tamago', 4),
+    ...['takowasa', 'ika_instant', 'ika', 'tamago', 'tako', 'ika_ten', 'ika'].map(byId),
+  ] })
+  state.players[1].ap = 3
+  const player = state.players[1]
+  const candidates = player.deck.filter(card => card.id === 'ika' || card.id === 'tako')
+  const action = play(state, 'ebi')
+  // 3候補の各区間を選び、同名のいか2枚も別々の抽選対象になることを確認する。
+  for (const [index, value] of [0, 0.5, 0.999].entries()) {
+    const random = () => value
+    const next = step(state, action, random)
+    const selected = candidates[index]
+    assert.deepEqual(next.players[1].hand, [...player.hand.slice(1), selected])
+    assert.deepEqual(next.players[1].deck, player.deck.filter(card => card.instanceId !== selected.instanceId))
+    assert.deepEqual(allInstanceIds(next).sort(), allInstanceIds(state).sort())
+    assert.equal(next.nextInstanceId, state.nextInstanceId, 'カードのコピーを生成してはいけません')
+    assert.deepEqual(next.players[2], state.players[2])
+    assert.deepEqual(next, step(state, action, random), '同じ状態と乱数なら同じ抽選結果になります')
+    assert.equal(next.players[1].ap, 0)
+  }
+})
+test('えびは対象なし・空の山札では引かず、派生いか・たこや相手の山札で代替しない', () => {
+  for (const remaining of [[], ['takowasa', 'ika_instant', 'ika_ten', 'tamago']]) {
+    const state = make({
+      deck: [byId('ebi'), ...copies('tamago', 4), ...remaining.map(byId)],
+      p2Deck: copies('ika', 6),
+    })
+    state.players[1].ap = 3
+    const next = step(state, play(state, 'ebi'))
+    assert.deepEqual(next.players[1].hand, state.players[1].hand.slice(1))
+    assert.deepEqual(next.players[1].deck, state.players[1].deck)
+    assert.deepEqual(next.players[2], state.players[2])
+    assert.ok(next.log.some(message => message.includes('ドローなし')), '効果が不発だったことをログで示します')
+    assert.equal(next.players[1].ap, 0, '対象なしでも通常どおり召喚し、APを消費します')
+    assert.equal(next.players[1].field[0].id, 'ebi')
+  }
+})
+test('えびのドローと海鮮連鎖は防御を挟まず完了し、引いたたこを残りAPで同ターンに召喚できる', () => {
+  let state = make({ deck: [byId('ebi'), byId('ika'), ...copies('tamago', 3), byId('tako')] })
+  putOnField(state, 1, 'ika', 2)
+  state.players[1].ap = 5
+  const tako = clone(state.players[1].deck[0])
+  const idsBefore = allInstanceIds(state).sort()
+  state = step(state, play(state, 'ebi'))
+  assert.equal(state.phase, 'playing')
+  assert.equal(state.pendingAttack, null)
+  assert.equal(state.players[2].belly, 3, 'えびでも場のいかの連鎖が即座に発動します')
+  assert.equal(state.players[2].gari, 2)
+  assert.ok(state.players[1].hand.some(card => card.instanceId === tako.instanceId))
+  assert.equal(state.players[1].deck.length, 0)
+  assert.equal(state.players[1].ap, 2)
+  state = step(state, play(state, 'tako'))
+  assert.equal(state.players[1].ap, 0)
+  assert.equal(state.activePlayerId, 1)
+  assert.equal(state.turn, 1)
+  assert.ok(state.players[1].field.some(card => card.fid === tako.instanceId))
+  assert.deepEqual(allInstanceIds(state).sort(), idsBefore)
+  assert.equal(state.pendingAttack, null)
+  assert.equal(state.players[2].belly, 21, '既存の3 + 連鎖6 + 海鮮11の50%切り捨て5 + えび7')
+  assert.equal(state.players[2].gari, 2)
+  assert.equal(state.players[1].field.filter(card => card.kaisenPaired).length, 2)
+})
+test('えびは自分の攻撃2回まで残り、持続中に召喚時ドローを繰り返さない', () => {
+  let state = make({ deck: [
+    byId('ebi'), ...copies('tamago', 4), byId('ika'), byId('tako'), ...copies('tamago', 3),
+  ] })
+  state.players[1].ap = 3
+  state = step(state, play(state, 'ebi'))
+  assert.deepEqual([state.players[1].field[0].turnsLeft, state.players[1].field[0].attack], [2, 5])
+  assert.equal(state.players[1].hand.length, 5)
+  state = advance(state, end(state))
+  assert.equal(state.players[1].field[0].turnsLeft, 1)
+  assert.equal(state.players[1].hand.length, 6, '通常の終了時ドロー1枚だけ増えます')
+  state = advance(state, end(state))
+  assert.equal(state.players[1].field[0].turnsLeft, 1, '相手の手番では寿命が減りません')
+  state = advance(state, end(state))
+  assert.equal(state.players[1].field.length, 0)
+  assert.equal(state.players[1].hand.length, 7)
+  assert.equal(state.log.filter(message => message.includes('山札から持続型の')).length, 1)
+})
+for (const mode of ['two_player', 'cpu']) {
+  test(`${mode}: 鉄火巻きは三種盛り後、本人の開始時だけ枚数分APと上限を増やす`, () => {
+    for (const playerId of [1, 2]) for (const unlocked of [false, true]) for (const count of [1, 2]) {
+      const state = make({ mode, p2SideMenu: null })
+      state.activePlayerId = playerId === 1 ? 2 : 1
+      state.turn = 30 // 通常APが上限10でも追加分が働く。
+      const player = state.players[playerId]
+      player.combosFired = unlocked ? ['akami_mori'] : []
+      player.field = Array.from({ length: count }, (_, index) => toField(byId('tekka_maki'), `tekka-${index}`))
+      player.apNextBonus = 1
+      let next = advance(state, end(state))
+      const expected = 11 + (unlocked ? count : 0)
+      assert.deepEqual([next.players[playerId].ap, next.players[playerId].maxAP], [expected, expected])
+      assert.equal(next.players[playerId].apNextBonus, 0)
+      next = advance(next, end(next))
+      assert.deepEqual([next.players[playerId].ap, next.players[playerId].maxAP], [expected, expected], '相手開始時には加算しない')
+      next = advance(next, end(next))
+      assert.deepEqual([next.players[playerId].ap, next.players[playerId].maxAP],
+        [expected - 1, expected - 1], '鉄火巻きは残る限り続き、一時APだけ失効する')
+      next = clone(next)
+      next.players[playerId].field.forEach(card => { card.turnsLeft = 1 })
+      next = advance(next, end(next))
+      assert.equal(next.players[playerId].field.length, 0)
+      next = advance(next, end(next))
+      assert.deepEqual([next.players[playerId].ap, next.players[playerId].maxAP], [10, 10], '場から消えると次の開始時には加算しない')
+    }
+  })
+}
+test('成立後の鉄火巻きも召喚時はAPを支払い、即時APを配らない', () => {
+  const state = make({ deck: [byId('tekka_maki'), ...copies('tamago', 9)] })
+  state.players[1].combosFired = ['akami_mori']
+  state.players[1].ap = state.players[1].maxAP = 6
+  const next = step(state, play(state, 'tekka_maki'))
+  assert.deepEqual([next.players[1].ap, next.players[1].maxAP], [3, 6])
+})
+test('成立後のビントロは空き分だけ2枚引き、お腹を0未満にしない', () => {
+  for (const handSize of [5, 7]) {
+    const state = make({ deck: [byId('bintoro'), ...copies('tamago', 11)] })
+    const player = state.players[1]
+    player.combosFired = ['akami_mori']
+    player.belly = 2
+    player.hand.push(...player.deck.splice(0, handSize - player.hand.length))
+    const beforeDeck = player.deck.map(card => card.instanceId)
+    const next = step(state, play(state, 'bintoro'))
+    const count = handSize === 7 ? 1 : 2
+    assert.equal(next.players[1].hand.length, handSize - 1 + count)
+    assert.deepEqual(next.players[1].deck.map(card => card.instanceId), beforeDeck.slice(count))
+    assert.equal(next.players[1].belly, 0)
+    assert.deepEqual(allInstanceIds(next).sort(), allInstanceIds(state).sort())
+  }
+})
+test('CPUはえびの限定ドロー後に実際の手札から再計画する', () => {
+  const state = make({ mode: 'cpu', p2SideMenu: null })
+  state.activePlayerId = 2
+  state.players[2].ap = 5
+  state.players[2].hand = [{ ...byId('ebi'), instanceId: 'cpu-ebi' }]
+  state.players[2].deck = ['ika', 'tako'].map(id => ({ ...byId(id), instanceId: `cpu-draw-${id}` }))
+  const planned = getCpuActions(deepFreeze(state))
+  assert.deepEqual(planned, [{ type: 'play_card', playerId: 2, cardInstanceId: 'cpu-ebi' }])
+  for (const value of [0, 0.999]) {
+    let next = step(state, planned[0], () => value)
+    const drawn = next.players[2].hand[0]
+    const following = getCpuActions(deepFreeze(next))
+    assert.equal(following[0].cardInstanceId, drawn.instanceId)
+    for (const action of following) next = step(next, action, () => value)
+    assert.equal(next.players[2].ap, 0)
+  }
 })
 test('2Pの攻撃・消化・持続減衰は本人の手番に各1回だけ解決する', () => {
   let state = make({ p2Deck: [byId('natto_maki'), ...copies('tamago', 9)] })

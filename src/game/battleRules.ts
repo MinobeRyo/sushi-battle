@@ -34,6 +34,7 @@ export const MAKI_COMP_5 = 5 // 巻物コンプ②: 机に同時この枚数の�
 export const GUNKAN_BOOST = 1.5
 
 const KAISEN_REATTACK = 0.5 // 海の幸三昧: 場の海鮮カードがこの倍率で再攻撃
+export const EBI_REATTACK_BONUS = 7 // 再攻撃の50%計算後、通常えび1枚ごとに加算
 
 export const OBA_REQUIRED = 3 // 光り物三昧: 大葉トッピングの累計召喚数
 
@@ -63,6 +64,12 @@ export function digestBonus(field: FieldCard[]) {
   return field.filter(c => c.effect === 'digest_boost_2').length * DIGEST_BOOST
 }
 
+// 赤身成立後、開始時に机に残っている鉄火巻き1枚ごとの一時AP。
+export function tekkaApBonus(field: FieldCard[], combosFired: string[]) {
+  if (!combosFired.includes('akami_mori')) return 0
+  return field.filter(card => card.effect === 'akami_ap_each_turn_1' && card.turnsLeft > 0).length
+}
+
 export function makimonoCount(field: FieldCard[]) {
   return field.filter(c => c.archetype.includes('makimono')).length
 }
@@ -78,7 +85,7 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 export const COMBO_META: Record<string, ComboMeta> = {
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
-    desc: '即時+10ダメージ / 以降マグロ系の攻撃+2',
+    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きの毎ターンAP+1とビントロの2枚ドロー・お腹−3を解禁',
   },
   maki_comp_3: {
     id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀',
@@ -94,11 +101,11 @@ export const COMBO_META: Record<string, ComboMeta> = {
   },
   umi_zanmai: {
     id: 'umi_zanmai', name: '海の幸三昧！！！', emoji: '🌊',
-    desc: '場の海鮮カードが50%の威力で再攻撃',
+    desc: '場の海鮮が50%で再攻撃 / えび1枚ごとに追加+7',
   },
   niku_matsuri: {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
-    desc: '同じターンに生ハムを累計2体生贄にすると、即時+5ダメージ（1ターンに1回）',
+    desc: '生ハムを累計2体生贄：即時+5ダメージ / 手札に0AP生ハム2枚 / 生ハムの攻撃を対戦中+1（累積・各ターン1回）',
   },
 }
 
@@ -119,7 +126,7 @@ export function shuffled<T>(arr: T[], random: RandomSource = Math.random): T[] {
 }
 
 type DmgOpts = {
-  nikuMatsuri?: boolean   // 既存表示APIとの互換用。肉祭りは召喚時の即時ダメージだけ。
+  nikuMatsuri?: boolean   // 既存表示APIとの互換用。肉祭りに通常攻撃の倍率はない。
   gunkanBoost?: boolean   // 巻物コンプ②: 未指定なら渡された field から判定する
 }
 
@@ -201,6 +208,8 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacri
   extraDmg: number
   stopOppDigest: boolean
   drawNow: number   // 召喚時ドロー枚数
+  drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
+  generateNamahamu: number // 肉祭りで手札に生成する枚数
   apNext: number    // 次のターンだけのAPボーナス
   fired: ComboMeta[]
   logs: string[]
@@ -217,6 +226,8 @@ export function applySummon(input: SummonInput): SummonResult {
   let kireta = input.kireta
   let stopOppDigest = false
   let drawNow = 0
+  let drawPersistIkaTako = false
+  let generateNamahamu = 0
   let apNext = 0
   let kiretaSpent = input.kiretaSpent
   // コハダで使い切ったあとは、数値上スタックが残っていても消費には使えない
@@ -231,6 +242,18 @@ export function applySummon(input: SummonInput): SummonResult {
     case 'draw_2':
       drawNow = 2
       logs.push('🎴 カードを2枚引いた！')
+      break
+    case 'draw_persist_ika_tako_1':
+      // 山札と乱数を持つ試合エンジンで実際の個体を移動する。
+      drawPersistIkaTako = true
+      break
+    case 'akami_draw_2_digest_3':
+      if (input.combosFired.includes('akami_mori')) {
+        drawNow = 2
+        const digested = Math.min(3, belly)
+        belly = Math.max(0, belly - 3)
+        logs.push(`赤身三種盛り：ビントロで最大2枚ドロー / お腹−${digested}`)
+      }
       break
     case 'ap_next_1':
       apNext = 1
@@ -385,8 +408,11 @@ export function applySummon(input: SummonInput): SummonResult {
           gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
           nikuMatsuri,
         }) * KAISEN_REATTACK)
-      extraDmg += reattack
-      announce(COMBO_META.umi_zanmai, `場の海鮮${kaisenField.length}枚が再攻撃 +${reattack}`)
+      // 元の合計50%・切り捨てを維持し、その後にえび個体ごとの固定値を足す。
+      const ebiBonus = kaisenField.filter(c => c.id === 'ebi').length * EBI_REATTACK_BONUS
+      extraDmg += reattack + ebiBonus
+      announce(COMBO_META.umi_zanmai,
+        `場の海鮮${kaisenField.length}枚が再攻撃 +${reattack + ebiBonus}${ebiBonus ? `（えび追加分 +${ebiBonus}）` : ''}`)
     }
   }
 
@@ -394,6 +420,8 @@ export function applySummon(input: SummonInput): SummonResult {
   if (!nikuMatsuri && sacrificeCount > 0 && sacrificedThisTurn >= NIKU_REQUIRED) {
     nikuMatsuri = true
     extraDmg += NIKU_DAMAGE
+    generateNamahamu = 2
+    attackBuff[NAMAHAM_CARD.base] = (attackBuff[NAMAHAM_CARD.base] ?? 0) + 1
     announce(COMBO_META.niku_matsuri)
   }
 
@@ -405,7 +433,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigest, drawNow, apNext, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigest, drawNow, drawPersistIkaTako, generateNamahamu, apNext, fired, logs,
   }
 }
 

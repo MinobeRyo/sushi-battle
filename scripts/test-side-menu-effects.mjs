@@ -236,6 +236,18 @@ test('天ぷらはsubBasesにも対応し、永続寿司へ付いた+3は手番�
   assert.equal(calcFieldDmg(state.players[1].field, {}), card('futomaki').attack)
 })
 
+test('鉄火巻きが増やしたAP上限までラーメンで回復できる', () => {
+  let state = make('ramen')
+  state.players[1].combosFired = ['akami_mori']
+  state.players[1].field = [toField(card('tekka_maki'), 'tekka-ramen')]
+  state.turn = 30
+  state = end(end(state))
+  assert.deepEqual([state.players[1].ap, state.players[1].maxAP], [11, 11])
+  state.players[1].ap = 10
+  state = use(state)
+  assert.equal(state.players[1].ap, 11, '通常上限10に切り詰めない')
+})
+
 test('天ぷらの+3は海鮮再攻撃と通常の攻撃予測で同じ値を使う', () => {
   let base = make('tempura', { deck: [card('tako'), card('ika_ten'), ...copies('tamago')] })
   base.players[1].ap = base.players[1].maxAP = 10
