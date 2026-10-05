@@ -69,8 +69,8 @@ test('コハダの後は攻撃に残る切れ味と再消費不可を区別し�
   state = play(state, 'kohada')
   const pending = effect(state.players[1], 'kireta')
   assert.equal(pending.value, '4（ターン終了後0）')
-  assert.match(pending.description, /攻撃には \+4/)
-  assert.match(pending.description, /再消費できません/)
+  assert.match(pending.description, /光り物の攻撃[＋+]4/)
+  assert.match(pending.description, /再使用不可/)
   state = end(state)
   assert.equal(effect(state.players[1], 'kireta').value, '0')
 })
@@ -81,7 +81,7 @@ test('シメサバの2消費は即時減少として表示し、全消費待ち�
   state = play(state, 'shime_saba')
   const item = effect(state.players[1], 'kireta')
   assert.equal(item.value, '2')
-  assert.doesNotMatch(item.description, /再消費できません/)
+  assert.doesNotMatch(item.description, /再使用不可/)
 })
 
 test('次APは複数の予約を加算し、次の自分の手番に適用された後は効果一覧から消える', () => {
