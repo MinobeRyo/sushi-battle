@@ -11,9 +11,25 @@ const cards = loadTs('src/data/cards.ts')
 const rules = loadTs('src/game/battleRules.ts')
 const presentation = loadTs('src/features/battle/battlePresentation.ts')
 const status = loadTs('src/features/battle/battleStatusModel.ts')
-const source = fs.readFileSync(new URL('../src/features/battle/BattleCards.tsx', import.meta.url), 'utf8')
-const { outputText } = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+const { renderToStaticMarkup } = require('react-dom/server')
+function loadComponent(name, imports) {
+  const source = fs.readFileSync(new URL(`../src/features/battle/${name}.tsx`, import.meta.url), 'utf8')
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  })
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', outputText)(name => {
+    assert.ok(Object.hasOwn(imports, name), `未定義の依存: ${name}`)
+    return imports[name]
+  }, module, module.exports)
+  return module.exports
+}
+const effectText = loadComponent('CardEffectText', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  './battlePresentation': presentation,
+  './battleEngine': rules,
+  '../../data/cards': cards,
+  './CardEffectText.css': {},
 })
 
 // 描画された実コンポーネントのボタンを押し、消費数と破壊対象の送信を確認する。
@@ -40,12 +56,9 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
     './battlePresentation': presentation,
     '../../data/cards': cards,
     './BattleCards.css': {},
+    './CardEffectText': effectText,
   }
-  const module = { exports: {} }
-  new Function('require', 'module', 'exports', outputText)(name => {
-    assert.ok(Object.hasOwn(imports, name), `未定義の依存: ${name}`)
-    return imports[name]
-  }, module, module.exports)
+  const components = loadComponent('BattleCards', imports)
   const findCard = id => cards.getCardById(id) ?? cards.GENERATED_CARDS.find(card => card.id === id)
   const plays = []
   const targetsSent = []
@@ -60,7 +73,7 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
   }
   function BattleHarness() {
     cursor = 0
-    return module.exports.CardDetailSheet(props)
+    return components.CardDetailSheet(props)
   }
   const textContent = value => Array.isArray(value) ? value.map(textContent).join('')
     : value && typeof value === 'object' && value.props ? textContent(value.props.children)
@@ -70,6 +83,16 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
   return {
     props, plays, targetsSent,
     textContent,
+    effectMarkup(component = 'CardDetailSheet', overrides = {}) {
+      cursor = 0
+      const tree = component === 'CardDetailSheet' ? components.CardDetailSheet(props)
+        : components[component]({ card: props.inspect.card, canPlay: props.inspect.canPlay,
+          attackBuff: props.attackBuff, kiretaStack: props.kiretaStack, isSelected: false,
+          combosFired: props.combosFired, onSelect() {}, ...overrides })
+      const effect = descendants(tree).find(node => node.type === effectText.CardEffectText)
+      assert.ok(effect, '共有CardEffectTextで説明を描画する')
+      return renderToStaticMarkup(effect)
+    },
     get nodes() { return descendants(BattleHarness()) },
     get attackText() { return textContent(this.nodes.find(node => node.props.className === 'battle-detail-attack')) },
     get closes() { return closes },
@@ -218,4 +241,58 @@ test('別個体のサーモンや机のカード詳細には破壊対象の選�
   assert.equal(h.choices.length, 0)
   assert.equal(h.confirm, undefined)
   assert.deepEqual(h.plays, [])
+})
+
+
+for (const id of ['bintoro', 'tekka_maki', 'duke_maguro']) test(`${id}の詳細はコンボ成立状態を即座に反映する`, () => {
+  const h = createHarness(id, [])
+  assert.match(h.effectMarkup(), /data-active="false"/)
+  h.props.combosFired = ['akami_mori']
+  assert.match(h.effectMarkup(), /data-active="true"/)
+  h.props.combosFired = ['maki_comp_3']
+  assert.match(h.effectMarkup(), /data-active="false"/, '他のコンボでは有効にしない')
+})
+
+test('手札の短い説明はAP不足でも成立済みコンボ効果を有効表示する', () => {
+  const h = createHarness('bintoro', [])
+  h.props.inspect.canPlay = false
+  assert.match(h.effectMarkup('HandSushi'), /data-active="false"/)
+  h.props.combosFired = ['akami_mori']
+  assert.match(h.effectMarkup('HandSushi'), /data-active="true"/)
+  assert.equal(h.confirm.props.disabled, true, '効果表示の成立と召喚可否は独立する')
+})
+
+test('机の短い説明はそのカード所有者のコンボ状態を反映する', () => {
+  const h = createHarness('tekka_maki', [])
+  const card = rules.toField(cards.getCardById('tekka_maki'), 'enemy-tekka')
+  h.props.combosFired = []
+  assert.match(h.effectMarkup('FieldSushi', { card, isEnemy: true }), /data-active="false"/)
+  h.props.combosFired = ['akami_mori']
+  assert.match(h.effectMarkup('FieldSushi', { card, isEnemy: true }), /data-active="true"/)
+})
+
+test('生ハムの生成専用説明は共通描画へ移した後も維持する', () => {
+  const h = createHarness('namahamu', [])
+  assert.match(h.effectMarkup(), /0AP・基本攻撃1・自分の3ターン持続/)
+  assert.match(h.effectMarkup('HandSushi'), /生成専用・生贄にできる/)
+  assert.doesNotMatch(h.effectMarkup(), /data-combo-condition=/)
+})
+
+test('づけマグロは通常の消化停止1回を暗くせず、成立後の2回だけを切り替える', () => {
+  const h = createHarness('duke_maguro', [])
+  for (const combosFired of [[], ['akami_mori']]) {
+    h.props.combosFired = combosFired
+    const html = h.effectMarkup()
+    assert.match(html, /<span>召喚時、相手のターン開始時の消化を1回止めます。<\/span>/)
+    assert.match(html, /data-combo-condition="akami_mori"[^>]*>自分が赤身三種盛りを成立させた後は2回停止。<\/span>/)
+  }
+})
+
+test('三種成立が不要な赤身支援とイベント型のえびは暗くしない', () => {
+  for (const id of ['maguro', 'tuna_gunkan', 'ebi']) {
+    const h = createHarness(id, [])
+    assert.doesNotMatch(h.effectMarkup(), /data-combo-condition=/)
+    h.props.combosFired = ['akami_mori', 'umi_zanmai']
+    assert.doesNotMatch(h.effectMarkup(), /data-combo-condition=/)
+  }
 })

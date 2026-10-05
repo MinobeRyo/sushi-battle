@@ -44,12 +44,46 @@ const CARD_EMOJI: Record<string, string> = {
   'いなり': '🍘', 'ツナサラダ': '🥗',
 }
 
+export type EffectTextPart = { text: string; combo?: 'akami_mori' }
+
+// 表示文と条件節を一元化し、図鑑などの通常の文字列説明にも同じ文を使う。
+export const COMBO_EFFECT_PARTS: Record<string, { full: EffectTextPart[]; short: EffectTextPart[] }> = {
+  akami_ap_each_turn_1: {
+    full: [
+      { text: '赤身三種盛りを一度成立させた後、机にいる間、自分のターン開始時に通常回復後のAPへ1枚につき+1。同じ分だけ当ターンのAP上限も増え、通常上限10を超えられます。召喚時は増えません。', combo: 'akami_mori' },
+    ],
+    short: [
+      { text: '赤身三種後・開始時AP +1', combo: 'akami_mori' },
+    ],
+  },
+  akami_draw_2_digest_3: {
+    full: [
+      { text: '赤身三種盛りを一度成立させた後、召喚時に2枚ドロー（手札7枚まで）し、自分のお腹を3減らします（下限0）。', combo: 'akami_mori' },
+      { text: '成立前は追加効果なし。' },
+    ],
+    short: [
+      { text: '赤身三種後・2枚引き腹 −3', combo: 'akami_mori' },
+    ],
+  },
+  digest_stop_akami_1_or_2: {
+    full: [
+      { text: '召喚時、相手のターン開始時の消化を1回止めます。' },
+      { text: '自分が赤身三種盛りを成立させた後は2回停止。', combo: 'akami_mori' },
+      { text: '停止中に再び付与すると、残り回数と今回の回数の大きい方になります（加算せず、短縮もしません）。茶碗蒸しで解除できます。' },
+    ],
+    short: [
+      { text: '消化停止1回・' },
+      { text: '赤身三種後2回', combo: 'akami_mori' },
+    ],
+  },
+}
+
 export const EFFECT_FULL: Record<string, string> = {
   'self_digest_5': '召喚時、自分のお腹が -5（消化促進）',
   'refund_ap_1_if_tako': '召喚の2APを支払った後、自分の机にたこ系がいれば現在APを1回復します（当ターンのAP上限まで）。たこわさ・たこを兼ねるカード・ペア使用済みも数え、複数いても回復は1。相手の机・手札・山札は対象外です。先に2APが必要なので、AP1からは召喚できません。',
   'buff_current_makimono_2': '召喚時、既に自分の机にいる軍艦以外の巻物すべての攻撃を、このターンだけ+2します。鉄火巻きなどの兼用カードや即時型の巻物も対象。軍艦・巻物タグのないカード・後から召喚した巻物は対象外です。複数のカニ軍艦や他の一時強化と加算され、通常攻撃（ガリの防御を含む）の解決後、ターン終了処理で解除します。',
   'draw_random_akami_1': '召喚時、自分の山札の赤身タグ付きカードをランダムに1枚引きます。赤身三種盛りの成立は不要。手札が7枚、または対象がない場合は不発です。引いたカードに付いている消費APの軽減はそのまま残ります。',
-  'digest_stop_akami_1_or_2': '召喚時、相手のターン開始時の消化を1回止めます。自分が赤身三種盛りを成立させた後は2回停止。停止中に再び付与すると、残り回数と今回の回数の大きい方になります（加算せず、短縮もしません）。茶碗蒸しで解除できます。',
+  'digest_stop_akami_1_or_2': COMBO_EFFECT_PARTS.digest_stop_akami_1_or_2.full.map(part => part.text).join(''),
   'reduce_random_akami_cost_1': '召喚時、自分の手札・山札にある赤身タグ付きで消費APが1以上のカードから、ランダムに1枚を選び、消費APを1減らします。軽減は対戦中その1枚だけに残り、重複して0まで下がります。赤身三種盛りの成立は不要。対象がなければ不発です。選ばれたカードの場所・順序は変わりません。',
   'destroy_enemy_persist_1': '召喚時、相手の机の持続カードを1枚選んで破壊します。生ハムも対象です。対象がいなければ破壊せず通常通り召喚します。即時カード・自分のカード・手札・山札は対象外。破壊にガリは使えません。破壊後はそのカードの攻撃・効果がなくなりますが、既に得た永続バフや現在のAPは戻しません。サーモン自身の通常攻撃は従来通りです。',
   'digest_boost_2': '机にいる間、毎ターンの消化量 +2',
@@ -69,8 +103,8 @@ export const EFFECT_FULL: Record<string, string> = {
   'draw_1': '召喚時、カードを1枚引く',
   'draw_2': '召喚時、カードを2枚引く',
   'draw_persist_ika_tako_1': '召喚時、自分の山札の持続型いか・たこからランダムに1枚引きます（手札7枚まで）。海の幸三昧の再攻撃では、50%にしたダメージに、このえび1枚につき固定+7を加えます。',
-  'akami_ap_each_turn_1': '赤身三種盛りを一度成立させた後、机にいる間、自分のターン開始時に通常回復後のAPへ1枚につき+1。同じ分だけ当ターンのAP上限も増え、通常上限10を超えられます。召喚時は増えません。',
-  'akami_draw_2_digest_3': '赤身三種盛りを一度成立させた後、召喚時に2枚ドロー（手札7枚まで）し、自分のお腹を3減らします（下限0）。成立前は追加効果なし。',
+  'akami_ap_each_turn_1': COMBO_EFFECT_PARTS.akami_ap_each_turn_1.full.map(part => part.text).join(''),
+  'akami_draw_2_digest_3': COMBO_EFFECT_PARTS.akami_draw_2_digest_3.full.map(part => part.text).join(''),
   'ap_next_1': '次のターンだけ AP +1',
   'multi_base': 'base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）',
 }

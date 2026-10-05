@@ -152,7 +152,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
         <div className="battle-arena" ref={arenaRef} role="region" aria-label="机と手札" tabIndex={0}>
           <div className="battle-tables">
             <div className="battle-player-area">
-              <BattleTable label={opponentLabel} cards={s.cField} isEnemy
+              <BattleTable label={opponentLabel} cards={s.cField} combosFired={s.cCombosFired} isEnemy
                 attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} nikuMatsuri={s.cNikuMatsuri}
                 floats={floats.filter(item => item.target === 'cpu')} flash={s.flash === 'cpu'}
                 onShowStatus={() => setStatusSide('opponent')}
@@ -163,7 +163,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
                 detailsResetKey={`${s.phase}:${s.turn}:${s.activePlayer}`} />
             </div>
             <div className="battle-player-area">
-              <BattleTable label={activeLabel} cards={s.pField}
+              <BattleTable label={activeLabel} cards={s.pField} combosFired={s.pCombosFired}
                 attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} enemyBelly={s.cBelly} nikuMatsuri={s.pNikuMatsuri}
                 floats={floats.filter(item => item.target === 'player')} flash={s.flash === 'player'}
                 onShowStatus={() => setStatusSide('player')}
@@ -183,7 +183,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}>
               {s.pHand.length === 0
                 ? <p className="battle-empty-field">手札がありません</p>
-                : s.pHand.map(card => <HandSushi key={card.instanceId} card={card}
+                : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
                   canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
                   isSelected={inspect?.card === card}
                   onSelect={() => setInspect({ card, canPlay: !playBlockedReason(card), playBlockedReason: playBlockedReason(card) })} />)}
@@ -236,6 +236,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
             fieldCards={s.pField}
+            combosFired={currentInspect.owner === 'opponent' ? s.cCombosFired : s.pCombosFired}
             enemyFieldCards={s.cField}
             enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, s.pBelly, {
               gunkanBoost: makimonoCount(s.cField) >= MAKI_COMP_5,

@@ -1,57 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Inspect, FieldCard } from './types'
-import { EFFECT_FULL, C, ARCH_LABEL } from './battlePresentation'
+import { C, ARCH_LABEL } from './battlePresentation'
 import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
 import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError } from './battleEngine'
 import { NAMAHAM_CARD } from '../../data/cards'
+import { CardEffectText } from './CardEffectText'
 import './BattleCards.css'
 
-const EFFECT_SHORT: Record<string, string> = {
-  self_digest_5: '自分のお腹 −5',
-  refund_ap_1_if_tako: '机にたこ系がいれば AP +1',
-  buff_current_makimono_2: '場の巻物（軍艦以外）攻撃 +2',
-  draw_random_akami_1: '山札の赤身1枚を引く',
-  digest_stop_akami_1_or_2: '消化停止1回・赤身三種後2回',
-  destroy_enemy_persist_1: '相手の持続1枚を選んで破壊',
-  reduce_random_akami_cost_1: 'ランダムな赤身1枚の消費AP −1',
-  digest_boost_2: '毎ターンの消化 +2',
-  digest_stop_1t: '相手の消化を1ターン停止',
-  kireta_stack: '切れ味 +1',
-  kireta_consume_x3: '切れ味全消費 ×3攻撃',
-  kireta_consume_2_draw_2: '切れ味2で2枚引く',
-  belly_boost_70: '相手お腹70以上で攻撃 +8',
-  belly_boost_60: '相手お腹60以上で攻撃 +5',
-  belly_boost_65: '相手お腹65以上で攻撃 +6',
-  belly_boost_persist_50_namahamu_deck_1: '腹50以上で+2・生ハムを山札へ',
-  generate_namahamu_1: '生ハムを1体生成',
-  generate_namahamu_2: '生ハムを2体生成',
-  sacrifice_namahamu_1_7: '生ハム1体で攻撃 +7',
-  sacrifice_namahamu_2_8: '生ハム2体まで・各 +8',
-  chain_on_kaisen_summon: '海鮮召喚で連鎖攻撃',
-  draw_1: '召喚時に1枚引く',
-  draw_2: '召喚時に2枚引く',
-  draw_persist_ika_tako_1: '持続いか・たこを1枚引く',
-  akami_ap_each_turn_1: '赤身三種後・開始時AP +1',
-  akami_draw_2_digest_3: '赤身三種後・2枚引き腹 −3',
-  ap_next_1: '次のターン AP +1',
-  multi_base: 'マグロ・えびも兼ねる',
-}
-
-function shortEffect(card: Card) {
-  if (card.id === NAMAHAM_CARD.id) return '生成専用・生贄にできる'
-  return card.effect ? EFFECT_SHORT[card.effect] ?? '特殊効果あり・詳細を確認' : '特殊効果なし'
-}
-
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, fieldCards, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
   kiretaStack: number
   fieldCards: FieldCard[]
+  combosFired?: readonly string[]
   enemyFieldCards?: FieldCard[]
   enemyCardAttack?: (card: FieldCard) => number
   sacrificeAttackBonus?: number
@@ -72,9 +38,6 @@ export function CardDetailSheet({
   const isField = remainingTurns !== undefined
   const showActualAttack = isField && inspect.actualAttack !== undefined
   const isGenerated = card.id === NAMAHAM_CARD.id
-  const effectDesc = isGenerated
-    ? '生成専用カードです。牛タン寿司・ローストビーフ寿司は机に生成し、焼肉寿司は自分の終了時に山札へ1枚、肉祭りは手札に2枚追加します。0AP・基本攻撃1・自分の3ターン持続。肉祭りが発動するたび、自分の全生ハムの攻撃が試合中+1ずつ累積します。カルビ寿司・和牛にぎりの生贄にできます。購入はできません。'
-    : card.effect ? EFFECT_FULL[card.effect] : null
   const cardKey = 'instanceId' in card ? String(card.instanceId) : card.id
   const availableNamahamu = countNamahamu(fieldCards)
   const maxSacrifices = Math.min(getSacrificeLimit(card), availableNamahamu)
@@ -180,7 +143,7 @@ export function CardDetailSheet({
         </div>
         <div className="battle-detail-effect">
           <h3>特殊効果</h3>
-          <p>{effectDesc ?? '特殊効果なし'}</p>
+          <p><CardEffectText card={card} variant="full" combosFired={combosFired} /></p>
         </div>
 
         {needsSacrificeChoice && (
@@ -252,8 +215,8 @@ export function CardDetailSheet({
   )
 }
 
-export function FieldSushi({ card, isEnemy = false, actualAttack, onSelect }: {
-  card: FieldCard; isEnemy?: boolean; actualAttack?: number; onSelect: () => void
+export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, onSelect }: {
+  card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   return (
@@ -277,16 +240,16 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, onSelect }: {
         <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}</span>
         <span className="battle-field-card-turns">{isPersist ? `残り${card.turnsLeft}T` : '即時'}</span>
       </div>
-      <p className="battle-field-card-effect">{shortEffect(card)}</p>
+      <p className="battle-field-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>
   )
 }
 
 export function HandSushi({
-  card, canPlay, attackBuff, kiretaStack, isSelected, onSelect,
+  card, canPlay, attackBuff, kiretaStack, isSelected, combosFired, onSelect,
 }: {
   card: Card; canPlay: boolean; attackBuff: Record<string, number>
-  kiretaStack: number; isSelected: boolean; onSelect: () => void
+  kiretaStack: number; isSelected: boolean; combosFired?: readonly string[]; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
@@ -315,7 +278,7 @@ export function HandSushi({
         <span className="battle-hand-card-attack">攻撃 {card.attack + buff + kBonus}</span>
         {isPersist && <span className="battle-hand-card-turns">{card.fullness}T</span>}
       </div>
-      <p className="battle-hand-card-effect">{shortEffect(card)}</p>
+      <p className="battle-hand-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>
   )
 }
