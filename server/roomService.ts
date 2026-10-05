@@ -61,7 +61,9 @@ function validAction(value: unknown): value is OnlineAction {
     && (action.type === 'end_turn' || action.type === 'use_side_menu'
       || (action.type === 'respond_defense' && typeof action.useGari === 'boolean') || (action.type === 'play_card'
       && typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200
-      && (action.sacrificeCount === undefined || (Number.isSafeInteger(action.sacrificeCount) && action.sacrificeCount >= 0))))
+      && (action.sacrificeCount === undefined || (Number.isSafeInteger(action.sacrificeCount) && action.sacrificeCount >= 0))
+      && (action.targetFieldId === undefined || (typeof action.targetFieldId === 'string'
+        && action.targetFieldId.length > 0 && action.targetFieldId.length <= 200))))
 }
 
 function validToken(value: unknown): value is string {
@@ -266,7 +268,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (!validAction(action)) return { ok: false, error: 'invalid_action' }
         const key = `${playerId}:${action.actionId}`
         const fingerprint = JSON.stringify([action.matchId, action.expectedRevision, action.type,
-          action.cardInstanceId ?? null, action.useGari ?? null, action.sacrificeCount ?? 0])
+          action.cardInstanceId ?? null, action.useGari ?? null, action.sacrificeCount ?? 0, action.targetFieldId ?? null])
         const previous = room.processed.get(key)
         if (previous) {
           sendState(room)
@@ -279,7 +281,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
           return { ok: false, error: room.match.matchId !== action.matchId ? 'stale_match' : 'stale_revision' }
         }
         const result = transitionMatch(room.match, action.type === 'play_card'
-          ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId!, sacrificeCount: action.sacrificeCount }
+          ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId!, sacrificeCount: action.sacrificeCount, targetFieldId: action.targetFieldId }
           : action.type === 'respond_defense'
             ? { type: 'respond_defense', playerId, useGari: action.useGari! }
           : { type: action.type, playerId }, random)

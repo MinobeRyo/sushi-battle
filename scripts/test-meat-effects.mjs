@@ -33,9 +33,9 @@ const actionFor = (state, id, sacrificeCount, playerId = state.activePlayerId) =
   return { type: 'play_card', playerId, cardInstanceId: chosen.instanceId,
     ...(sacrificeCount === undefined ? {} : { sacrificeCount }) }
 }
-const step = (state, action) => {
+const step = (state, action, random = keepOrder) => {
   const before = structuredClone(state)
-  const result = transitionMatch(freeze(state), action, keepOrder)
+  const result = transitionMatch(freeze(state), action, random)
   assert.equal(result.error, undefined)
   assert.deepEqual(state, before, '入力の状態を変更しない')
   assert.equal(result.state.revision, state.revision + 1)
@@ -43,9 +43,9 @@ const step = (state, action) => {
   return result
 }
 const play = (state, id, count) => step(state, actionFor(state, id, count))
-const end = state => {
-  let next = step(state, { type: 'end_turn', playerId: state.activePlayerId }).state
-  if (next.pendingAttack) next = step(next, { type: 'respond_defense', playerId: next.pendingAttack.defenderId, useGari: false }).state
+const end = (state, random = keepOrder) => {
+  let next = step(state, { type: 'end_turn', playerId: state.activePlayerId }, random).state
+  if (next.pendingAttack) next = step(next, { type: 'respond_defense', playerId: next.pendingAttack.defenderId, useGari: false }, random).state
   return next
 }
 const reject = (state, action, error) => {
@@ -379,6 +379,117 @@ test('未設置・相手だけ設置したインバウン丼は自分の生贄�
     assert.equal(calcFieldDmg(result.state.players[1].field, {}), 28)
     assert.equal(result.state.players[2].belly, 5)
   }
+})
+
+test('焼肉寿司は既存の数値と相手のお腹50以上の攻撃+2を保つ', () => {
+  const yakiniku = card('yakiniku')
+  assert.deepEqual([yakiniku.attack, yakiniku.cost, yakiniku.price, yakiniku.type, yakiniku.fullness, yakiniku.effect],
+    [4, 3, 300, 'persist', 3, 'belly_boost_persist_50_namahamu_deck_1'])
+  assert.equal(calcFieldDmg([toField(yakiniku)], {}, 0, 49), 4)
+  assert.equal(calcFieldDmg([toField(yakiniku)], {}, 0, 50), 6)
+})
+
+test('焼肉寿司は各プレイヤーの終了時に枚数分をランダム挿入し、最後の寿命でも山札順序と個体IDを保つ', () => {
+  for (const [mode, playerId, count] of [['two_player', 1, 1], ['cpu', 2, 2]]) {
+    const enemyId = playerId === 1 ? 2 : 1
+    const state = make([], { mode })
+    state.activePlayerId = playerId
+    const player = state.players[playerId]
+    player.hand.push(...player.deck.splice(0, 2)) // 手札満杯で、挿入と通常ドローを切り分ける。
+    player.field = Array.from({ length: count }, (_, i) => ({ ...toField(card('yakiniku'), `grill-${i}`), turnsLeft: 1 }))
+    state.players[enemyId].gari = 0
+    state.players[enemyId].field = [toField(card('yakiniku'), 'opponent-grill')]
+    for (const value of [0, 0.5, 1 - Number.EPSILON]) {
+      const action = { type: 'end_turn', playerId }
+      const result = step(state, action, () => value)
+      const next = result.state
+      assert.deepEqual(next, step(state, action, () => value).state, '同じ入力と乱数なら挿入位置とIDも同じ')
+      const expected = player.deck.map(card => card.instanceId)
+      for (let i = 0; i < count; i++) {
+        const instanceId = `${state.matchId}:p${playerId}:${state.nextInstanceId + i}`
+        const generated = next.players[playerId].deck.find(card => card.instanceId === instanceId)
+        assert.ok(generated)
+        const { instanceId: _, ...data } = generated
+        assert.deepEqual(data, NAMAHAM_CARD, '強化値や場の寿命をカードへ焼き込まない')
+        expected.splice(Math.floor(value * (expected.length + 1)), 0, instanceId)
+      }
+      assert.deepEqual(next.players[playerId].deck.map(card => card.instanceId), expected)
+      assert.deepEqual(next.players[playerId].hand, player.hand)
+      assert.equal(next.players[playerId].field.length, 0, '寿命1でも生成した後に場から消える')
+      assert.equal(next.nextInstanceId, state.nextInstanceId + count)
+      assert.deepEqual(next.players[enemyId].deck, state.players[enemyId].deck, '相手の焼肉寿司は生成しない')
+      const ids = Object.values(next.players).flatMap(p => [
+        ...p.hand.map(c => c.instanceId), ...p.deck.map(c => c.instanceId), ...p.field.map(c => c.fid),
+      ])
+      assert.equal(new Set(ids).size, ids.length)
+    }
+  }
+})
+
+test('焼肉寿司は召喚ターンから3回だけ生成し、通常ドロー前の先頭挿入ならその場で引ける', () => {
+  const initial = make(['yakiniku'])
+  initial.players[2].gari = 0
+  let state = play(initial, 'yakiniku').state
+  const firstId = state.nextInstanceId
+  assert.equal(firstId, initial.nextInstanceId, '召喚時には生成しない')
+  for (const generatedCount of [1, 2, 3]) {
+    state = end(state, () => 0)
+    const player = state.players[1]
+    assert.equal(state.nextInstanceId, firstId + generatedCount)
+    assert.equal(player.hand.filter(card => card.id === NAMAHAM_CARD.id).length, generatedCount)
+    assert.equal(player.deck.some(card => card.id === NAMAHAM_CARD.id), false, '生成直後に通常ドローされる')
+    assert.equal(player.field[0]?.turnsLeft ?? 0, 3 - generatedCount)
+    state = end(state, () => 0)
+    assert.equal(state.nextInstanceId, firstId + generatedCount, '相手ターン終了では生成しない')
+  }
+  state = end(state, () => 0)
+  assert.equal(state.nextInstanceId, firstId + 3, '持続終了後は生成しない')
+})
+
+test('焼肉寿司の生成は防御回答後に一度だけ行い、通常攻撃で勝敗が決まれば生成しない', () => {
+  for (const [belly, useGari, lethal] of [[10, false, false], [96, false, true], [96, true, false]]) {
+    const initial = make([])
+    initial.players[1].field = [{ ...toField(card('yakiniku'), 'last-grill'), turnsLeft: 1 }]
+    initial.players[2].belly = belly
+    let calls = 0
+    const random = () => { calls++; return 0 }
+    const pending = step(initial, { type: 'end_turn', playerId: 1 }, random).state
+    assert.equal(pending.phase, 'defending')
+    assert.equal(calls, 0)
+    assert.equal(pending.nextInstanceId, initial.nextInstanceId)
+    assert.deepEqual(pending.players[1].deck, initial.players[1].deck)
+    assert.deepEqual(pending.players[1].hand, initial.players[1].hand)
+    assert.equal(pending.players[1].field[0].turnsLeft, 1)
+    const answer = { type: 'respond_defense', playerId: 2, useGari }
+    const next = step(pending, answer, random).state
+    assert.equal(calls, lethal ? 0 : 1)
+    assert.equal(next.nextInstanceId, initial.nextInstanceId + (lethal ? 0 : 1))
+    assert.equal(next.phase, lethal ? 'over' : 'playing')
+    assert.equal(next.players[1].field.length, lethal ? 1 : 0)
+    reject(next, answer, lethal ? 'game_over' : 'not_defending')
+  }
+})
+
+test('焼肉寿司から引いた生ハムも0AP・3ターンで、肉祭りとインバウン丼の永続強化を一度だけ受ける', () => {
+  let state = make(['yakiniku', 'wagyu'], { sideMenu: 'inbound_don' })
+  state.players[1].field = hams(2)
+  state = step(state, { type: 'use_side_menu', playerId: 1 }).state
+  state = play(state, 'yakiniku').state
+  state = play(state, 'wagyu', 2).state
+  assert.equal(state.players[1].attackBuff[NAMAHAM_CARD.base], 3)
+  const generatedId = `${state.matchId}:p1:${state.nextInstanceId}`
+  state = end(state, () => 0)
+  const drawn = state.players[1].hand.find(card => card.instanceId === generatedId)
+  assert.ok(drawn)
+  assert.equal(drawn.attack, 1)
+  state = end(state)
+  const ap = state.players[1].ap
+  state = step(state, { type: 'play_card', playerId: 1, cardInstanceId: generatedId }).state
+  const ham = state.players[1].field.find(card => card.fid === generatedId)
+  assert.equal(state.players[1].ap, ap)
+  assert.equal(ham.turnsLeft, 3)
+  assert.equal(ham.attack, 1)
+  assert.equal(calcFieldDmg([ham], state.players[1].attackBuff), 4)
 })
 
 console.log(`\n肉寿司の生成・生贄: ${passed}件成功`)

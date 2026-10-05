@@ -3,7 +3,7 @@ import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getCpuDeck, getCpuReorderDeck, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -75,6 +75,15 @@ function drawPersistIkaTako(player: MatchPlayer, random: RandomSource): string {
   return '山札から持続型の「いか」「たこ」をランダムに1枚引いた'
 }
 
+function drawAkami(player: MatchPlayer, random: RandomSource): string {
+  if (player.hand.length >= HAND_LIMIT) return '手札上限のため、赤身カードのドローなし'
+  const candidates = player.deck.flatMap((card, index) => card.archetype.includes('akami') ? [index] : [])
+  if (candidates.length === 0) return '山札に赤身カードがないため、ドローなし'
+  const index = candidates[Math.floor(random() * candidates.length)]
+  player.hand.push(...player.deck.splice(index, 1))
+  return '山札から赤身カードをランダムに1枚引いた'
+}
+
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
   const dealt = Math.max(0, amount)
   state.players[id].belly = Math.min(MAX_BELLY, state.players[id].belly + dealt)
@@ -93,15 +102,15 @@ function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: P
   return true
 }
 
-function resolveAttack(state: MatchState, attack: PendingAttack, amount: number, events: MatchEvent[]) {
+function resolveAttack(state: MatchState, attack: PendingAttack, amount: number, events: MatchEvent[], random: RandomSource) {
   state.pendingAttack = null
   state.phase = 'playing'
   damage(state, attack.defenderId, amount, events)
   if (checkWin(state, events)) return
-  if (attack.source === 'end_turn') completeTurn(state, events)
+  if (attack.source === 'end_turn') completeTurn(state, events, random)
 }
 
-function startAttack(state: MatchState, attack: PendingAttack, events: MatchEvent[]) {
+function startAttack(state: MatchState, attack: PendingAttack, events: MatchEvent[], random: RandomSource) {
   // ガリは通常攻撃だけが対象。カード効果・コンボの追加ダメージは即座に確定する。
   if (attack.source === 'end_turn' && attack.amount > 0 && state.players[attack.defenderId].gari > 0) {
     state.pendingAttack = attack
@@ -109,7 +118,7 @@ function startAttack(state: MatchState, attack: PendingAttack, events: MatchEven
     events.push({ type: 'defense_requested', attack: { ...attack } })
     return
   }
-  resolveAttack(state, attack, attack.amount, events)
+  resolveAttack(state, attack, attack.amount, events, random)
 }
 
 function activeSideMenu(player: MatchPlayer, id: SideMenuId) {
@@ -172,7 +181,7 @@ function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
   }
 }
 
-function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], random: RandomSource, sacrificeCount = 0) {
+function summon(state: MatchState, id: PlayerId, index: number, events: MatchEvent[], random: RandomSource, sacrificeCount = 0, targetFieldId?: string) {
   const player = state.players[id]
   const enemyId = otherPlayer(id)
   const enemy = state.players[enemyId]
@@ -204,8 +213,25 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     kiretaSpent: result.kiretaSpent,
     ap: player.ap - card.cost, apNextBonus: player.apNextBonus + result.apNext,
   })
+  if (targetFieldId !== undefined) {
+    // 対象の存在・所属・種類は、APや手札を消費する前に検証済み。
+    const targetIndex = enemy.field.findIndex(target => target.fid === targetFieldId)
+    const [destroyed] = enemy.field.splice(targetIndex, 1)
+    result.logs.push(`${card.name}で相手の${destroyed.name}を破壊`)
+  } else if (card.effect === 'destroy_enemy_persist_1') {
+    result.logs.push('相手の机に持続型カードがないため、破壊対象なし')
+  }
+  if (card.effect === 'reduce_random_akami_cost_1') {
+    const candidates = [...player.hand, ...player.deck].filter(target => target.archetype.includes('akami') && target.cost > 0)
+    if (candidates.length > 0) {
+      candidates[Math.floor(random() * candidates.length)].cost -= 1
+      // 公開ログには非公開の手札・山札のカード名、個体IDや場所を出さない。
+      result.logs.push('手札・山札の赤身カード1枚のAPコストを1軽減（下限0）')
+    } else result.logs.push('APコストを軽減できる赤身カードなし')
+  }
   draw(player, result.drawNow)
   if (result.drawPersistIkaTako) result.logs.unshift(drawPersistIkaTako(player, random))
+  if (card.effect === 'draw_random_akami_1') result.logs.unshift(drawAkami(player, random))
   if (result.generateNamahamu > 0) {
     const count = Math.min(result.generateNamahamu, Math.max(0, HAND_LIMIT - player.hand.length))
     for (let i = 0; i < count; i++) {
@@ -221,28 +247,38 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     addLog(state, `${label(state, id)}: ポテトで1枚ドロー`)
   }
   if (tempuraBonus) addLog(state, `${label(state, id)}: 天ぷら盛り合わせで${card.name}の今ターン攻撃 +3`)
-  if (result.stopOppDigest) enemy.digestStopTurns = 1
+  if (result.stopOppDigestTurns) enemy.digestStopTurns = Math.max(enemy.digestStopTurns, result.stopOppDigestTurns)
   addLog(state, `${label(state, id)} ▶ ${card.name} 召喚`)
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
   events.push({ type: 'summon', playerId: id, cardInstanceId: card.instanceId, cardId: card.id })
   for (const combo of result.fired) events.push({ type: 'combo', playerId: id, comboId: combo.id })
-  startAttack(state, { attackerId: id, defenderId: enemyId, amount: result.extraDmg, source: 'summon' }, events)
+  startAttack(state, { attackerId: id, defenderId: enemyId, amount: result.extraDmg, source: 'summon' }, events, random)
 }
 
-function finishTurn(state: MatchState, events: MatchEvent[]) {
+function finishTurn(state: MatchState, events: MatchEvent[], random: RandomSource) {
   const id = state.activePlayerId
   const player = state.players[id]
   const nextId = otherPlayer(id)
   const total = calcFieldDmg(player.field, player.attackBuff, player.kiretaStack,
     state.players[nextId].belly, { nikuMatsuri: player.nikuMatsuri })
   if (total > 0) addLog(state, `${label(state, id)}の攻撃: ${total} ダメージ！`)
-  startAttack(state, { attackerId: id, defenderId: nextId, amount: total, source: 'end_turn' }, events)
+  startAttack(state, { attackerId: id, defenderId: nextId, amount: total, source: 'end_turn' }, events, random)
 }
 
-function completeTurn(state: MatchState, events: MatchEvent[]) {
+function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSource) {
   const id = state.activePlayerId
   const player = state.players[id]
   const nextId = otherPlayer(id)
+  // 通常攻撃・防御と勝敗判定の後、寿命と終了時ドローより先に補充する。
+  const hamCount = player.field.filter(card =>
+    card.effect === 'belly_boost_persist_50_namahamu_deck_1' && card.turnsLeft > 0).length
+  for (let i = 0; i < hamCount; i++) {
+    const ham: CardInstance = {
+      ...structuredClone(NAMAHAM_CARD), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+    }
+    player.deck.splice(Math.floor(random() * (player.deck.length + 1)), 0, ham)
+  }
+  if (hamCount > 0) addLog(state, `${label(state, id)}の焼肉寿司: 生ハム${hamCount}枚を山札に混ぜた（終了時ドロー前）`)
   player.field = player.field.map(card => {
     const { turnAttackBonus: _, ...persistentCard } = card
     return { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
@@ -330,7 +366,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
       addLog(next, `${label(next, action.playerId)}がガリを使用: ダメージ -${reduction}（残り${next.players[action.playerId].gari}個）`)
     } else addLog(next, `${label(next, action.playerId)}はガリを温存`)
     const events: MatchEvent[] = [{ type: 'defense_resolved', playerId: action.playerId, usedGari: action.useGari, reduction }]
-    resolveAttack(next, attack, Math.max(0, attack.amount - reduction), events)
+    resolveAttack(next, attack, Math.max(0, attack.amount - reduction), events, random)
     next.revision += 1
     return { state: next, events }
   }
@@ -358,6 +394,8 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     if (player.ap < player.hand[index].cost) return reject('insufficient_ap')
     const sacrificeError = getSacrificeError(player.hand[index], player.field, action.sacrificeCount)
     if (sacrificeError) return reject(sacrificeError)
+    const targetError = getDestroyTargetError(player.hand[index], state.players[otherPlayer(action.playerId)].field, action.targetFieldId)
+    if (targetError) return reject(targetError)
     if (player.field.length - (action.sacrificeCount ?? 0) >= FIELD_MAX) return reject('field_full')
   } else if (action.type === 'use_side_menu') {
     const error = getSideMenuUseError(state, action.playerId)
@@ -365,9 +403,9 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   } else if (action.type !== 'end_turn') return reject('unknown_action')
   const next = structuredClone(state)
   const events: MatchEvent[] = []
-  if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount)
+  if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount, action.targetFieldId)
   else if (action.type === 'use_side_menu') applySideMenu(next, action.playerId, events)
-  else finishTurn(next, events)
+  else finishTurn(next, events, random)
   next.revision += 1
   return { state: next, events }
 }
@@ -412,12 +450,14 @@ export function getCpuActions(state: MatchState): MatchAction[] {
       const card = cpuChoose(cpu.hand.filter(hasSummonSpace), cpu.ap)[0]
       if (!card) break
       const sacrificeCount = Math.min(available, getSacrificeLimit(card))
+      const target = getDestroyTargets(card, planned.players[1].field).sort((a, b) => b.attack - a.attack)[0]
       action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
-        ...(getSacrificeLimit(card) ? { sacrificeCount } : {}) }
+        ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}) }
     }
-    // 抽選結果が未確定の手札を使う操作は予約せず、実際の召喚後に再計画する。
+    // ランダムドロー・コスト軽減の結果を先読みせず、実際の召喚後に再計画する。
     if (action.type === 'play_card'
-      && cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect === 'draw_persist_ika_tako_1') {
+      && ['draw_persist_ika_tako_1', 'draw_random_akami_1', 'reduce_random_akami_cost_1'].includes(
+        cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect ?? '')) {
       actions.push(action)
       break
     }

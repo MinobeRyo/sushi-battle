@@ -66,7 +66,7 @@ export type MatchState = {
 }
 
 export type MatchAction =
-  | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number }
+  | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number; targetFieldId?: string }
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
   | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean }

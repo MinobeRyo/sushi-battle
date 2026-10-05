@@ -85,7 +85,7 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 export const COMBO_META: Record<string, ComboMeta> = {
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
-    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きの毎ターンAP+1とビントロの2枚ドロー・お腹−3を解禁',
+    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きAP+1・ビントロ2枚ドローとお腹−3・づけマグロ消化停止2回を解禁',
   },
   maki_comp_3: {
     id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀',
@@ -149,7 +149,8 @@ export function calcFieldDmg(
       case 'belly_boost_60': if (enemyBelly >= 60) effectBonus = 5; break
       case 'belly_boost_70': if (enemyBelly >= 70) effectBonus = 8; break
       case 'belly_boost_65': if (enemyBelly >= 65) effectBonus = 6; break
-      case 'belly_boost_persist_50': if (enemyBelly >= 50) effectBonus = 2; break
+      case 'belly_boost_persist_50':
+      case 'belly_boost_persist_50_namahamu_deck_1': if (enemyBelly >= 50) effectBonus = 2; break
     }
     let total = base + kiretaBonus + effectBonus
     if (gunkanBoost && c.archetype.includes('gunkan')) {
@@ -160,6 +161,18 @@ export function calcFieldDmg(
 }
 
 // ── 召喚処理（プレイヤー / CPU 共通の純関数） ────────────────────────────────
+
+export function getDestroyTargets(card: Card, enemyField: FieldCard[]): FieldCard[] {
+  return card.effect === 'destroy_enemy_persist_1'
+    ? enemyField.filter(target => target.type === 'persist') : []
+}
+
+export function getDestroyTargetError(card: Card, enemyField: FieldCard[], targetFieldId?: unknown): string | undefined {
+  const targets = getDestroyTargets(card, enemyField)
+  if (targetFieldId === undefined) return targets.length > 0 ? 'target_required' : undefined
+  return typeof targetFieldId === 'string' && targets.some(target => target.fid === targetFieldId)
+    ? undefined : 'invalid_target'
+}
 
 export function getSacrificeLimit(card: Card): number {
   return card.effect === 'sacrifice_namahamu_1_7' ? 1 : card.effect === 'sacrifice_namahamu_2_8' ? 2 : 0
@@ -206,7 +219,7 @@ type SummonInput = {
 type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount' | 'sacrificeAttackBonus'> & {
   sacrificedThisTurn: number
   extraDmg: number
-  stopOppDigest: boolean
+  stopOppDigestTurns: number
   drawNow: number   // 召喚時ドロー枚数
   drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
   generateNamahamu: number // 肉祭りで手札に生成する枚数
@@ -224,7 +237,7 @@ export function applySummon(input: SummonInput): SummonResult {
   let extraDmg = 0
   let belly = input.belly
   let kireta = input.kireta
-  let stopOppDigest = false
+  let stopOppDigestTurns = 0
   let drawNow = 0
   let drawPersistIkaTako = false
   let generateNamahamu = 0
@@ -300,8 +313,9 @@ export function applySummon(input: SummonInput): SummonResult {
       logs.push(`🥒 机にいる間、毎ターンの消化 +${DIGEST_BOOST}`)
       break
     case 'digest_stop_1t':
-      stopOppDigest = true
-      logs.push('🚫 相手の消化を1ターン止めた！')
+    case 'digest_stop_akami_1_or_2':
+      stopOppDigestTurns = card.effect === 'digest_stop_akami_1_or_2' && input.combosFired.includes('akami_mori') ? 2 : 1
+      logs.push(`相手の消化を${stopOppDigestTurns}回停止（残り回数は長い方を維持）`)
       break
   }
 
@@ -320,7 +334,18 @@ export function applySummon(input: SummonInput): SummonResult {
   const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeBonus
   if (attackBonus) summonedCard.turnAttackBonus = attackBonus
   if (sacrificeCount) logs.push(`生ハム${sacrificeCount}体を生贄にして、${card.name}の攻撃 +${sacrificeBonus}`)
-  let field = [...remainingField, summonedCard]
+  // 召喚前からいる軍艦以外の巻物だけに加算し、後続の巻物には引き継がない。
+  let existingField = remainingField
+  if (card.effect === 'buff_current_makimono_2') {
+    let count = 0
+    existingField = remainingField.map(item => {
+      if (!item.archetype.includes('makimono') || item.archetype.includes('gunkan')) return item
+      count += 1
+      return { ...item, turnAttackBonus: (item.turnAttackBonus ?? 0) + 2 }
+    })
+    if (count > 0) logs.push(`カニ軍艦：机の軍艦以外の巻物${count}枚の攻撃をこのターン+2`)
+  }
+  let field = [...existingField, summonedCard]
   const generateCount = card.effect === 'generate_namahamu_1' ? 1 : card.effect === 'generate_namahamu_2' ? 2 : 0
   if (generateCount) {
     const actualCount = Math.min(generateCount, Math.max(0, FIELD_MAX - field.length))
@@ -433,7 +458,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigest, drawNow, drawPersistIkaTako, generateNamahamu, apNext, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamu, apNext, fired, logs,
   }
 }
 

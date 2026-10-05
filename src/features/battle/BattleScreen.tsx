@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { calcFieldDmg, countNamahamu, getSacrificeLimit, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
+import { calcFieldDmg, countNamahamu, getSacrificeLimit, MAKI_COMP_5, makimonoCount, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -236,10 +236,14 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
             fieldCards={s.pField}
+            enemyFieldCards={s.cField}
+            enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, s.pBelly, {
+              gunkanBoost: makimonoCount(s.cField) >= MAKI_COMP_5,
+            })}
             sacrificeAttackBonus={s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
-            onPlay={count => { if (currentInspect?.canPlay) playCard(currentInspect.card, count) }}
+            onPlay={(count, targetFieldId) => { if (currentInspect?.canPlay) playCard(currentInspect.card, count, targetFieldId) }}
             onClose={() => setInspect(null)}
           />
         )}
