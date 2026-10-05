@@ -376,7 +376,7 @@ test('ローカルのインバウン丼は設置後の生成と生贄に反映�
   h.game.playCard(h.game.s.pHand[0])
   assert.equal(h.game.s.pField.filter(c => c.id === 'namahamu').length, 2)
   h.game.playCard(h.game.s.pHand[0], 2)
-  assert.equal(h.game.s.pField.find(c => c.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(h.game.s.pField.find(c => c.id === 'wagyu').turnAttackBonus, 12)
   assert.equal(h.state.players[2].belly, 5)
   assert.equal(h.state.players[2].gari, 2)
   assert.equal(h.game.s.phase, 'player')

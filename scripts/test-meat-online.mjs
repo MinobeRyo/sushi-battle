@@ -64,18 +64,19 @@ test('オンラインで生ハムを2体生成・消費し、肉祭りはガリ�
   const f = fixture(t)
   f.prepareWagyu()
   const before = f.read(f.guest).match.you
+  const ownBefore = f.read(f.host).match.you
   const request = f.play('wagyu', 2)
   const pending = f.read(f.host).match
   assert.equal(pending.you.field.filter(c => c.id === NAMAHAM_CARD.id).length, 0)
   assert.equal(pending.you.sacrificedThisTurn, 2)
-  const generated = pending.you.hand.filter(card => card.id === NAMAHAM_CARD.id)
-  assert.equal(generated.length, 2)
-  assert.equal(new Set(generated.map(card => card.instanceId)).size, 2)
-  assert.ok(generated.every(card => card.cost === 0 && card.type === 'persist' && card.fullness === 3))
+  assert.equal(pending.you.hand.length, ownBefore.hand.length - 1)
+  assert.equal(pending.you.hand.some(card => card.id === NAMAHAM_CARD.id), false)
+  assert.equal(pending.you.deckCount, ownBefore.deckCount + 1)
+  assert.equal(f.read(f.guest).match.opponent.deckCount, ownBefore.deckCount + 1)
   assert.equal(pending.you.attackBuff[NAMAHAM_CARD.base], 1)
   assert.equal(f.read(f.guest).match.opponent.attackBuff[NAMAHAM_CARD.base], 1)
   assert.equal('hand' in f.read(f.guest).match.opponent, false)
-  assert.equal(pending.you.field.find(c => c.id === 'wagyu').turnAttackBonus, 16)
+  assert.equal(pending.you.field.find(c => c.id === 'wagyu').turnAttackBonus, 8)
   assert.equal(pending.pendingAttack, null)
   assert.equal(pending.phase, 'playing')
   assert.equal(pending.opponent.belly, before.belly + 5)
@@ -97,12 +98,24 @@ test('オンラインで生ハムを2体生成・消費し、肉祭りはガリ�
   f.service.connect(resumed)
   assert.equal(f.service.handle(resumed, 'room:resume', f.created.session).ok, true)
   assert.deepEqual(f.read(resumed).match, after, '復帰後も生成・生贄・コンボ状態を保持する')
-  f.send(resumed, { type: 'play_card', cardInstanceId: generated[0].instanceId })
+  assert.equal(after.you.deckCount, 1, '空山札へ生成した1枚が入る')
+  f.send(resumed, { type: 'end_turn' })
+  const attack = f.read(resumed).match.pendingAttack
+  if (attack) f.send(f.guest, { type: 'respond_defense', useGari: false })
+  const drawn = f.read(resumed).match.you.hand.find(card => card.id === NAMAHAM_CARD.id)
+  assert.ok(drawn, '通常の終了時ドローで山札の生ハムを引く')
+  assert.deepEqual([drawn.cost, drawn.attack, drawn.type, drawn.fullness], [0, 1, 'persist', 3])
+  assert.equal(f.read(resumed).match.you.deckCount, 0)
+  f.send(f.guest, { type: 'end_turn' })
+  const ap = f.read(resumed).match.you.ap
+  f.send(resumed, { type: 'play_card', cardInstanceId: drawn.instanceId })
   const summoned = f.read(resumed).match
   const ham = summoned.you.field.find(card => card.id === NAMAHAM_CARD.id)
+  assert.equal(ham.fid, drawn.instanceId)
   assert.equal(ham.turnsLeft, 3)
-  assert.equal(summoned.you.ap, after.you.ap, '復帰後も生成生ハムは0AP')
+  assert.equal(summoned.you.ap, ap, '復帰後に引いた生ハムも0AP')
   assert.equal(summoned.you.attackBuff[NAMAHAM_CARD.base], 1)
+
 })
 
 test('インバウン丼を購入・設置して復帰しても生贄強化を保持し、再送で重複しない', t => {
@@ -130,16 +143,17 @@ test('インバウン丼を購入・設置して復帰しても生贄強化を�
   const wagyu = installed.you.hand.find(card => card.id === 'wagyu')
   const sacrifice = f.send(resumed, { type: 'play_card', cardInstanceId: wagyu.instanceId, sacrificeCount: 2 })
   const after = f.read(resumed).match
-  assert.equal(after.you.field.find(card => card.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(after.you.field.find(card => card.id === 'wagyu').turnAttackBonus, 12)
   assert.equal(after.you.attackBuff[NAMAHAM_CARD.base], 3, 'インバウン丼の+2と肉祭りの+1は加算する')
-  assert.equal(after.you.hand.filter(card => card.id === NAMAHAM_CARD.id).length, 2)
+  assert.equal(after.you.hand.filter(card => card.id === NAMAHAM_CARD.id).length, 0)
+  assert.equal(after.you.deckCount, installed.you.deckCount + 1)
   assert.equal(after.you.field.filter(card => card.id === NAMAHAM_CARD.id).length, 0)
   assert.equal(after.opponent.belly, installed.opponent.belly + 5)
   assert.equal(after.opponent.gari, installed.opponent.gari)
   assert.equal(after.pendingAttack, null)
   assert.deepEqual(f.service.handle(resumed, 'match:action', sacrifice), { ok: true })
   assert.deepEqual(f.read(resumed).match, after)
-  assert.equal(f.read(f.guest).match.opponent.field.find(card => card.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(f.read(f.guest).match.opponent.field.find(card => card.id === 'wagyu').turnAttackBonus, 12)
 })
 
 test('オンラインでも設置後の生成生ハムは通常攻撃3となり、ガリで切り上げ半減する', t => {
