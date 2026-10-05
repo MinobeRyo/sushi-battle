@@ -37,9 +37,32 @@ export function battleStatusDetails(st: BattleSideStatus): {
     id: 'kireta', name: '切れ味',
     value: st.kiretaSpent ? `${st.kiretaStack}（ターン終了後0）` : `${st.kiretaStack}`,
     description: st.kiretaSpent
-      ? `コハダで消費済みです。このターンの光り物の攻撃には +${st.kiretaStack} が残りますが、カード効果で再消費できません。ターン終了時の攻撃後に0になります。`
-      : `光り物の攻撃に1枚ごと +${st.kiretaStack}。コハダは全消費して即時ダメージ、シメサバは2消費して2枚ドローします。`,
+      ? `コハダで消費済み：同ターンに再使用不可\n光り物の攻撃＋${st.kiretaStack}は当ターンの攻撃後まで維持\nターン終了時：切れ味0`
+      : `光り物1枚ごとの攻撃＋${st.kiretaStack}\nコハダ：全消費して即時ダメージ\nシメサバ：2消費して2枚ドロー\nサバ：1消費で防御予約（任意）\nイワシ生姜：2消費で防御予約（任意）`,
   }]
+
+  for (const card of st.field) {
+    if (card.defenseState) effects.push({
+      id: `defense:${card.fid}`, name: card.name,
+      value: card.defenseState === 'reserved' ? '防御予約' : '防御待機',
+      description: [
+        card.defenseState === 'reserved'
+          ? '自分の通常攻撃後：防御待機に変化'
+          : '防御待機中：攻撃しない',
+        '相手の召喚効果後・ダメージ前：使用または温存',
+        card.effect === 'reserve_random_half_1'
+          ? '使用時：相手の攻撃可能な1枚をランダムに半減'
+          : '使用時：相手の攻撃可能な1枚を選んで半減',
+        '強化後に切り捨て半減／その相手ターン中有効',
+        '固定ダメージは半減しない',
+        '使用時・相手ターン終了時：防御札が消える',
+      ].join('\n'),
+    })
+    if (card.attackHalved) effects.push({
+      id: `attack-half:${card.fid}`, name: card.name, value: '攻撃半減',
+      description: 'すべての強化後：攻撃を切り捨て半減\nこのカードの通常攻撃・海鮮の再攻撃に反映\n固定ダメージは対象外\n当ターン終了時：解除',
+    })
+  }
 
   for (const [base, amount] of Object.entries(st.attackBuff)) {
     if (amount <= 0) continue

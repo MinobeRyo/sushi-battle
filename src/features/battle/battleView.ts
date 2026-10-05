@@ -29,6 +29,7 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     cApNextBonus: c.apNextBonus, cNikuMatsuri: c.nikuMatsuri, cSacrificedThisTurn: c.sacrificedThisTurn ?? 0, cKiretaSpent: c.kiretaSpent,
     activePlayer: viewer,
     pendingAttack: match.pendingAttack,
+    pendingReaction: match.pendingReaction,
     passToPlayerId,
     turn: match.turn,
     phase, winner: match.winnerId === null ? null : match.winnerId === viewer ? 'player' : 'cpu',

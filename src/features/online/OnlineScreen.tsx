@@ -10,7 +10,7 @@ import { useOnlineRoom, type OnlineRoomController } from './useOnlineRoom'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { useOnlineComboAnnouncements } from './useOnlineComboAnnouncements'
 import { canPlayOnlineCard } from './onlineBattleActions'
-import { getDestroyTargetError } from '../battle/battleEngine'
+import { getDestroyTargetError, getDefenseReserveError } from '../battle/battleEngine'
 import { ComboCutIn } from '../battle/ComboCutIn'
 import { AnimatePresence } from 'framer-motion'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
@@ -70,7 +70,9 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
   const canAct = ready && !room.pending && yourTurn && match.phase === 'playing'
   const yourDefense = match.phase === 'defending' && match.pendingAttack?.defenderId === snapshot.playerId
   const canDefend = ready && !room.pending && yourDefense
-  const phase = match.phase === 'over' ? 'over' : canDefend ? 'defending' : canAct ? 'player'
+  const yourReaction = match.phase === 'reacting' && match.pendingReaction?.defenderId === snapshot.playerId
+  const canReact = ready && !room.pending && yourReaction
+  const phase = match.phase === 'over' ? 'over' : canReact ? 'reacting' : canDefend ? 'defending' : canAct ? 'player'
     : !ready || room.pending ? 'syncing' : 'waiting'
   const requested = snapshot.rematchRequested[snapshot.playerId]
   const opponentRequested = snapshot.rematchRequested[snapshot.playerId === 1 ? 2 : 1]
@@ -81,16 +83,20 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
   const game: BattleController = {
     s: toOnlineBattleView(match, phase), showLog, setShowLog,
     comboAnim, floats: [], inspect: currentInspect, setInspect, reorderStep: 'p',
-    playCard: (card, sacrificeCount = 0, targetFieldId) => {
+    playCard: (card, sacrificeCount = 0, targetFieldId, reserveDefense = false) => {
       if (!canPlayOnlineCard(match, canAct, card) || !('instanceId' in card) || typeof card.instanceId !== 'string') return
       const currentCard = match.you.hand.find(item => item.instanceId === card.instanceId)
-      if (!currentCard || getDestroyTargetError(currentCard, match.opponent.field, targetFieldId)) return
+      if (!currentCard || getDestroyTargetError(currentCard, match.opponent.field, targetFieldId)
+        || getDefenseReserveError(currentCard, match.you.field, match.you.kiretaStack, match.you.kiretaSpent, reserveDefense)) return
       setInspect(null)
-      void room.playCard(card.instanceId, sacrificeCount, targetFieldId)
+      void room.playCard(card.instanceId, sacrificeCount, targetFieldId, reserveDefense)
     },
     endTurn: () => { if (canAct) { setInspect(null); void room.endTurn() } },
     useSideMenu: () => { if (canAct) { setInspect(null); void room.useSideMenu() } },
     respondDefense: useGari => { if (canDefend) { setInspect(null); void room.respondDefense(useGari) } },
+    respondReaction: (useDefense, targetFieldId) => {
+      if (canReact) { setInspect(null); void room.respondReaction(useDefense, targetFieldId) }
+    },
     restart: () => { void room.rematch() },
     handlePassReady: () => {}, handleReorderComplete: () => {},
   }
@@ -99,7 +105,9 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
       <div className="online-room-bar flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs text-amber-100">
         <span>部屋 {snapshot.code} · あなたは P{snapshot.playerId} · オンライン対戦</span>
         <span role="status">{match.phase === 'over' ? '対戦終了' : !ready ? '再接続を待っています（操作を一時停止中）'
-          : room.pending ? '操作を確認中…' : match.phase === 'defending'
+          : room.pending ? '操作を確認中…' : match.phase === 'reacting'
+            ? yourReaction ? '光り物で防御するか選んでください' : '相手が光り物の防御を選んでいます'
+            : match.phase === 'defending'
             ? yourDefense ? 'ガリを使うか選んでください' : '相手がガリを使うか選んでいます'
             : yourTurn ? 'あなたのターン' : '相手のターン'}</span>
         <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>

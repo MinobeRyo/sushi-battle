@@ -144,6 +144,7 @@ export function calcFieldDmg(
 ) {
   const gunkanBoost = opts.gunkanBoost ?? (makimonoCount(field) >= MAKI_COMP_5)
   return field.reduce((sum, c) => {
+    if (c.defenseState === 'ready') return sum
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
     const baseBuff = [c.base, ...(c.subBases ?? [])]
       .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
@@ -161,8 +162,36 @@ export function calcFieldDmg(
     if (gunkanBoost && c.archetype.includes('gunkan')) {
       total = Math.floor(total * GUNKAN_BOOST)
     }
+    if (c.attackHalved) total = Math.floor(total / 2)
     return sum + total
   }, 0)
+}
+
+/** 海の幸の50%部分。えび追加や連鎖などの固定ダメージは含めない。 */
+export function calcKaisenReattackDamage(field: FieldCard[], buff: Record<string, number>, kireta = 0, enemyBelly = 0) {
+  return Math.floor(calcFieldDmg(field.filter(card => card.archetype.includes('kaisen')), buff, kireta, enemyBelly, {
+    gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
+  }) * KAISEN_REATTACK)
+}
+
+export function getDefenseCost(card: Card): number {
+  return card.effect === 'reserve_random_half_1' ? 1 : card.effect === 'reserve_target_half_2' ? 2 : 0
+}
+
+export function getDefenseTargets(field: FieldCard[], buff: Record<string, number> = {}, kireta = 0, enemyBelly = 0): FieldCard[] {
+  const gunkanBoost = makimonoCount(field) >= MAKI_COMP_5
+  return field.filter(card => card.defenseState !== 'ready' && card.turnsLeft > 0
+    && calcFieldDmg([card], buff, kireta, enemyBelly, { gunkanBoost }) > 0)
+}
+
+export function getDefenseReserveError(card: Card, field: FieldCard[], kireta: number, kiretaSpent: boolean, reserveDefense?: unknown): string | undefined {
+  if (reserveDefense !== undefined && typeof reserveDefense !== 'boolean') return 'invalid_reserve_defense'
+  if (!reserveDefense) return undefined
+  const cost = getDefenseCost(card)
+  if (!cost) return 'defense_not_supported'
+  if (field.some(item => item.defenseState === 'reserved' || item.defenseState === 'ready')) return 'defense_already_reserved'
+  if ((kiretaSpent ? 0 : kireta) < cost) return 'insufficient_kireta'
+  return undefined
 }
 
 // ── 召喚処理（プレイヤー / CPU 共通の純関数） ────────────────────────────────
@@ -219,6 +248,7 @@ type SummonInput = {
   nikuMatsuri: boolean
   sacrificedThisTurn?: number
   sacrificeCount?: number
+  reserveDefense?: boolean
   sacrificeAttackBonus?: number
   kiretaSpent: boolean
   enemyBelly: number
@@ -228,6 +258,7 @@ type SummonInput = {
 type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount' | 'sacrificeAttackBonus'> & {
   sacrificedThisTurn: number
   extraDmg: number
+  kaisenReattackDamage: number // 反応後に再計算する海鮮50%部分
   stopOppDigestTurns: number
   drawNow: number   // 召喚時ドロー枚数
   drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
@@ -244,8 +275,11 @@ export function applySummon(input: SummonInput): SummonResult {
   const sacrificeCount = input.sacrificeCount ?? 0
   const sacrificeError = getSacrificeError(card, input.field, input.sacrificeCount)
   if (sacrificeError) throw new RangeError(sacrificeError)
+  const defenseError = getDefenseReserveError(card, input.field, input.kireta, input.kiretaSpent, input.reserveDefense)
+  if (defenseError) throw new RangeError(defenseError)
   const logs: string[] = []
   let extraDmg = 0
+  let kaisenReattackDamage = 0
   let belly = input.belly
   let kireta = input.kireta
   let stopOppDigestTurns = 0
@@ -305,6 +339,13 @@ export function applySummon(input: SummonInput): SummonResult {
       apNext = 1
       logs.push('⚡ 次のターン AP +1！')
       break
+    case 'reserve_random_half_1':
+    case 'reserve_target_half_2':
+      if (input.reserveDefense) {
+        kireta -= getDefenseCost(card)
+        logs.push(`切れ味${getDefenseCost(card)}を消費して防御を予約`)
+      }
+      break
     case 'kireta_stack':
       kireta += 1
       logs.push(`✂ 切れ味スタック +1（計${kireta}）`)
@@ -363,6 +404,7 @@ export function applySummon(input: SummonInput): SummonResult {
   })
   const sacrificedThisTurn = (input.sacrificedThisTurn ?? 0) + sacrificeCount
   const summonedCard = toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)
+  if (input.reserveDefense) summonedCard.defenseState = 'reserved'
   const sacrificeBonus = sacrificeCount * (getSacrificeBonus(card) + (input.sacrificeAttackBonus ?? 0))
   const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeBonus
   if (attackBonus) summonedCard.turnAttackBonus = attackBonus
@@ -461,16 +503,13 @@ export function applySummon(input: SummonInput): SummonResult {
       field = field.map(c =>
         (c.fid === partnerFid || c === self) ? { ...c, kaisenPaired: true } : c)
       const kaisenField = field.filter(c => c.archetype.includes('kaisen'))
-      const reattack = Math.floor(
-        calcFieldDmg(kaisenField, attackBuff, kireta, enemyBelly, {
-          gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
-          nikuMatsuri,
-        }) * KAISEN_REATTACK)
+      const reattack = calcKaisenReattackDamage(field, attackBuff, kireta, enemyBelly)
+      kaisenReattackDamage = reattack
       // 元の合計50%・切り捨てを維持し、その後にえび個体ごとの固定値を足す。
       const ebiBonus = kaisenField.filter(c => c.id === 'ebi').length * EBI_REATTACK_BONUS
       extraDmg += reattack + ebiBonus
       announce(COMBO_META.umi_zanmai,
-        `場の海鮮${kaisenField.length}枚が再攻撃 +${reattack + ebiBonus}${ebiBonus ? `（えび追加分 +${ebiBonus}）` : ''}`)
+        `場の海鮮${kaisenField.length}枚が再攻撃${ebiBonus ? `（えび固定追加 +${ebiBonus}）` : ''}`)
     }
   }
 
@@ -491,7 +530,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamuDeck, generateBintoroDeck, apNext, apRefund, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, kaisenReattackDamage, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamuDeck, generateBintoroDeck, apNext, apRefund, fired, logs,
   }
 }
 

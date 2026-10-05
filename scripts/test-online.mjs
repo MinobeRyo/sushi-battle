@@ -131,7 +131,7 @@ function assertPrivate(snapshot) {
   const match = snapshot.match
   if (!match) return
   assert.deepEqual(Object.keys(match).sort(), [
-    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'pendingAttack', 'you', 'opponent', 'log', 'comboEvents',
+    'matchId', 'revision', 'activePlayerId', 'turn', 'phase', 'winnerId', 'pendingAttack', 'pendingReaction', 'you', 'opponent', 'log', 'comboEvents',
   ].sort(), '配信状態に内部試合データを追加してはいけません')
   assert.equal('deck' in match.you, false, '自分の山札の中身も未公開です')
   assert.equal('hand' in match.opponent, false, '相手の手札は送信しません')

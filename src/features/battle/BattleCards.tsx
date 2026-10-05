@@ -5,23 +5,24 @@ import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
-import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError } from './battleEngine'
+import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError } from './battleEngine'
 import { NAMAHAM_CARD } from '../../data/cards'
 import { CardEffectText } from './CardEffectText'
 import './BattleCards.css'
 
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, kiretaSpent = false, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
   kiretaStack: number
+  kiretaSpent?: boolean
   fieldCards: FieldCard[]
   combosFired?: readonly string[]
   enemyFieldCards?: FieldCard[]
   enemyCardAttack?: (card: FieldCard) => number
   sacrificeAttackBonus?: number
-  onPlay: (sacrificeCount?: number, targetFieldId?: string) => void
+  onPlay: (sacrificeCount?: number, targetFieldId?: string, reserveDefense?: boolean) => void
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
@@ -29,16 +30,23 @@ export function CardDetailSheet({
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const sacrificeHeadingId = useId()
   const destroyHeadingId = useId()
+  const defenseHeadingId = useId()
+  const [defenseSelection, setDefenseSelection] = useState<{ cardKey: string; reserve: boolean } | null>(null)
   const [destroySelection, setDestroySelection] = useState<{ cardKey: string; targetFieldId: string } | null>(null)
   const [sacrificeSelection, setSacrificeSelection] = useState<{ cardKey: string; count: number } | null>(null)
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
-  const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
   const isField = remainingTurns !== undefined
   const showActualAttack = isField && inspect.actualAttack !== undefined
   const isGenerated = card.id === NAMAHAM_CARD.id
   const cardKey = 'instanceId' in card ? String(card.instanceId) : card.id
+  const defenseCost = getDefenseCost(card)
+  const reserveDefense = !isField && defenseSelection?.cardKey === cardKey && defenseSelection.reserve
+  const defenseError = getDefenseReserveError(card, fieldCards, kiretaStack, kiretaSpent, true)
+  const defenseBlockedReason = defenseError === 'insufficient_kireta' ? '切れ味が足りません'
+    : defenseError === 'defense_already_reserved' ? '防御カードは1枚までです' : undefined
+  const kBonus = card.archetype.includes('hikari') ? Math.max(0, kiretaStack - (reserveDefense ? defenseCost : 0)) : 0
   const availableNamahamu = countNamahamu(fieldCards)
   const maxSacrifices = Math.min(getSacrificeLimit(card), availableNamahamu)
   const needsSacrificeChoice = !isField && maxSacrifices > 0
@@ -51,11 +59,13 @@ export function CardDetailSheet({
   const destroyTargets = getDestroyTargets(card, enemyFieldCards)
   const targetFieldId = destroySelection?.cardKey === cardKey ? destroySelection.targetFieldId : undefined
   const targetError = getDestroyTargetError(card, enemyFieldCards, targetFieldId)
-  const canConfirm = canPlay && isPresent && selectedSacrifices !== null && !lacksFieldSpace && !targetError
+  const canConfirm = canPlay && isPresent && selectedSacrifices !== null && !lacksFieldSpace && !targetError && !(reserveDefense && defenseError)
   const playLabel = !canPlay ? inspect.playBlockedReason ?? '召喚できません'
     : selectedSacrifices === null ? '生ハムを残すか、消費するか選択'
     : lacksFieldSpace ? '机がいっぱいです（8枚まで）'
     : targetError ? '破壊する相手の持続型を選択'
+    : reserveDefense && defenseError ? defenseBlockedReason ?? '防御予約できません'
+    : reserveDefense ? `防御を予約して召喚（AP −${card.cost}・切れ味 −${defenseCost}）`
     : selectedSacrifices > 0 ? `${selectedSacrifices}体を消費して召喚（AP −${card.cost}）`
     : `召喚する（AP −${card.cost}）`
 
@@ -66,6 +76,10 @@ export function CardDetailSheet({
       setDestroySelection(null)
     }
   }, [card, cardKey, canPlay, destroySelection, enemyFieldCards])
+
+  useEffect(() => {
+    if (!canPlay) setDefenseSelection(null)
+  }, [canPlay])
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -146,6 +160,25 @@ export function CardDetailSheet({
           <p><CardEffectText card={card} variant="full" combosFired={combosFired} /></p>
         </div>
 
+        {!isField && defenseCost > 0 && (
+          <section className="battle-defense-reserve" aria-labelledby={defenseHeadingId}>
+            <h3 id={defenseHeadingId}>召喚後の防御を予約</h3>
+            <p>このターンは通常攻撃し、攻撃後に防御カードへ変化します。</p>
+            <p>次の相手の召喚直後に使用できます。相手ターン終了時に退場します。</p>
+            <div className="battle-defense-reserve-options" role="group" aria-labelledby={defenseHeadingId}>
+              <button type="button" aria-pressed={!reserveDefense} disabled={!canPlay || !isPresent}
+                onClick={() => setDefenseSelection({ cardKey, reserve: false })}>
+                <strong>通常召喚</strong><span>切れ味を消費しない</span>
+              </button>
+              <button type="button" aria-pressed={reserveDefense} disabled={!canPlay || !isPresent || !!defenseError}
+                onClick={() => setDefenseSelection({ cardKey, reserve: true })}>
+                <strong>防御を予約</strong><span>切れ味 {defenseCost} 消費</span>
+                {defenseBlockedReason && <small>{defenseBlockedReason}</small>}
+              </button>
+            </div>
+          </section>
+        )}
+
         {needsSacrificeChoice && (
           <section className="battle-sacrifice" aria-labelledby={sacrificeHeadingId}>
             <div className="battle-sacrifice-heading">
@@ -206,7 +239,7 @@ export function CardDetailSheet({
             <motion.button
               type="button"
               className="battle-detail-play"
-              onClick={canConfirm ? () => onPlay(selectedSacrifices ?? 0, targetFieldId) : undefined}
+              onClick={canConfirm ? () => onPlay(selectedSacrifices ?? 0, targetFieldId, reserveDefense) : undefined}
               disabled={!canConfirm}
               whileTap={canConfirm ? { scale: 0.95 } : {}}
               whileHover={canConfirm ? { scale: 1.02 } : {}}
@@ -224,12 +257,16 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
   card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
+  const defenseLabel = card.defenseState === 'ready' ? '防御待機' : card.defenseState === 'reserved' ? '防御予約' : null
+  const statusLabel = [defenseLabel, card.attackHalved ? '攻撃半減' : null].filter(Boolean).join('・')
   return (
     <motion.button
       type="button"
       className="battle-field-card"
       data-card-type={card.type}
-      aria-label={`${card.name}、攻撃力${actualAttack ?? card.attack}${isPersist ? `、残り${card.turnsLeft}ターン` : ''}の詳細`}
+      data-defense-state={card.defenseState}
+      data-attack-halved={card.attackHalved || undefined}
+      aria-label={`${card.name}${statusLabel ? `、${statusLabel}` : ''}、攻撃力${actualAttack ?? card.attack}${isPersist ? `、残り${card.turnsLeft}ターン` : ''}の詳細`}
       layout
       initial={{ scale: 0, y: isEnemy ? -24 : 24, opacity: 0 }}
       animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -242,8 +279,8 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
       <div className="battle-field-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit /></div>
       <p className="battle-field-card-name">{card.name}</p>
       <div className="battle-field-card-stats">
-        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}</span>
-        <span className="battle-field-card-turns">{isPersist ? `残り${card.turnsLeft}T` : '即時'}</span>
+        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}{card.attackHalved && <small className="battle-field-card-debuff"> 半減</small>}</span>
+        <span className="battle-field-card-turns">{defenseLabel ?? (isPersist ? `残り${card.turnsLeft}T` : '即時')}</span>
       </div>
       <p className="battle-field-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>

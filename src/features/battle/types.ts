@@ -1,9 +1,9 @@
 import type { Card } from '../../types'
-import type { CardInstance, FieldCard, PendingAttack, PlayerId, SideMenuState } from '../../game/types'
+import type { CardInstance, FieldCard, PendingAttack, PendingReaction, PlayerId, SideMenuState } from '../../game/types'
 export type { FieldCard } from '../../game/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export type ViewPhase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder' | 'waiting' | 'syncing' | 'defending'
+export type ViewPhase = 'player' | 'animating' | 'cpu' | 'pass' | 'over' | 'reorder' | 'waiting' | 'syncing' | 'defending' | 'reacting'
 
 export type FloatNum = { id: number; dmg: number; target: 'cpu' | 'player' }
 
@@ -50,6 +50,7 @@ export type BattleView = {
   // Game
   activePlayer: 1 | 2
   pendingAttack: PendingAttack | null
+  pendingReaction: PendingReaction | null
   passToPlayerId: PlayerId | null
   turn: number; phase: ViewPhase; winner: 'player' | 'cpu' | null
   log: string[]; flash: 'cpu' | 'player' | null

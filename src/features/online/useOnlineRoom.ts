@@ -44,8 +44,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   card_not_in_hand: 'このカードはすでに手札にありません。',
   insufficient_ap: '召喚に必要なAPが足りません。',
   field_full: '机が満杯です。',
-  target_required: '破壊する相手の持続型を選んでください。',
-  invalid_target: 'そのカードは破壊できません。対象を選び直してください。',
+  target_required: '効果の対象を選んでください。',
+  invalid_target: 'そのカードは対象にできません。選び直してください。',
+  invalid_reserve_defense: '防御予約の選択を確認できませんでした。',
+  defense_not_supported: 'このカードは防御予約できません。',
+  insufficient_kireta: '防御予約に必要な切れ味が足りません。通常召喚はできます。',
+  defense_already_reserved: '防御カードは1枚までです。通常召喚はできます。',
+  not_reacting: '光り物の防御受付は終了しています。最新の状態を取得します。',
+  invalid_reaction: '光り物の防御の選択を確認できませんでした。',
   invalid_sacrifice_count: '生贄にする生ハムの数を選び直してください。',
   not_enough_namahamu: '机の生ハムが足りません。最新の状態をご確認ください。',
   side_menu_missing: 'サイドメニューを購入していません。',
@@ -273,7 +279,7 @@ export function useOnlineRoom() {
     }
   }, [invalidateRequests, showSnapshot, storeSession])
 
-  const sendAction = useCallback(async (type: OnlineAction['type'], cardInstanceId?: string, useGari?: boolean, sacrificeCount?: number, targetFieldId?: string) => {
+  const sendAction = useCallback(async (command: Omit<OnlineAction, 'matchId' | 'actionId' | 'expectedRevision'>) => {
     if (pendingRef.current) return
     const match = snapshotRef.current?.match
     if (!match) {
@@ -281,11 +287,7 @@ export function useOnlineRoom() {
       return
     }
     const action: OnlineAction = {
-      matchId: match.matchId, actionId: actionId(), expectedRevision: match.revision, type,
-      ...(cardInstanceId ? { cardInstanceId } : {}),
-      ...(type === 'play_card' ? { sacrificeCount: sacrificeCount ?? 0 } : {}),
-      ...(type === 'play_card' && targetFieldId !== undefined ? { targetFieldId } : {}),
-      ...(type === 'respond_defense' ? { useGari } : {}),
+      ...command, matchId: match.matchId, actionId: actionId(), expectedRevision: match.revision,
     }
     const result = await request(
       transport => transport.request('match:action', action),
@@ -295,7 +297,8 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  const playCard = useCallback((instanceId: string, sacrificeCount = 0, targetFieldId?: string) => sendAction('play_card', instanceId, undefined, sacrificeCount, targetFieldId), [sendAction])
+  const playCard = useCallback((instanceId: string, sacrificeCount = 0, targetFieldId?: string, reserveDefense = false) =>
+    sendAction({ type: 'play_card', cardInstanceId: instanceId, sacrificeCount, targetFieldId, reserveDefense }), [sendAction])
   const draftAction = useCallback(async (command: DraftCommand) => {
     const draft = snapshotRef.current?.draft
     if (!draft || pendingRef.current) return false
@@ -309,9 +312,11 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
     return result?.ok === true
   }, [request, resumeRoom])
-  const endTurn = useCallback(() => sendAction('end_turn'), [sendAction])
-  const useSideMenu = useCallback(() => sendAction('use_side_menu'), [sendAction])
-  const respondDefense = useCallback((useGari: boolean) => sendAction('respond_defense', undefined, useGari), [sendAction])
+  const endTurn = useCallback(() => sendAction({ type: 'end_turn' }), [sendAction])
+  const useSideMenu = useCallback(() => sendAction({ type: 'use_side_menu' }), [sendAction])
+  const respondDefense = useCallback((useGari: boolean) => sendAction({ type: 'respond_defense', useGari }), [sendAction])
+  const respondReaction = useCallback((useDefense: boolean, targetFieldId?: string) =>
+    sendAction({ type: 'respond_reaction', useDefense, targetFieldId }), [sendAction])
   const rematch = useCallback(async () => {
     if (pendingRef.current) return
     const result = await request(
@@ -321,7 +326,7 @@ export function useOnlineRoom() {
     if (!result?.ok && transportRef.current?.connected) await resumeRoom(true)
   }, [request, resumeRoom])
 
-  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, useSideMenu, respondDefense, rematch, draftAction, serverNow }
+  return { snapshot, session, status, error, pending, createRoom, joinRoom, leaveRoom, playCard, endTurn, useSideMenu, respondDefense, respondReaction, rematch, draftAction, serverNow }
 }
 
 export type OnlineRoomController = ReturnType<typeof useOnlineRoom>

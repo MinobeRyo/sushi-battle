@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { loadTs } from './load-ts.mjs'
 
 const { CARDS } = loadTs('src/data/cards.ts')
-const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction } = loadTs('src/game/matchEngine.ts')
+const { createMatch, transitionMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction } = loadTs('src/game/matchEngine.ts')
 const { INIT_GARI, GARI_REDUCTION_RATE, toField } = loadTs('src/game/battleRules.ts')
 const byId = id => {
   const card = CARDS.find(c => c.id === id)
@@ -747,7 +747,9 @@ for (const mode of ['two_player', 'cpu']) {
     let actionCount = 0
     while (state.phase !== 'over' && actionCount < 500) {
       let action
-      if (state.phase === 'defending') {
+      if (state.phase === 'reacting') {
+        action = getCpuReactionAction(state) ?? { type: 'respond_reaction', playerId: state.pendingReaction.defenderId, useDefense: false }
+      } else if (state.phase === 'defending') {
         action = getCpuDefenseAction(state) ?? defend(state, true)
       } else if (state.phase === 'reorder') {
         action = { type: 'complete_reorder', playerId: state.reorderPlayerId, cards: copies('maguro', 5) }

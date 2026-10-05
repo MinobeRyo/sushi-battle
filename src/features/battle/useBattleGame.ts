@@ -2,7 +2,7 @@ import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode } from '../../data/cpuDecks'
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { createMatch, getCpuActions, getCpuDefenseAction, transitionMatch } from '../../game/matchEngine'
+import { createMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
 import { COMBO_META } from './battleEngine'
 import type { FloatNum, Inspect, ViewPhase } from './types'
@@ -108,7 +108,7 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
       view.current.phase = 'over'
       view.current.busy = false
     } else if (mode === 'two_player') {
-      const nextViewer = match.pendingAttack?.defenderId ?? match.reorderPlayerId ?? match.activePlayerId
+      const nextViewer = match.pendingReaction?.defenderId ?? match.pendingAttack?.defenderId ?? match.reorderPlayerId ?? match.activePlayerId
       if (nextViewer !== view.current.viewer) {
         // 召喚中の割り込みでも端末を渡し、回答後は必要なプレイヤーへ戻す。
         view.current.phase = 'pass'
@@ -120,9 +120,21 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
         setFlash(null)
         clearCombos()
       } else {
-        view.current.phase = match.phase === 'defending' ? 'defending'
+        view.current.phase = match.phase === 'reacting' ? 'reacting'
+          : match.phase === 'defending' ? 'defending'
           : match.phase === 'reorder' ? 'reorder' : 'player'
         view.current.busy = false
+      }
+    } else if (match.phase === 'reacting') {
+      const isHumanReaction = match.pendingReaction?.defenderId === 1
+      view.current.phase = isHumanReaction ? 'reacting' : 'waiting'
+      view.current.busy = !isHumanReaction
+      if (!isHumanReaction) {
+        scheduleProgress(() => {
+          const action = getCpuReactionAction(matchRef.current!)
+          if (action) dispatch(action)
+          syncPhase(450)
+        }, 550)
       }
     } else if (match.phase === 'defending') {
       const isHumanDefense = match.pendingAttack?.defenderId === 1
@@ -154,10 +166,10 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
     tick()
   }
 
-  const playCard = (card: Card, sacrificeCount = 0, targetFieldId?: string) => {
+  const playCard = (card: Card, sacrificeCount = 0, targetFieldId?: string, reserveDefense = false) => {
     if (view.current.busy || view.current.phase !== 'player') return
     if (!('instanceId' in card) || typeof card.instanceId !== 'string') return
-    if (dispatch({ type: 'play_card', playerId: view.current.viewer, cardInstanceId: card.instanceId, sacrificeCount, targetFieldId })) {
+    if (dispatch({ type: 'play_card', playerId: view.current.viewer, cardInstanceId: card.instanceId, sacrificeCount, targetFieldId, reserveDefense })) {
       setInspect(null)
       syncPhase()
     }
@@ -187,6 +199,13 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
     setInspect(null)
     dispatch({ type: 'respond_defense', playerId: view.current.viewer, useGari })
     syncPhase(450)
+  }
+
+  const respondReaction = (useDefense: boolean, targetFieldId?: string) => {
+    const pending = matchRef.current!.pendingReaction
+    if (view.current.busy || view.current.phase !== 'reacting' || pending?.defenderId !== view.current.viewer) return
+    setInspect(null)
+    if (dispatch({ type: 'respond_reaction', playerId: view.current.viewer, useDefense, targetFieldId })) syncPhase(450)
   }
 
   const handlePassReady = () => {
@@ -224,5 +243,5 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
   const s = toBattleView(match, view.current.viewer, view.current.phase, flash, view.current.passToPlayerId)
   const reorderStep = match.reorderPlayerId === null || match.reorderPlayerId === view.current.viewer ? 'p' : 'c'
   return { s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, respondDefense, handlePassReady, handleReorderComplete, restart }
+    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart }
 }

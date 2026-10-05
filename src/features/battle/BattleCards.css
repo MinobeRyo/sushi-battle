@@ -179,3 +179,16 @@
   .battle-detail-stats dd { font-size: 18px; }
   .battle-detail-actions { flex-direction: column-reverse; }
 }
+
+.battle-defense-reserve { margin-top: 16px; padding: 14px; border: 1px solid #93a9b2; border-radius: 12px; background: #f0f7f8; }
+.battle-defense-reserve h3 { color: #254f61; font-size: 16px; font-weight: 800; }
+.battle-defense-reserve > p { margin-top: 6px; color: #48606a; font-size: 14px; line-height: 1.6; }
+.battle-defense-reserve-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.battle-defense-reserve-options button { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 2px solid #b5c6cb; border-radius: 10px; color: #315260; background: #fff; text-align: left; cursor: pointer; }
+.battle-defense-reserve-options button > span { font-size: 14px; }
+.battle-defense-reserve-options button > small { font-size: 12px; }
+.battle-defense-reserve-options button[aria-pressed='true'] { border-color: #2d6c84; background: #dfeff4; }
+.battle-defense-reserve-options button:disabled { color: #78888e; border-color: #ccd4d7; background: #e9eff1; cursor: not-allowed; }
+.battle-field-card[data-defense-state='ready'] { --card-border: #46899e; --card-background: linear-gradient(160deg, #f0fbff, #d3ebf4); }
+.battle-field-card[data-defense-state] .battle-field-card-turns { color: #25637c; font-size: 12px; }
+.battle-field-card-debuff { color: #8b3275; font-size: 11px; font-weight: 700; line-height: 12px; }

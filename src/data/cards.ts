@@ -485,7 +485,7 @@ export const CARDS: Card[] = [
     price: 150,
     attack: 7,
     fullness: 0,
-    effect: 'kireta_stack', // 切れ味スタック+1
+    effect: 'reserve_random_half_1',
     archetype: ['hikari'],
     lane: 'build',
   },
@@ -583,7 +583,7 @@ export const CARDS: Card[] = [
     price: 150,
     attack: 6,
     fullness: 0,
-    effect: 'kireta_stack',
+    effect: 'reserve_target_half_2',
     archetype: ['hikari'],
     lane: 'build',
   },
