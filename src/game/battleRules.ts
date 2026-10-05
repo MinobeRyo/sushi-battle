@@ -90,7 +90,7 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 export const COMBO_META: Record<string, ComboMeta> = {
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
-    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きAP+1・ビントロ2枚ドローとお腹−3・づけマグロ消化停止2回を解禁',
+    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きAP+1・ビントロ2枚ドローとお腹−3・づけマグロ消化停止2回・中トロお腹−10・大トロでビントロ補充とお腹−5と次ターンAP+1を解禁',
   },
   maki_comp_3: {
     id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀',
@@ -232,6 +232,7 @@ type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacri
   drawNow: number   // 召喚時ドロー枚数
   drawPersistIkaTako: boolean // 山札の持続いか・たこからランダムに1枚移す
   generateNamahamuDeck: number // 肉祭りで山札のランダム位置に生成する枚数
+  generateBintoroDeck: number // 赤身成立後の大トロで山札に生成する枚数
   apNext: number    // 次のターンだけのAPボーナス
   apRefund: number  // 召喚コスト支払い後、現在のAP上限まで回復
   fired: ComboMeta[]
@@ -251,6 +252,7 @@ export function applySummon(input: SummonInput): SummonResult {
   let drawNow = 0
   let drawPersistIkaTako = false
   let generateNamahamuDeck = 0
+  let generateBintoroDeck = 0
   let apNext = 0
   let apRefund = 0
   let kiretaSpent = input.kiretaSpent
@@ -270,6 +272,23 @@ export function applySummon(input: SummonInput): SummonResult {
     case 'draw_persist_ika_tako_1':
       // 山札と乱数を持つ試合エンジンで実際の個体を移動する。
       drawPersistIkaTako = true
+      break
+    // 限定効果は召喚前の成立状態を見る。今回初めて三種が揃う召喚では発動しない。
+    case 'akami_digest_10':
+      if (hasAkamiMori(input.combosFired)) {
+        const recovered = Math.min(10, belly)
+        belly = Math.max(0, belly - 10)
+        logs.push(`赤身三種盛り：中トロで満腹度を${recovered}回復`)
+      }
+      break
+    case 'akami_generate_bintoro_deck_1':
+      if (hasAkamiMori(input.combosFired)) {
+        generateBintoroDeck = 1
+        const recovered = Math.min(5, belly)
+        belly = Math.max(0, belly - 5)
+        apNext = 1
+        logs.push(`赤身三種盛り：大トロで満腹度を${recovered}回復 / 次の自分のターンAP＋1`)
+      }
       break
     case 'akami_draw_2_digest_3':
       if (hasAkamiMori(input.combosFired)) {
@@ -472,7 +491,7 @@ export function applySummon(input: SummonInput): SummonResult {
   return {
     belly, kireta, field, summonedIds, summonedArch,
     thisTurnBases, thisTurnArch, combosFired, attackBuff, drawBonus, nikuMatsuri,
-    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamuDeck, apNext, apRefund, fired, logs,
+    kiretaSpent, sacrificedThisTurn, extraDmg, stopOppDigestTurns, drawNow, drawPersistIkaTako, generateNamahamuDeck, generateBintoroDeck, apNext, apRefund, fired, logs,
   }
 }
 

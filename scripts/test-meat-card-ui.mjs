@@ -244,13 +244,35 @@ test('別個体のサーモンや机のカード詳細には破壊対象の選�
 })
 
 
-for (const id of ['bintoro', 'tekka_maki', 'duke_maguro']) test(`${id}の詳細はコンボ成立状態を即座に反映する`, () => {
+for (const id of ['chutoro', 'otoro', 'bintoro', 'tekka_maki', 'duke_maguro']) test(`${id}の詳細・手札・机はコンボ成立状態を即座に反映する`, () => {
   const h = createHarness(id, [])
-  assert.match(h.effectMarkup(), /data-active="false"/)
-  h.props.combosFired = ['akami_mori']
-  assert.match(h.effectMarkup(), /data-active="true"/)
-  h.props.combosFired = ['maki_comp_3']
-  assert.match(h.effectMarkup(), /data-active="false"/, '他のコンボでは有効にしない')
+  for (const component of ['CardDetailSheet', 'HandSushi', 'FieldSushi']) {
+    const overrides = component === 'FieldSushi' ? { card: rules.toField(cards.getCardById(id), `field:${id}`) } : {}
+    h.props.combosFired = []
+    assert.match(h.effectMarkup(component, overrides), /data-active="false"/)
+    h.props.combosFired = ['akami_mori']
+    assert.match(h.effectMarkup(component, overrides), /data-active="true"/)
+    h.props.combosFired = ['maki_comp_3']
+    assert.match(h.effectMarkup(component, overrides), /data-active="false"/, '他のコンボでは有効にしない')
+  }
+})
+
+test('中トロ・大トロの追加効果は初回成立召喚の不発を説明する', () => {
+  for (const id of ['chutoro', 'otoro']) {
+    const h = createHarness(id, [])
+    assert.match(h.effectMarkup(), /初めて三種が揃う召喚では発動しない/)
+    assert.match(h.effectMarkup(), /data-active="false"/)
+  }
+  assert.match(createHarness('chutoro', []).effectMarkup(), /自分の満腹度を10回復/)
+  const otoro = createHarness('otoro', [])
+  const inactive = otoro.effectMarkup()
+  assert.match(inactive, /ビントロ1枚を山札のランダムな位置へ/)
+  assert.match(inactive, /自分の満腹度を5回復/)
+  assert.match(inactive, /次の自分の開始時、回復後AP・上限＋1/)
+  assert.match(inactive, /次APは1回だけ有効／重複可能/)
+  assert.equal((inactive.match(/data-active="false"/g) ?? []).length, 3, '大トロの3効果だけを条件付き表示にする')
+  otoro.props.combosFired = ['akami_mori']
+  assert.equal((otoro.effectMarkup().match(/data-active="true"/g) ?? []).length, 3)
 })
 
 test('手札の短い説明はAP不足でも成立済みコンボ効果を有効表示する', () => {
