@@ -4,7 +4,7 @@ import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMori, HAND_LIMIT, INIT_AP, INIT_GARI, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -88,14 +88,14 @@ function drawAkami(player: MatchPlayer, random: RandomSource): string {
   return '山札から赤身カードをランダムに1枚引いた'
 }
 
-/** 肉祭り・焼肉寿司の山札供給。既存カードの相対順と個体別の強化状態を保つ。 */
-function addNamahamuToDeck(state: MatchState, id: PlayerId, count: number, random: RandomSource) {
+/** 効果による山札供給。既存カードの相対順と個体別の強化状態を保つ。 */
+function addCardToDeck(state: MatchState, id: PlayerId, card: Card, count: number, random: RandomSource) {
   const player = state.players[id]
   for (let i = 0; i < count; i++) {
-    const ham: CardInstance = {
-      ...structuredClone(NAMAHAM_CARD), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+    const instance: CardInstance = {
+      ...structuredClone(card), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
     }
-    player.deck.splice(Math.floor(random() * (player.deck.length + 1)), 0, ham)
+    player.deck.splice(Math.floor(random() * (player.deck.length + 1)), 0, instance)
   }
 }
 
@@ -253,8 +253,24 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   if (result.drawPersistIkaTako) result.logs.unshift(drawPersistIkaTako(player, random))
   if (card.effect === 'draw_random_akami_1') result.logs.unshift(drawAkami(player, random))
   if (result.generateNamahamuDeck > 0) {
-    addNamahamuToDeck(state, id, result.generateNamahamuDeck, random)
+    addCardToDeck(state, id, NAMAHAM_CARD, result.generateNamahamuDeck, random)
     result.logs.push(`生ハム${result.generateNamahamuDeck}枚を山札のランダムな位置に追加 / 生ハムの攻撃は対戦中＋${player.attackBuff[NAMAHAM_CARD.base]}`)
+  }
+  if (result.generateBintoroDeck > 0) {
+    addCardToDeck(state, id, CARDS.find(card => card.id === 'bintoro')!, result.generateBintoroDeck, random)
+    result.logs.push('赤身三種盛り：ビントロ1枚を山札のランダムな位置に追加')
+  }
+  if (card.effect === 'generate_tobiko_hand_50') {
+    // 確定した召喚で一度だけ抽選し、手札個体や場の一時効果は複製しない。
+    if (random() < 0.5) {
+      if (player.hand.length < HAND_LIMIT) {
+        player.hand.push({
+          ...structuredClone(CARDS.find(item => item.id === 'tobiko_gunkan')!),
+          instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+        })
+        result.logs.push('とびこ軍艦：手札にとびこ軍艦1枚を追加')
+      } else result.logs.push('とびこ軍艦：手札上限のため追加なし')
+    } else result.logs.push('とびこ軍艦：追加なし')
   }
   if (activeSideMenu(player, 'fries') && player.sushiPlayedThisTurn === 2) {
     draw(player, 1)
@@ -286,7 +302,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   // 通常攻撃・防御と勝敗判定の後、寿命と終了時ドローより先に補充する。
   const hamCount = player.field.filter(card =>
     card.effect === 'belly_boost_persist_50_namahamu_deck_1' && card.turnsLeft > 0).length
-  addNamahamuToDeck(state, id, hamCount, random)
+  addCardToDeck(state, id, NAMAHAM_CARD, hamCount, random)
   if (hamCount > 0) addLog(state, `${label(state, id)}の焼肉寿司: 生ハム${hamCount}枚を山札に混ぜた（終了時ドロー前）`)
   player.field = player.field.map(card => {
     const { turnAttackBonus: _, ...persistentCard } = card
@@ -463,10 +479,13 @@ export function getCpuActions(state: MatchState): MatchAction[] {
       action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
         ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}) }
     }
-    // ランダムドロー・コスト軽減・肉祭りの挿入位置は実際の召喚後に再計画する。
+    const playedEffect = action.type === 'play_card'
+      ? cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect : null
+    // ランダムなドロー・軽減・カード生成は実際の召喚後に再計画する。
     if (action.type === 'play_card'
-      && (['draw_persist_ika_tako_1', 'draw_random_akami_1', 'reduce_random_akami_cost_1'].includes(
-        cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect ?? '')
+      && (['draw_persist_ika_tako_1', 'draw_random_akami_1', 'reduce_random_akami_cost_1', 'generate_tobiko_hand_50'].includes(
+        playedEffect ?? '')
+        || (playedEffect === 'akami_generate_bintoro_deck_1' && hasAkamiMori(cpu.combosFired))
         || (!cpu.nikuMatsuri && (action.sacrificeCount ?? 0) > 0
           && (cpu.sacrificedThisTurn ?? 0) + (action.sacrificeCount ?? 0) >= 2))) {
       actions.push(action)

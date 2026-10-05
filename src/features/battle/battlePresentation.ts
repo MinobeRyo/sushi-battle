@@ -49,6 +49,23 @@ export type EffectTextPart = { text: string; combo?: 'akami_mori' }
 
 // 表示文と条件節を一元化し、図鑑などの通常の文字列説明にも同じ文を使う。
 export const COMBO_EFFECT_PARTS: Record<string, { full: EffectTextPart[]; short: EffectTextPart[] }> = {
+  akami_digest_10: {
+    full: [
+      { text: '赤身三種盛り中：召喚時、自分の満腹度を10回復', combo: 'akami_mori' },
+      { text: '初めて三種が揃う召喚では発動しない' },
+    ],
+    short: [{ text: '赤身三種中・召喚時に満腹度10回復', combo: 'akami_mori' }],
+  },
+  akami_generate_bintoro_deck_1: {
+    full: [
+      { text: '赤身三種盛り中：召喚時、ビントロ1枚を山札のランダムな位置へ', combo: 'akami_mori' },
+      { text: '赤身三種盛り中：召喚時、自分の満腹度を5回復', combo: 'akami_mori' },
+      { text: '赤身三種盛り中：次の自分の開始時、回復後AP・上限＋1', combo: 'akami_mori' },
+      { text: '次APは1回だけ有効／重複可能' },
+      { text: '初めて三種が揃う召喚では発動しない' },
+    ],
+    short: [{ text: '赤身三種中・ビントロ1枚／回復5／次AP+1', combo: 'akami_mori' }],
+  },
   akami_ap_each_turn_1: {
     full: [
       { text: '赤身三種盛り成立後：自分の開始時、回復後AP＋1（1枚ごと）', combo: 'akami_mori' },
@@ -86,6 +103,9 @@ const MEAT_FESTIVAL_DESCRIPTION = effectLines(
 )
 
 export const EFFECT_FULL: Record<string, string> = {
+  generate_tobiko_hand_50: '召喚時：50%で通常のとびこ軍艦1枚を手札に追加（手札7枚まで）',
+  akami_digest_10: COMBO_EFFECT_PARTS.akami_digest_10.full.map(part => part.text).join('\n'),
+  akami_generate_bintoro_deck_1: COMBO_EFFECT_PARTS.akami_generate_bintoro_deck_1.full.map(part => part.text).join('\n'),
   self_digest_5: '召喚時：自分のお腹－5',
   refund_ap_1_if_tako: effectLines(
     '召喚後、自分の机にたこ系がいる：AP1回復',
@@ -99,13 +119,12 @@ export const EFFECT_FULL: Record<string, string> = {
   ),
   draw_random_akami_1: effectLines(
     '召喚時：山札の赤身からランダムに1枚ドロー',
-    '手札7枚まで／赤身三種盛りの成立は不要',
+    '手札7枚まで',
   ),
   digest_stop_akami_1_or_2: COMBO_EFFECT_PARTS.digest_stop_akami_1_or_2.full.map(part => part.text).join('\n'),
   reduce_random_akami_cost_1: effectLines(
     '召喚時：手札・山札の赤身（消費AP1以上）から1枚をランダムにAP－1',
     '選ばれた1枚だけ対戦中有効（累積・下限0）',
-    '赤身三種盛りの成立は不要',
   ),
   destroy_enemy_persist_1: effectLines(
     '召喚時：相手の机の持続カード1枚を選んで破壊',
@@ -175,6 +194,9 @@ export const EFFECT_FULL: Record<string, string> = {
 }
 
 export const EFFECT_SHORT: Record<string, string> = {
+  generate_tobiko_hand_50: '召喚時50%で手札にとびこ1枚',
+  akami_digest_10: COMBO_EFFECT_PARTS.akami_digest_10.short.map(part => part.text).join(''),
+  akami_generate_bintoro_deck_1: COMBO_EFFECT_PARTS.akami_generate_bintoro_deck_1.short.map(part => part.text).join(''),
   self_digest_5: '自分のお腹 −5',
   refund_ap_1_if_tako: '机にたこ系がいれば召喚後AP1回復',
   buff_current_makimono_2: '場の非軍艦巻物を当ターン攻撃+2',

@@ -39,7 +39,7 @@ const HELP_SPREADS = [
 ]
 
 const BUILD_GUIDE = [
-  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。三種盛りで攻撃に加え、AP・ドロー・妨害も強化。' },
+  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。三種盛りで攻撃・回復・カード補充・AP・妨害を強化。' },
   { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
   { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'サバ・アジなどで切れ味を貯め、攻撃や効果に使います。' },
   { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
@@ -52,7 +52,7 @@ const COMBO_GUIDE = [
     id: 'akami_mori', timing: '1試合に1回', cards: ['maguro', 'chutoro', 'otoro'],
     cond: 'マグロ・中トロ・大トロを各1回召喚（累計）。',
     effect: '相手のお腹 +10。\nマグロ系の攻撃 +2（試合中）。',
-    note: '成立後の追加効果：\n鉄火巻き1枚ごとに開始時AP回復後 +1。\nビントロ召喚時、2枚ドロー。\nビントロ召喚時、自分のお腹−3。\nづけマグロの消化停止が2回。',
+    note: '成立後の追加効果：\n中トロ召喚時、自分の満腹度を10回復。\n大トロ召喚時、ビントロ1枚を山札のランダムな位置へ。\n大トロ召喚時、自分の満腹度を5回復。\n大トロで次の自分の開始時、回復後AP・上限＋1（1回・重複可）。\n鉄火巻き1枚ごとに開始時AP回復後 +1。\nビントロ召喚時、2枚ドロー。\nビントロ召喚時、自分のお腹−3。\nづけマグロの消化停止が2回。\n中トロ・大トロは初回成立の召喚では追加効果なし。',
   },
   {
     id: 'maki_comp_3', timing: '1試合に1回', cards: ['kappa_maki', 'negitoro_maki', 'ikura_gunkan'],
