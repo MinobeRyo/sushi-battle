@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Card } from '../../types'
-import { EFFECT_FULL } from '../battle/battlePresentation'
+import { CardEffectText } from '../battle/CardEffectText'
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   akami: '赤身', makimono: '巻物', hikari: '光り物',
@@ -96,7 +96,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
               className="rounded-lg p-2 mb-3 text-xs text-amber-300 leading-relaxed"
               style={{ background: 'rgba(120,53,15,0.4)' }}
             >
-              ✨ {EFFECT_FULL[card.effect] ?? '効果の説明は準備中です'}
+              ✨ <CardEffectText card={card} tone="dark" />
             </div>
           )}
 

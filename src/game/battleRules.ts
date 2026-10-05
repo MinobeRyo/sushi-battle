@@ -64,9 +64,14 @@ export function digestBonus(field: FieldCard[]) {
   return field.filter(c => c.effect === 'digest_boost_2').length * DIGEST_BOOST
 }
 
+// 実処理と効果説明が共有する、対戦中に保持される成立条件。
+export function hasAkamiMori(combosFired: readonly string[]) {
+  return combosFired.includes('akami_mori')
+}
+
 // 赤身成立後、開始時に机に残っている鉄火巻き1枚ごとの一時AP。
 export function tekkaApBonus(field: FieldCard[], combosFired: string[]) {
-  if (!combosFired.includes('akami_mori')) return 0
+  if (!hasAkamiMori(combosFired)) return 0
   return field.filter(card => card.effect === 'akami_ap_each_turn_1' && card.turnsLeft > 0).length
 }
 
@@ -263,7 +268,7 @@ export function applySummon(input: SummonInput): SummonResult {
       drawPersistIkaTako = true
       break
     case 'akami_draw_2_digest_3':
-      if (input.combosFired.includes('akami_mori')) {
+      if (hasAkamiMori(input.combosFired)) {
         drawNow = 2
         const digested = Math.min(3, belly)
         belly = Math.max(0, belly - 3)
@@ -319,7 +324,7 @@ export function applySummon(input: SummonInput): SummonResult {
       break
     case 'digest_stop_1t':
     case 'digest_stop_akami_1_or_2':
-      stopOppDigestTurns = card.effect === 'digest_stop_akami_1_or_2' && input.combosFired.includes('akami_mori') ? 2 : 1
+      stopOppDigestTurns = card.effect === 'digest_stop_akami_1_or_2' && hasAkamiMori(input.combosFired) ? 2 : 1
       logs.push(`相手の消化を${stopOppDigestTurns}回停止（残り回数は長い方を維持）`)
       break
   }
@@ -397,7 +402,7 @@ export function applySummon(input: SummonInput): SummonResult {
   }
 
   // 赤身三種盛り（累積・1試合1回・永続バフ）
-  if (!combosFired.includes('akami_mori') &&
+  if (!hasAkamiMori(combosFired) &&
       ['maguro', 'chutoro', 'otoro'].every(id => summonedIds.includes(id))) {
     combosFired.push('akami_mori')
     extraDmg += 10

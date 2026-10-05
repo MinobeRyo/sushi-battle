@@ -3,7 +3,7 @@ import { SushiArt } from '../../components/SushiArt'
 import { CARDS, GENERATED_CARDS } from '../../data/cards'
 import { SIDE_MENU_CATALOG } from '../side-menu/sideMenuCatalog'
 import type { Archetype, Card, CardType } from '../../types'
-import { EFFECT_FULL } from '../battle/battlePresentation'
+import { CardEffectText } from '../battle/CardEffectText'
 import './CardCatalogScreen.css'
 
 const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
@@ -30,7 +30,7 @@ function normalizeSearch(value: string) {
 
 function cardEffect(card: Card) {
   if (GENERATED_IDS.has(card.id)) return generatedNote
-  return card.effect ? EFFECT_FULL[card.effect] ?? '効果の説明は準備中です' : '特殊効果なし'
+  return <CardEffectText card={card} />
 }
 
 function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
@@ -61,7 +61,7 @@ function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
         <div><dt>滞在</dt><dd>{isPersist ? `${card.fullness}ターン` : '即時'}</dd></div>
       </dl>
 
-      <p className="catalog-card-effect"><span>効果</span>{cardEffect(card)}</p>
+      <p className="catalog-card-effect"><span className="catalog-effect-label">効果</span>{cardEffect(card)}</p>
       <dl className="catalog-card-ingredients">
         <div><dt>ネタ</dt><dd>{bases}</dd></div>
         <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
@@ -160,7 +160,7 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
             <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
             <div><dt>滞在</dt><dd>{card.type === 'persist' ? `${card.fullness}ターン` : '即時'}</dd></div>
           </dl>
-          <p className="catalog-card-effect"><span>この寿司の効果</span>{cardEffect(card)}</p>
+          <p className="catalog-card-effect"><span className="catalog-effect-label">この寿司の効果</span>{cardEffect(card)}</p>
           <dl className="catalog-model-ingredients">
             <div><dt>ネタ</dt><dd>{[card.base, ...card.subBases ?? []].join('・')}</dd></div>
             <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>

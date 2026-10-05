@@ -106,7 +106,7 @@
 .catalog-card-stats dt { color: #7c6248; font-size: 11px; }
 .catalog-card-stats dd { margin-top: 4px; font-size: 15px; font-weight: 800; white-space: nowrap; }
 .catalog-card-effect { flex: 1; font-size: 13px; line-height: 1.8; }
-.catalog-card-effect > span { display: block; color: #96723d; font-size: 11px; font-weight: 700; }
+.catalog-card-effect > .catalog-effect-label { display: block; color: #96723d; font-size: 11px; font-weight: 700; }
 .catalog-card-ingredients { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #eadfce; font-size: 11px; line-height: 1.7; }
 .catalog-card-ingredients div { display: flex; flex-wrap: wrap; gap: 6px; }
 .catalog-card-ingredients dt { color: #806953; }
