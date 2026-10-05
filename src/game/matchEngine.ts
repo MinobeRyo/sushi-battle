@@ -6,7 +6,7 @@ import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from
 import { INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PendingReaction, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseCost, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMori, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseCost, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -579,13 +579,15 @@ export function getCpuActions(state: MatchState, random: RandomSource = Math.ran
     const cpu = planned.players[2]
     const action = reserveCpuDefense(planned, getBasicCpuAction(planned))
     if (!action) break
-    const playedEffect = action.type === 'play_card'
-      ? cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect : null
+    const playedCard = action.type === 'play_card'
+      ? cpu.hand.find(card => card.instanceId === action.cardInstanceId) : undefined
+    const playedEffect = playedCard?.effect
     // ランダムなドロー・軽減・カード生成は実際の召喚後に再計画する。
     if (action.type === 'play_card'
       && (['draw_persist_ika_tako_1', 'draw_random_akami_1', 'reduce_random_akami_cost_1', 'generate_tobiko_hand_50'].includes(
         playedEffect ?? '')
-        || (playedEffect === 'akami_generate_bintoro_deck_1' && hasAkamiMori(cpu.combosFired))
+        || (playedEffect === 'akami_generate_bintoro_deck_1'
+          && hasAkamiMoriOnSummon(playedCard!.id, cpu.summonedIds, cpu.combosFired))
         || (!cpu.nikuMatsuri && (action.sacrificeCount ?? 0) > 0
           && (cpu.sacrificedThisTurn ?? 0) + (action.sacrificeCount ?? 0) >= 2))) {
       actions.push(action)

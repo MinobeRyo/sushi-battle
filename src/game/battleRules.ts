@@ -69,6 +69,12 @@ export function hasAkamiMori(combosFired: readonly string[]) {
   return combosFired.includes('akami_mori')
 }
 
+// 中トロ・大トロは、今回の召喚で初めて三種が揃う場合も追加効果を使える。
+export function hasAkamiMoriOnSummon(cardId: string, summonedIds: readonly string[], combosFired: readonly string[]) {
+  return hasAkamiMori(combosFired)
+    || ['maguro', 'chutoro', 'otoro'].every(id => id === cardId || summonedIds.includes(id))
+}
+
 // 赤身成立後、開始時に机に残っている鉄火巻き1枚ごとの一時AP。
 export function tekkaApBonus(field: FieldCard[], combosFired: string[]) {
   if (!hasAkamiMori(combosFired)) return 0
@@ -307,16 +313,16 @@ export function applySummon(input: SummonInput): SummonResult {
       // 山札と乱数を持つ試合エンジンで実際の個体を移動する。
       drawPersistIkaTako = true
       break
-    // 限定効果は召喚前の成立状態を見る。今回初めて三種が揃う召喚では発動しない。
+    // 中トロ・大トロは、この召喚で三種を揃えた場合も発動する。
     case 'akami_digest_10':
-      if (hasAkamiMori(input.combosFired)) {
+      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired)) {
         const recovered = Math.min(10, belly)
         belly = Math.max(0, belly - 10)
         logs.push(`赤身三種盛り：中トロで満腹度を${recovered}回復`)
       }
       break
     case 'akami_generate_bintoro_deck_1':
-      if (hasAkamiMori(input.combosFired)) {
+      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired)) {
         generateBintoroDeck = 1
         const recovered = Math.min(5, belly)
         belly = Math.max(0, belly - 5)

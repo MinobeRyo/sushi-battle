@@ -204,9 +204,9 @@ console.log('\n[8] 赤身三種盛り（累積・1試合1回・永続バフが�
     eq(`ビントロ: 三種盛り${unlocked ? '成立後' : '成立前'}・お腹${belly}`,
       [result.drawNow, result.belly], expected)
   }
-  const unlock = applySummon(blank({ card: byId('otoro'), belly: 5,
+  const unlock = applySummon(blank({ card: byId('otoro'), belly: 10,
     summonedIds: ['maguro', 'chutoro', 'bintoro'], field: [toField(byId('bintoro'))] }))
-  eq('三種盛り成立で既存ビントロの効果は遡及しない', [unlock.drawNow, unlock.belly], [0, 5])
+  eq('三種盛り成立時は大トロの5回復だけで、既存ビントロの効果は遡及しない', [unlock.drawNow, unlock.belly], [0, 5])
 
 }
 
