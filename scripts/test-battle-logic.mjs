@@ -46,6 +46,10 @@ console.log('\n[1] カードデータ')
 eq('かっぱ巻き 攻撃1・digest_boost_2', [byId('kappa_maki').attack, byId('kappa_maki').effect], [1, 'digest_boost_2'])
 eq('梅しそ巻き self_digest_5', byId('ume_shiso_maki').effect, 'self_digest_5')
 eq('明太子 3AP・draw_2', [byId('mentaiko').cost, byId('mentaiko').effect], [3, 'draw_2'])
+eq('えび 3AP・200円・攻撃5・2ターン持続・対象限定ドロー',
+  [byId('ebi').cost, byId('ebi').price, byId('ebi').attack, byId('ebi').type, byId('ebi').fullness, byId('ebi').effect],
+  [3, 200, 5, 'persist', 2, 'draw_persist_ika_tako_1'])
+eq('えびは海鮮再攻撃に参加する', byId('ebi').archetype.includes('kaisen'), true)
 eq('シメサバ kireta_consume_2_draw_2', byId('shime_saba').effect, 'kireta_consume_2_draw_2')
 eq('コハダ kireta_consume_x3', byId('kohada').effect, 'kireta_consume_x3')
 eq('軍艦タグ 10枚', CARDS.filter(c => c.archetype.includes('gunkan')).length, 10)
@@ -55,6 +59,8 @@ eq('太巻きの subBases', byId('futomaki').subBases, ['マグロ', 'えび'])
 
 console.log('\n[2] 単体の効果')
 eq('明太子で2枚ドロー', applySummon(blank({ card: byId('mentaiko') })).drawNow, 2)
+eq('えびは通常ドローせず、対象限定ドローを要求する',
+  (r => [r.drawNow, r.drawPersistIkaTako])(applySummon(blank({ card: byId('ebi') }))), [0, true])
 eq('梅しそ巻きで お腹 -5', applySummon(blank({ card: byId('ume_shiso_maki'), belly: 20 })).belly, 15)
 eq('シメサバ スタック1では不発（消費もしない）',
   (r => [r.kireta, r.drawNow])(applySummon(blank({ card: byId('shime_saba'), kireta: 1 }))), [1, 0])
@@ -150,6 +156,15 @@ console.log('\n[6] 海の幸三昧（いか＋たこのペアを消費・何度�
   const prev = applySummon(blank({ card: byId('tako') }))
   const next = applySummon(blank({ card: byId('ika'), field: prev.field }))
   eq('ターンをまたいで机のたことペアを組める', next.fired.map(f => f.id).includes('umi_zanmai'), true)
+  for (const [count, reattack] of [[1, 12], [2, 22]]) {
+    const ebi = playAll([...Array(count).fill('ebi'), 'ika', 'tako'])
+    eq(`えび${count}枚: 海鮮全体の50%を切り捨てた後、1枚ごと+7`, ebi.extra, 9 + reattack)
+    eq(`えび${count}枚はペアを消費しない`, ebi.st.field.filter(c => c.id === 'ebi').some(c => c.kaisenPaired), false)
+    eq(`えび${count}枚の通常攻撃に+7を載せない`, calcFieldDmg(ebi.st.field, {}), count * 5 + 6)
+  }
+  eq('えび召喚の連鎖に+7を載せない', playAll(['ika', 'ebi']).extra, 6)
+  eq('えびといかだけではペアにならない', playAll(['ebi', 'ika']).firedNames.includes('umi_zanmai'), false)
+
 }
 
 console.log('\n[7] 肉祭り（同ターンに生ハム累計2体生贄・即時+5・ターンに1回）')
@@ -161,8 +176,11 @@ console.log('\n[7] 肉祭り（同ターンに生ハム累計2体生贄・即時
   const second = applySummon({ ...first, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
   eq('生贄累計2体で発動', second.fired.map(item => item.id), ['niku_matsuri'])
   eq('肉祭りは即時+5', second.extraDmg, 5)
+  eq('肉祭りで手札用の生ハム2枚を要求する', second.generateNamahamu, 2)
+  eq('肉祭りで生ハムを永続+1', second.attackBuff['生ハム'], 1)
   const third = applySummon({ ...second, card: byId('karubi'), sacrificeCount: 1, enemyBelly: 0 })
   eq('同じターンは追加発動しない', [third.extraDmg, third.fired.length], [0, 0])
+  eq('同ターンの追加生贄では生成・強化を重ねない', [third.generateNamahamu, third.attackBuff['生ハム']], [0, 1])
   const field = [toField(byId('yakiniku')), toField(byId('ebi_ten'))]
   eq('肉祭りで腹条件ボーナスを倍増しない', calcFieldDmg(field, {}, 0, 70, { nikuMatsuri: true }), 20)
   eq('置換された和牛とローストビーフは腹条件で強化されない',
@@ -180,6 +198,16 @@ console.log('\n[8] 赤身三種盛り（累積・1試合1回・永続バフが�
   eq('バフは+2のまま', more.st.attackBuff['マグロ'], 2)
   eq('即時ダメージも10のまま', more.extra, 10)
   eq('太巻きも subBases でマグロバフを受ける', calcFieldDmg([toField(byId('futomaki'))], { 'マグロ': 2 }), 5 + 2)
+  for (const [unlocked, belly, expected] of [[false, 5, [0, 5]], [true, 5, [2, 2]], [true, 1, [2, 0]]]) {
+    const result = applySummon(blank({ card: byId('bintoro'), belly,
+      combosFired: unlocked ? ['akami_mori'] : [] }))
+    eq(`ビントロ: 三種盛り${unlocked ? '成立後' : '成立前'}・お腹${belly}`,
+      [result.drawNow, result.belly], expected)
+  }
+  const unlock = applySummon(blank({ card: byId('otoro'), belly: 5,
+    summonedIds: ['maguro', 'chutoro', 'bintoro'], field: [toField(byId('bintoro'))] }))
+  eq('三種盛り成立で既存ビントロの効果は遡及しない', [unlock.drawNow, unlock.belly], [0, 5])
+
 }
 
 console.log('\n[9] 消化量')

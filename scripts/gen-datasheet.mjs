@@ -126,13 +126,16 @@ const EFFECTS = {
   belly_boost_65: '相手のお腹が65以上のとき 攻撃 +6',
   belly_boost_70: '相手のお腹が70以上のとき 攻撃 +8',
   belly_boost_persist_50: '机にいる間、相手のお腹50以上で 攻撃 +2',
-  generate_namahamu_1: '召喚後、机の空き枠に生ハムを1体生成（攻撃1・自分の3ターン）',
-  generate_namahamu_2: '召喚後、机の空き枠に生ハムを最大2体生成（攻撃1・自分の3ターン）',
+  generate_namahamu_1: '召喚後、机の空き枠に生ハムを1体生成（基本攻撃1・自分の3ターン・肉祭りの強化対象）',
+  generate_namahamu_2: '召喚後、机の空き枠に生ハムを最大2体生成（基本攻撃1・自分の3ターン・肉祭りの強化対象）',
   sacrifice_namahamu_1_7: '召喚時、生ハムを0〜1体生贄にし、1体につき攻撃 +7',
   sacrifice_namahamu_2_8: '召喚時、生ハムを0〜2体生贄にし、1体につき攻撃 +8',
   chain_on_kaisen_summon: `base「${chainBases.join('・')}」を召喚するたび +${K.CHAIN_BONUS} の連鎖攻撃`,
   draw_1: '召喚時、カードを1枚引く',
   draw_2: '召喚時、カードを2枚引く',
+  draw_persist_ika_tako_1: '召喚時、山札の持続型いか・たこからランダムに1枚引く。海の幸三昧の50%再攻撃に、このえび1枚につき固定+7',
+  akami_ap_each_turn_1: '赤身三種盛り成立後、机の1枚につき自分の開始時に通常回復後のAP・当ターン上限+1（通常上限10を超える）',
+  akami_draw_2_digest_3: '赤身三種盛り成立後、召喚時に2枚ドロー（手札7枚まで）＋自分のお腹−3（下限0）',
   ap_next_1: '次のターンだけ AP +1',
   multi_base: 'base「マグロ」「えび」も兼ねる（赤身バフ・海鮮連鎖の対象）',
 }
@@ -152,12 +155,12 @@ const COMBOS = [
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟', color: 'akami',
     trigger: '永続効果 · 1試合1回', state: 'impl',
     cond: 'マグロ・中トロ・大トロを各1回以上召喚（累積）',
-    effect: '即時 <strong>+10</strong> ダメージ ／ 以降 base「マグロ」の攻撃 <strong>+2</strong>',
+    effect: '即時 <strong>+10</strong> ダメージ ／ 以降 base「マグロ」の攻撃 <strong>+2</strong> ／ 鉄火巻き・ビントロの追加能力を解禁',
     lists: [
       ['成立に必要なカード', cs => cs.filter(c => ['maguro', 'chutoro', 'otoro'].includes(c.id))],
       ['バフを受けるカード（base マグロ）', cs => cs.filter(c => allBases(c).includes('マグロ'))],
     ],
-    note: '成立判定はカードIDなので、他のマグロ系カードでは成立しません（恩恵だけ受けます）。永続バフを配るため1試合1回に固定しています。',
+    note: '成立判定はカードIDなので、他のマグロ系カードでは成立しません（恩恵だけ受けます）。成立後は試合中ずっと、机の鉄火巻き1枚につき自分の開始時に通常回復後のAPと当ターン上限+1（通常上限10を超えます）。ビントロは成立後の召喚時のみ2枚ドロー（手札7枚まで）・自分のお腹−3（下限0）。鉄火巻きの召喚時やビントロへの遡及発動はありません。',
   },
   {
     id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀', color: 'makimono',
@@ -187,24 +190,24 @@ const COMBOS = [
     id: 'umi_zanmai', name: '海の幸三昧！！！', emoji: '🌊', color: 'kaisen',
     trigger: '都度発動 · 何度でも', state: 'impl',
     cond: 'base「いか」と「たこ」が机で1組そろった瞬間（召喚時に判定）',
-    effect: `場の海鮮カードが <strong>${K.KAISEN_REATTACK * 100}%</strong> の威力で再攻撃`,
+    effect: `場の海鮮の合計攻撃を <strong>${K.KAISEN_REATTACK * 100}%</strong> にして切り捨て、通常のえび1枚につき <strong>固定+7</strong> で再攻撃`,
     lists: [
       ['「いか」を名乗るカード', cs => cs.filter(c => allBases(c).includes('いか'))],
       ['「たこ」を名乗るカード', cs => cs.filter(c => allBases(c).includes('たこ'))],
       ['再攻撃する対象（海鮮タグ）', cs => cs.filter(c => c.archetype.includes('kaisen'))],
     ],
-    note: '発動に使った2枚はペア消費済みになり、以後ペアの相手には選ばれません。海鮮タグと連鎖効果は残るので、再攻撃の対象にも連鎖の起爆装置にもなり続けます。机に残した持続いか・たこと次のターンに組むこともできます。えびはペア対象外です。',
+    note: '発動に使った2枚はペア消費済みになり、以後ペアの相手には選ばれません。海鮮タグと連鎖効果は残るので、再攻撃の対象にも連鎖の起爆装置にもなり続けます。机に残した持続いか・たこと次のターンに組むこともできます。通常のえびも再攻撃に参加しますが、ペア対象外です。固定+7は50%計算後に各えび分を加算し、通常攻撃や召喚連鎖には加算しません。',
   },
   {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩', color: 'niku',
     trigger: '都度発動 · ターンに1回', state: 'impl',
     cond: `同じターンに生ハムを合計 <strong>${K.NIKU_REQUIRED}体</strong> 生贄にする`,
-    effect: `即時 <strong>+${K.NIKU_DAMAGE}</strong> ダメージ（コンボのためガリでは防御できない）`,
+    effect: `即時 <strong>+${K.NIKU_DAMAGE}</strong> ダメージ（ガリ不可） ／ 手札に<strong>0AP生ハム2枚</strong>追加 ／ 自分の全生ハムの攻撃が試合中<strong>+1</strong>（発動ごとに累積）`,
     lists: [
       ['生ハムを生成するカード', cs => cs.filter(c => c.effect?.startsWith('generate_namahamu_'))],
       ['生贄で攻撃を強化するカード', cs => cs.filter(c => c.effect?.startsWith('sacrifice_namahamu_'))],
     ],
-    note: '生贄の使用は任意で、カルビ・和牛で使った合計を数えます。各ターン1回まで。お腹条件ボーナスの倍増はありません。',
+    note: '生贄の使用は任意で、カルビ・和牛で使った合計を数えます。各ターン1回まで。生ハムは基本攻撃1・3ターン持続の既存カードで、手札7枚を超える分は生成しません。攻撃強化は机・既存手札・今後生成する生ハムすべてに適用します。お腹条件ボーナスの倍増はありません。',
   },
   {
     id: 'kokyu_zanmai', name: '高級三昧', emoji: '💴', color: 'general',
@@ -441,7 +444,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
   <p class="lede">共通ゲーム処理とドラフト画面の定数です。ドラフト付きのローカル対戦を基準にしています。オンライン試遊では固定デッキを使い、追加注文は固定デッキの自動補充に置き換えています。</p>
   <dl class="stats">
     ${stat('敗北ライン', String(K.MAX_BELLY), 'お腹ゲージがこの値に到達した側の負け')}
-    ${stat('初期AP / 上限', `${K.INIT_AP} → 10`, 'CPU戦は毎ターン+1、二人対戦は2ターンで+1')}
+    ${stat('初期AP / 通常上限', `${K.INIT_AP} → 10`, 'CPU戦は毎ターン+1、二人対戦は2ターンで+1。赤身三種盛り後の鉄火巻きは別途加算')}
     ${stat('消化量', `2 → ${K.DIGESTION_MAX}`, `本人の手番開始時に min(${K.DIGESTION_MAX}, 1+ラウンド)`)}
     ${stat('手札上限', String(K.HAND_LIMIT), '超過分は山札に残る')}
     ${stat('机の上限', String(K.FIELD_MAX), '生ハムも1枠使用。生贄で枠を空けて召喚可能')}
@@ -475,7 +478,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-si
 <section id="cards">
   <h2><span class="n">02</span>カード性能表</h2>
   <p class="lede">列見出しをクリックで並び替え。総ダメージは「攻撃力 × 持続ターン」、AP効率は「総ダメージ ÷ AP」、円効率は「総ダメージ ÷ 定価 × 100」です。</p>
-  <div class="kw">${GENERATED_CARDS.map(c => `<div><code>${esc(c.name)}（生成専用）</code><p>攻撃${c.attack}・自分の${turnsOf(c)}ターン持続。牛タン寿司・ローストビーフ寿司から生成され、机の${K.FIELD_MAX}枠を使います。購入・デッキ編成はできないため、下の購入カード表には含めません。</p></div>`).join('')}</div>
+  <div class="kw">${GENERATED_CARDS.map(c => `<div><code>${esc(c.name)}（生成専用）</code><p>${c.cost}AP・基本攻撃${c.attack}・自分の${turnsOf(c)}ターン持続。牛タン寿司・ローストビーフ寿司は机に生成し、肉祭りは手札へ2枚追加（上限${K.HAND_LIMIT}枚、溢れた分は生成なし）します。肉祭りの発動ごとに、自分の全生ハムの攻撃が試合中+1ずつ累積します。机の${K.FIELD_MAX}枠を使います。購入・デッキ編成はできないため、下の購入カード表には含めません。</p></div>`).join('')}</div>
 
   <div class="controls">
     <span class="label">ビルド</span>

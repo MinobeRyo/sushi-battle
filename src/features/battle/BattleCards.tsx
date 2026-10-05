@@ -27,6 +27,9 @@ const EFFECT_SHORT: Record<string, string> = {
   chain_on_kaisen_summon: '海鮮召喚で連鎖攻撃',
   draw_1: '召喚時に1枚引く',
   draw_2: '召喚時に2枚引く',
+  draw_persist_ika_tako_1: '持続いか・たこを1枚引く',
+  akami_ap_each_turn_1: '赤身三種後・開始時AP +1',
+  akami_draw_2_digest_3: '赤身三種後・2枚引き腹 −3',
   ap_next_1: '次のターン AP +1',
   multi_base: 'マグロ・えびも兼ねる',
 }
@@ -60,7 +63,7 @@ export function CardDetailSheet({
   const showActualAttack = isField && inspect.actualAttack !== undefined
   const isGenerated = card.id === NAMAHAM_CARD.id
   const effectDesc = isGenerated
-    ? '牛タン寿司やローストビーフ寿司から生成される専用カードです。場に3ターン残り、毎ターン攻撃1。カルビ寿司や和牛にぎりの生贄にして、攻撃を強化できます。購入はできません。'
+    ? '生成専用カードです。牛タン寿司・ローストビーフ寿司は机に生成し、肉祭りは手札に2枚追加します。0AP・基本攻撃1・自分の3ターン持続。肉祭りが発動するたび、自分の全生ハムの攻撃が試合中+1ずつ累積します。カルビ寿司・和牛にぎりの生贄にできます。購入はできません。'
     : card.effect ? EFFECT_FULL[card.effect] : null
   const cardKey = 'instanceId' in card ? String(card.instanceId) : card.id
   const availableNamahamu = countNamahamu(fieldCards)
@@ -181,7 +184,7 @@ export function CardDetailSheet({
                 )
               })}
             </div>
-            <p className="battle-sacrifice-note">同じターンに合計2体を生贄にすると、肉祭りで追加5ダメージ（1ターンに1回）。</p>
+            <p className="battle-sacrifice-note">同じターンに合計2体を生贄にすると、肉祭りで追加5ダメージ・手札に0AP生ハム2枚追加・全生ハムの攻撃が試合中+1（累積）。1ターンに1回、手札7枚を超える分は追加されません。</p>
           </section>
         )}
 

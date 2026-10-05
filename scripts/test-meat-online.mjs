@@ -68,6 +68,13 @@ test('オンラインで生ハムを2体生成・消費し、肉祭りはガリ�
   const pending = f.read(f.host).match
   assert.equal(pending.you.field.filter(c => c.id === NAMAHAM_CARD.id).length, 0)
   assert.equal(pending.you.sacrificedThisTurn, 2)
+  const generated = pending.you.hand.filter(card => card.id === NAMAHAM_CARD.id)
+  assert.equal(generated.length, 2)
+  assert.equal(new Set(generated.map(card => card.instanceId)).size, 2)
+  assert.ok(generated.every(card => card.cost === 0 && card.type === 'persist' && card.fullness === 3))
+  assert.equal(pending.you.attackBuff[NAMAHAM_CARD.base], 1)
+  assert.equal(f.read(f.guest).match.opponent.attackBuff[NAMAHAM_CARD.base], 1)
+  assert.equal('hand' in f.read(f.guest).match.opponent, false)
   assert.equal(pending.you.field.find(c => c.id === 'wagyu').turnAttackBonus, 16)
   assert.equal(pending.pendingAttack, null)
   assert.equal(pending.phase, 'playing')
@@ -90,6 +97,12 @@ test('オンラインで生ハムを2体生成・消費し、肉祭りはガリ�
   f.service.connect(resumed)
   assert.equal(f.service.handle(resumed, 'room:resume', f.created.session).ok, true)
   assert.deepEqual(f.read(resumed).match, after, '復帰後も生成・生贄・コンボ状態を保持する')
+  f.send(resumed, { type: 'play_card', cardInstanceId: generated[0].instanceId })
+  const summoned = f.read(resumed).match
+  const ham = summoned.you.field.find(card => card.id === NAMAHAM_CARD.id)
+  assert.equal(ham.turnsLeft, 3)
+  assert.equal(summoned.you.ap, after.you.ap, '復帰後も生成生ハムは0AP')
+  assert.equal(summoned.you.attackBuff[NAMAHAM_CARD.base], 1)
 })
 
 test('インバウン丼を購入・設置して復帰しても生贄強化を保持し、再送で重複しない', t => {
@@ -118,6 +131,8 @@ test('インバウン丼を購入・設置して復帰しても生贄強化を�
   const sacrifice = f.send(resumed, { type: 'play_card', cardInstanceId: wagyu.instanceId, sacrificeCount: 2 })
   const after = f.read(resumed).match
   assert.equal(after.you.field.find(card => card.id === 'wagyu').turnAttackBonus, 20)
+  assert.equal(after.you.attackBuff[NAMAHAM_CARD.base], 3, 'インバウン丼の+2と肉祭りの+1は加算する')
+  assert.equal(after.you.hand.filter(card => card.id === NAMAHAM_CARD.id).length, 2)
   assert.equal(after.you.field.filter(card => card.id === NAMAHAM_CARD.id).length, 0)
   assert.equal(after.opponent.belly, installed.opponent.belly + 5)
   assert.equal(after.opponent.gari, installed.opponent.gari)

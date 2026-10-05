@@ -1,6 +1,6 @@
 import {
   CARD_BY_ID, digestBonus, GUNKAN_BOOST, HAND_LIMIT, makimonoCount,
-  MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED,
+  MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED, tekkaApBonus,
 } from '../../game/battleRules'
 import type { MatchPlayer, SideMenuState } from '../../game/types'
 import type { Card } from '../../types'
@@ -29,6 +29,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   combos: BattleStatusItem[]
 } {
   const maki = makimonoCount(st.field)
+  const tekkaAp = tekkaApBonus(st.field, st.combosFired)
   const fieldDigestion = digestBonus(st.field)
   const sideDigestion = st.sideMenu?.id === 'miso' && st.sideMenu.status === 'active' ? 2 : 0
   const digestion = fieldDigestion + sideDigestion
@@ -51,6 +52,10 @@ export function battleStatusDetails(st: BattleSideStatus): {
     id: 'draw', name: '追加ドロー', value: `+${st.drawBonus}`,
     description: `自分のターン終了時に、通常の1枚に加えて${st.drawBonus}枚引きます。試合中持続し、机の巻物が減っても失われません。手札上限は${HAND_LIMIT}枚で、山札が必要です。`,
   })
+  if (tekkaAp > 0) effects.push({
+    id: 'tekka-ap', name: '鉄火巻きのAP', value: `開始時 +${tekkaAp}`,
+    description: `赤身三種盛り成立後、机の鉄火巻き1枚につき、自分のターン開始時の通常回復後のAPと当ターンのAP上限に+1（現在の机なら+${tekkaAp}）。通常上限10を超えられます。召喚時や相手ターンには増えず、机からなくなると次回以降は加算されません。`,
+  })
   if (st.apNextBonus > 0) effects.push({
     id: 'next-ap', name: '次のAP', value: `+${st.apNextBonus}`,
     description: `次の自分のターン開始時にAP +${st.apNextBonus}。現在のAPには加算されず、次のターンだけ有効です。`,
@@ -71,7 +76,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   })
   if (st.nikuMatsuri) effects.push({
     id: 'niku', name: '肉祭り', value: '今ターン発動済',
-    description: 'このターンに生ハムを合計2体生贄にして、即時5ダメージの攻撃を発動済みです。同じターンには再発動しません。次の自分のターンには再び狙えます。',
+    description: 'このターンの肉祭りは発動済みです。即時5ダメージ・手札に0AP生ハム2枚追加・自分の全生ハムの攻撃が試合中+1（累積）。手札7枚を超える分は追加されません。同じターンには再発動しません。',
   })
 
   const akami = ['maguro', 'chutoro', 'otoro'].filter(id => st.summonedIds.includes(id)).length
@@ -82,7 +87,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   const combos: BattleStatusItem[] = [{
     id: 'akami_mori', name: '赤身三種盛り',
     value: st.combosFired.includes('akami_mori') ? '達成済' : `${akami}/3種`,
-    description: 'マグロ・中トロ・大トロを試合中にそれぞれ召喚すると、即時10ダメージと以降マグロ系の攻撃 +2。同じ種類の重複は数えず、1試合に1回です。',
+    description: 'マグロ・中トロ・大トロを試合中にそれぞれ召喚すると、即時10ダメージと以降マグロ系の攻撃 +2。さらに鉄火巻きの開始時AP +1とビントロの召喚時2枚ドロー・お腹 −3が解禁されます。同じ種類の重複は数えず、1試合に1回です。',
   }, {
     id: 'maki_comp_3', name: '巻物コンプ',
     value: st.combosFired.includes('maki_comp_3') ? '達成済' : `${maki}/${MAKI_COMP_3}枚`,
@@ -97,10 +102,10 @@ export function battleStatusDetails(st: BattleSideStatus): {
   }, {
     id: 'niku_matsuri', name: '肉祭り',
     value: st.nikuMatsuri ? '今ターン発動済' : `${st.sacrificedThisTurn ?? 0}/2体（今ターン）`,
-    description: '同じターンに生ハムを合計2体生贄にすると、即時5ダメージ。カルビ寿司・和牛にぎりで使った合計を数え、各ターンに1回だけ発動します。',
+    description: '同じターンに生ハムを合計2体生贄にすると、即時5ダメージ・手札に0AP生ハム2枚追加（7枚を超える分は追加なし）・自分の全生ハムの攻撃が試合中+1（累積）。既存手札・机・今後生成する生ハムも強化します。カルビ寿司・和牛にぎりで使った合計を数え、各ターンに1回です。',
   }, {
     id: 'umi_zanmai', name: '海の幸三昧', value: `未使用 いか${pairCount('いか')}・たこ${pairCount('たこ')}`,
-    description: 'いか・たこの召喚時、机のまだペアに使っていない相方1枚と組み、机の海鮮が50%の威力で再攻撃します。ペア使用済みのカードは再び相方にできません。新しいペアなら何度でも発動します。',
+    description: 'いか・たこの召喚時、机の未使用の相方1枚と組み、海鮮の合計攻撃を50%にして切り捨て、通常のえび1枚につき固定+7で再攻撃します。えびはペア条件に数えず、通常攻撃・召喚連鎖には+7しません。使用済みペアは再利用できず、新しいペアなら何度でも発動します。',
   }]
   return { effects, combos }
 }

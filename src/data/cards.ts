@@ -35,13 +35,13 @@ export const CARDS: Card[] = [
     name: 'えび',
     base: 'えび',
     topping: null,
-    type: 'instant',
+    type: 'persist',
     cost: 3,
     price: 200,
-    attack: 11,
-    fullness: 0,
-    effect: null,
-    archetype: ['general'],
+    attack: 5,
+    fullness: 2,
+    effect: 'draw_persist_ika_tako_1',
+    archetype: ['general', 'kaisen'],
     lane: 'general',
   },
   {
@@ -240,7 +240,7 @@ export const CARDS: Card[] = [
     price: 150,
     attack: 7,
     fullness: 0,
-    effect: null,
+    effect: 'akami_draw_2_digest_3',
     archetype: ['akami'],
     lane: 'build',
   },
@@ -326,7 +326,7 @@ export const CARDS: Card[] = [
     price: 300,
     attack: 4,
     fullness: 4,
-    effect: null,
+    effect: 'akami_ap_each_turn_1',
     archetype: ['akami', 'makimono'],
     lane: 'build',
   },
@@ -775,7 +775,7 @@ export const CARDS: Card[] = [
   },
 ]
 
-// 料理の効果で机にだけ生成する。購入候補・完成デッキには含めない。
+// 料理の効果で机に、肉祭りで手札に生成する。購入候補・完成デッキには含めない。
 export const NAMAHAM_CARD: Card = {
   id: 'namahamu', name: '生ハム', base: '生ハム', topping: null,
   type: 'persist', cost: 0, price: 0, attack: 1, fullness: 3,
