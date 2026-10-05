@@ -1,3 +1,5 @@
+import { shouldChallengeUseGari } from './cpuDefense'
+import { CHALLENGE_SMART_RATE, getChallengeAction } from './cpuStrategy'
 import type { Card } from '../types'
 import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from '../data/cpuDecks'
@@ -435,7 +437,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   return { state: next, events }
 }
 
-export function getCpuDefenseAction(state: MatchState): MatchAction | null {
+export function getCpuDefenseAction(state: MatchState, random: RandomSource = Math.random): MatchAction | null {
   const attack = state.pendingAttack
   if (state.mode !== 'cpu' || state.phase !== 'defending' || attack?.defenderId !== 2) return null
   const cpu = state.players[2]
@@ -444,41 +446,55 @@ export function getCpuDefenseAction(state: MatchState): MatchAction | null {
     && cpu.belly + attack.amount - reduction < MAX_BELLY
   return {
     type: 'respond_defense', playerId: 2,
-    // 小さな攻撃で使い切らず、8以上軽減できる攻撃（半減なら16以上）まで温存する。
-    useGari: cpu.gari > 0 && (reduction >= 8 || avoidsDefeat),
+    // 最弱・普通は従来の16点/致死回避。挑戦は80%で消化と残数も評価する。
+    useGari: state.cpuDeckId === 'challenge' && random() < CHALLENGE_SMART_RATE
+      ? shouldChallengeUseGari(state) : cpu.gari > 0 && (reduction >= 8 || avoidsDefeat),
   }
 }
 
-/** 思考の方針は既存の攻撃力順。実際の処理は人間と同じ操作を使う。 */
-export function getCpuActions(state: MatchState): MatchAction[] {
+/** 従来の一手判断。非公開の相手手札・山札には触れない。 */
+function getBasicCpuAction(state: MatchState): MatchAction | null {
+  const cpu = state.players[2]
+  const available = countNamahamu(cpu.field)
+  const hasSummonSpace = (card: Card) => cpu.field.length - Math.min(available, getSacrificeLimit(card)) < FIELD_MAX
+  const menu = cpu.sideMenu
+  const canUse = !getSideMenuUseError(state, 2)
+  const useMenu = canUse && menu && (
+    menu.id === 'fries' || menu.id === 'tempura' || menu.id === 'miso' || menu.id === 'inbound_don'
+    || (menu.id === 'chawanmushi' && (cpu.belly >= 15 || cpu.skippedDigestionThisTurn > 0 || cpu.digestStopTurns > 0))
+    || (menu.id === 'karaage' && cpu.belly < 85
+      && (state.players[1].belly >= 50 || cpu.hand.some(card => card.archetype.includes('niku'))))
+    || (menu.id === 'ramen' && cpu.belly < 95
+      && cpu.hand.some(card => card.cost <= cpu.ap + 1 && hasSummonSpace(card)))
+  )
+  let action: MatchAction
+  if (useMenu) action = { type: 'use_side_menu', playerId: 2 }
+  else {
+    const card = cpuChoose(cpu.hand.filter(hasSummonSpace), cpu.ap)[0]
+    if (!card) return null
+    const sacrificeCount = Math.min(available, getSacrificeLimit(card))
+    const target = getDestroyTargets(card, state.players[1].field).sort((a, b) => b.attack - a.attack)[0]
+    action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
+      ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}) }
+  }
+  return action
+}
+
+/** 挑戦だけ80%で盤面評価。実際に引いた後で一手ずつ再計画する。 */
+export function getCpuActions(state: MatchState, random: RandomSource = Math.random): MatchAction[] {
   if (state.mode !== 'cpu' || state.phase !== 'playing' || state.activePlayerId !== 2) return []
+  if (state.cpuDeckId === 'challenge') {
+    const action = random() < CHALLENGE_SMART_RATE
+      ? getChallengeAction(state, !getSideMenuUseError(state, 2)) : getBasicCpuAction(state)
+    return action ? [action] : []
+  }
   const actions: MatchAction[] = []
   let planned = state
   // 仮の状態へ同じ操作を適用し、AP回復・追加ドロー後も手札を選び直します。
   for (let count = 0; count < FIELD_MAX + 2 && planned.phase === 'playing'; count++) {
     const cpu = planned.players[2]
-    const available = countNamahamu(cpu.field)
-    const hasSummonSpace = (card: Card) => cpu.field.length - Math.min(available, getSacrificeLimit(card)) < FIELD_MAX
-    const menu = cpu.sideMenu
-    const canUse = !getSideMenuUseError(planned, 2)
-    const useMenu = canUse && menu && (
-      menu.id === 'fries' || menu.id === 'tempura' || menu.id === 'miso' || menu.id === 'inbound_don'
-      || (menu.id === 'chawanmushi' && (cpu.belly >= 15 || cpu.skippedDigestionThisTurn > 0 || cpu.digestStopTurns > 0))
-      || (menu.id === 'karaage' && cpu.belly < 85
-        && (planned.players[1].belly >= 50 || cpu.hand.some(card => card.archetype.includes('niku'))))
-      || (menu.id === 'ramen' && cpu.belly < 95
-        && cpu.hand.some(card => card.cost <= cpu.ap + 1 && hasSummonSpace(card)))
-    )
-    let action: MatchAction
-    if (useMenu) action = { type: 'use_side_menu', playerId: 2 }
-    else {
-      const card = cpuChoose(cpu.hand.filter(hasSummonSpace), cpu.ap)[0]
-      if (!card) break
-      const sacrificeCount = Math.min(available, getSacrificeLimit(card))
-      const target = getDestroyTargets(card, planned.players[1].field).sort((a, b) => b.attack - a.attack)[0]
-      action = { type: 'play_card', playerId: 2, cardInstanceId: card.instanceId,
-        ...(getSacrificeLimit(card) ? { sacrificeCount } : {}), ...(target ? { targetFieldId: target.fid } : {}) }
-    }
+    const action = getBasicCpuAction(planned)
+    if (!action) break
     const playedEffect = action.type === 'play_card'
       ? cpu.hand.find(card => card.instanceId === action.cardInstanceId)?.effect : null
     // ランダムなドロー・軽減・カード生成は実際の召喚後に再計画する。
