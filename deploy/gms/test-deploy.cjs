@@ -23,6 +23,7 @@ function command(file, args, env) {
 }
 
 async function main() {
+  const { packageServer } = await import('../../scripts/package-server.mjs')
   await fs.mkdir(path.join(root, '.cache/dt'), { recursive: true })
   const fixture = await fs.mkdtemp(path.join(root, '.cache/dt/run-'))
   const base = path.join(fixture, 'b')
@@ -47,12 +48,8 @@ async function main() {
     const backend = path.join(staging, 'sushi-battle-server')
     await fs.mkdir(path.join(staging, 'sushi-battle'), { recursive: true })
     await fs.writeFile(path.join(staging, 'sushi-battle/index.html'), id)
-    // Keep the runtime fixture aligned with scripts/package-server.mjs.
-    for (const relative of ['server', 'src/game', 'src/features/draft/draftEngine.ts', 'src/data/cards.ts', 'src/data/cpuDecks.ts', 'src/data/sideMenus.ts', 'src/network/protocol.ts', 'src/network/httpProtocol.ts', 'src/types/index.ts', 'tsconfig.server.json']) {
-      await fs.mkdir(path.dirname(path.join(backend, relative)), { recursive: true })
-      await fs.cp(path.join(root, relative), path.join(backend, relative), { recursive: true })
-    }
-    for (const name of ['package.json', 'package-lock.json']) await fs.copyFile(path.join(root, 'deploy/gms-server', name), path.join(backend, name))
+    // 本番と同じ配布物を検証する。コピー対象をテスト側で二重管理しない。
+    await packageServer(backend)
     if (patch) await patch(backend)
     return staging
   }
