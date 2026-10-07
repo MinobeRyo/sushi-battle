@@ -121,11 +121,22 @@ test('防御対象8枚を同時に比較でき、後半の個体を選んで正�
   h.options[1].props.onClick()
   assert.equal(h.targets.length, 8, '後半の対象もページ操作なしで選べる')
   assert.equal(h.confirm.props.disabled, true)
-  assert.ok(h.targets.every(node => /攻4 → 2受ける \+30 −2/.test(textContent(node))), '全候補の攻撃と軽減結果を選択前から比較できる')
+  assert.ok(h.targets.every(node => /受 \+30 （攻4→2）腹40 · 耐える/.test(textContent(node))), '全候補の攻撃と軽減結果を選択前から比較できる')
   h.targets[7].props.onClick()
   assert.equal(h.confirm.props.disabled, false)
   assert.equal(h.targets[7].props['aria-pressed'], true)
   assert.match(textContent(h.byClass('battle-defense__preview')), /\+32 → \+30/)
   h.confirm.props.onClick()
   assert.deepEqual(h.responses, [[false, true, 'enemy-7']])
+})
+
+test('選択前から耐える防御と敗北する防御を区別する', () => {
+  const h = harness('iwashi_shoga')
+  h.props.belly = 89
+  h.options[1].props.onClick()
+  assert.equal(h.targets[0].props['data-lethal'], false)
+  assert.equal(h.targets[0].props['data-danger'], true)
+  assert.match(textContent(h.targets[0]), /腹99 · 耐える/)
+  assert.equal(h.targets[1].props['data-lethal'], true)
+  assert.match(textContent(h.targets[1]), /腹100 · 敗北/)
 })

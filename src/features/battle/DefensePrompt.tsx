@@ -79,7 +79,7 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
     </> : <>
     <div className="battle-defense__preview" aria-live="polite">
       <div><span>受ける量</span><p><s>+{attack.amount}</s><span aria-hidden="true"> → </span><strong>+{range(preview.min, preview.max)}</strong></p></div>
-      <div className={maxBelly >= MAX_BELLY ? 'is-lethal' : ''}><span>お腹</span><p>{belly} → <strong>{range(minBelly, maxBelly)}</strong><small> / {MAX_BELLY}</small></p></div>
+      <div className={maxBelly >= 70 ? 'is-danger' : ''}><span>お腹{maxBelly >= MAX_BELLY ? ' · 敗北' : maxBelly >= 70 ? ' · 危険' : ''}</span><p>{belly} → <strong>{range(minBelly, maxBelly)}</strong><small> / {MAX_BELLY}</small></p></div>
     </div>
     <div className="battle-defense__options">
       {attack.source === 'end_turn' && <button type="button" aria-pressed={useGari} disabled={!ready || !canGari}
@@ -96,13 +96,15 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
     {useDefense && needsTarget && <div className="battle-defense__target-area"><div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
       {preview.targets.map(card => {
         const after = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, true, useGari && canGari, card.fid)
+        const afterBelly = Math.min(MAX_BELLY, belly + after.min)
         const currentAttack = targetAttack(card)
         const reducedAttack = defenseCard ? targetAttack(withDefenseReduction(card, defenseCard)) : currentAttack
         return <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}
-          aria-label={`${card.name}、攻撃${currentAttack}から${reducedAttack}、受ける量${after.min}、軽減${attack.amount - after.min}、お腹${Math.min(MAX_BELLY, belly + after.min)}`}
+          data-danger={afterBelly >= 70} data-lethal={afterBelly >= MAX_BELLY}
+          aria-label={`${card.name}、攻撃${currentAttack}から${reducedAttack}、受ける量${after.min}、軽減${attack.amount - after.min}、お腹${afterBelly}、${afterBelly >= MAX_BELLY ? '満腹で敗北' : '耐える'}`}
           disabled={!ready} onClick={() => setTargetFieldId(card.fid)}>
           <SushiArt card={card} size={36} /><span className="battle-defense__target-copy"><strong title={card.name}>{card.name}</strong>
-            <small>攻{currentAttack} → {reducedAttack}</small><b>受ける +{after.min}<em> −{attack.amount - after.min}</em></b></span>
+            <small>受 +{after.min} <em>（攻{currentAttack}→{reducedAttack}）</em></small><b>腹{afterBelly} · {afterBelly >= MAX_BELLY ? '敗北' : '耐える'}</b></span>
         </button>
       })}
     </div></div>}
