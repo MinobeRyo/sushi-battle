@@ -274,8 +274,8 @@ export function CardDetailSheet({
   )
 }
 
-export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, onSelect }: {
-  card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; onSelect: () => void
+export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, compact = false, onSelect }: {
+  card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; compact?: boolean; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const defenseLabel = card.defenseState === 'ready' ? '防御待機' : card.defenseState === 'reserved' ? '防御予約' : null
@@ -299,11 +299,11 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
       whileHover={{ scale: 1.03, boxShadow: `0 6px 20px ${isPersist ? C.persGlow : C.instGlow}` }}
       whileTap={{ scale: 0.96 }}
     >
-      <div className="battle-field-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit /></div>
-      <p className="battle-field-card-name">{card.name}</p>
+      <div className="battle-field-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit tight={compact} /></div>
+      <p className="battle-field-card-name">{compact ? card.name.replace(/にぎり|寿司|軍艦/g, '') : card.name}</p>
       <div className="battle-field-card-stats">
-        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}{reductionLabel && <small className="battle-field-card-debuff"> {reductionLabel.replace('攻撃', '')}</small>}</span>
-        <span className="battle-field-card-turns">{defenseLabel ?? (isPersist ? `残り${card.turnsLeft}T` : '即時')}</span>
+        <span className="battle-field-card-attack">{compact ? '攻' : '攻撃 '}{actualAttack ?? card.attack}{reductionLabel && <small className="battle-field-card-debuff"> {reductionLabel.replace('攻撃', '')}</small>}</span>
+        <span className="battle-field-card-turns">{(compact && defenseLabel ? '防御' : defenseLabel) ?? (compact ? `${card.turnsLeft}T` : isPersist ? `残り${card.turnsLeft}T` : '即時')}</span>
       </div>
       <p className="battle-field-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>
@@ -311,10 +311,10 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
 }
 
 export function HandSushi({
-  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, onSelect,
+  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, compact = false, blockedLabel, actualAttack, onSelect,
 }: {
   card: Card; canPlay: boolean; attackBuff: Record<string, number>
-  kiretaStack: number; namahamuBoost?: boolean; isSelected: boolean; combosFired?: readonly string[]; onSelect: () => void
+  kiretaStack: number; namahamuBoost?: boolean; isSelected: boolean; combosFired?: readonly string[]; compact?: boolean; blockedLabel?: string; actualAttack?: number; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
@@ -336,14 +336,14 @@ export function HandSushi({
       transition={{ type: 'spring', stiffness: 400, damping: 22 }}
     >
       <div className="battle-hand-card-heading">
-        <span className="battle-hand-card-cost">AP {card.cost}</span>
-        <span className="battle-hand-card-type">{isPersist ? '持続' : '即時'}</span>
+        <span className="battle-hand-card-cost">AP{compact ? '' : ' '}{card.cost}</span>
+        <span className="battle-hand-card-type">{!canPlay && compact ? blockedLabel ?? '不可' : isPersist ? '持続' : '即時'}</span>
       </div>
-      <div className="battle-hand-card-art" aria-hidden="true"><SushiArt card={card} size="96%" fit /></div>
+      <div className="battle-hand-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit tight={compact} /></div>
       <p className="battle-hand-card-name">{card.name}</p>
       <div className="battle-hand-card-stats">
-        <span className="battle-hand-card-attack">攻撃 {card.attack + buff + kBonus + auraBonus}</span>
-        {isPersist && <span className="battle-hand-card-turns">{card.fullness}T</span>}
+        <span className="battle-hand-card-attack">{compact ? '攻' : '攻撃 '}{actualAttack ?? card.attack + buff + kBonus + auraBonus}</span>
+        {isPersist && <span className="battle-hand-card-turns">×{card.fullness}T</span>}
       </div>
       <p className="battle-hand-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>

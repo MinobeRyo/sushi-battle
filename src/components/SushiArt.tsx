@@ -33,13 +33,13 @@ export function sushiKind(card: Card): 'maki' | 'gunkan' | 'nigiri' {
 
 // ── 本体 ──────────────────────────────────────────────────────────────────────
 
-export function SushiArt({ card, size = 48, fit = false }: { card: Card; size?: number | string; fit?: boolean }) {
+export function SushiArt({ card, size = 48, fit = false, tight = false }: { card: Card; size?: number | string; fit?: boolean; tight?: boolean }) {
   const kind = sushiKind(card)
   const color = NETA_COLOR[card.base] ?? '#f5c518'
 
   return (
     <svg
-      viewBox="0 0 100 74"
+      viewBox={tight ? "0 14 100 60" : "0 0 100 74"}
       style={{ width: size, height: fit ? '100%' : 'auto', display: 'block' }}
       aria-label={card.name}
     >

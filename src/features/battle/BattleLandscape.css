@@ -1,176 +1,166 @@
 .battle-compact-only { display: none; }
 
-/* スマホ横向きは「状況・盤面・操作」を独立させ、全体の縦送りをなくす。 */
+/* 判断に必要な手札と場札を同時に見せる。下段は左列まで使い、寿司の面積を確保する。 */
 @media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
-  .battle-board {
-    --battle-field-width: clamp(76px, 10vw, 108px);
-    --battle-hand-width: clamp(82px, 10.5vw, 116px);
-    --battle-side-width: clamp(76px, 10vw, 106px);
-    font-size: 12px;
-  }
+  .battle-board { --battle-side-width: 64px; font-size: 12px; }
   .battle-layout {
     display: grid;
-    grid-template-columns: clamp(140px, 21vw, 220px) minmax(0, 1fr) clamp(124px, 17vw, 182px);
-    grid-template-rows: minmax(0, 1fr);
-    gap: 8px;
-    padding: 8px 8px max(8px, env(safe-area-inset-bottom, 0px));
+    grid-template-columns: clamp(112px, 16vw, 140px) minmax(0, 1fr) clamp(126px, 18vw, 160px);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+    gap: 6px;
+    padding: max(6px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
     overflow: hidden;
   }
-  .battle-overview { min-height: 0; max-height: none; height: 100%; padding: 0; background: none; border: 0; box-shadow: none; overflow: hidden; }
-  .battle-phase-bar { display: none; }
-  .battle-status-grid { height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: .85fr 1.15fr; gap: 6px; }
-  .battle-overview .player-status-panel { border-width: 1px; border-radius: 12px; overflow-y: auto; scrollbar-width: thin; }
-  .battle-overview .player-status-panel__summary { display: block; padding: 7px 9px; }
-  .battle-overview .player-status-panel__title-row { gap: 3px; }
-  .battle-overview .player-status-panel__heading { font-size: 13px; }
-  .battle-overview .player-status-panel__gari { padding: 1px 3px; font-size: 10px; }
+  .battle-overview, .battle-status-grid, .battle-arena, .battle-tables { display: contents; }
+  .battle-phase-bar, .battle-combo-progress { display: none; }
+  .battle-overview .player-status-panel { grid-column: 1; grid-row: 2; border-radius: 10px; box-shadow: none; border-top-width: 3px; }
+  .battle-overview .player-status-panel--opponent { grid-row: 1; }
+  .battle-overview .player-status-panel__summary { display: flex; flex: 1; min-height: 0; flex-direction: column; justify-content: center; padding: 4px 7px; }
+  .battle-overview .player-status-panel__title-row { flex-wrap: nowrap; gap: 4px; }
+  .battle-overview .player-status-panel__heading { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; margin: 0; }
+  .battle-overview .player-status-panel__gari { font-size: 10px; padding: 0 3px; border: 0; }
   .battle-overview .player-status-panel__gari strong { font-size: 12px; }
-  .battle-overview .player-status-panel__belly { margin-top: 7px; }
-  .battle-overview .player-status-panel__belly-numbers { font-size: 12px; }
-  .battle-overview .player-status-panel__belly-numbers strong { font-size: clamp(24px, 7cqh, 38px); }
-  .battle-overview .player-status-panel__gauge { height: 8px; margin-top: 5px; border: 0; }
-  .battle-overview .player-status-panel__metrics { grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
-  .battle-overview .player-status-panel__metrics > div { gap: 3px; flex-wrap: nowrap; }
-  .battle-overview .player-status-panel__metrics dt, .battle-overview .player-status-panel__metrics dd span { font-size: 11px; }
-  .battle-overview .player-status-panel__metrics dt { white-space: nowrap; }
-  .battle-overview .player-status-panel__metrics dd strong { font-size: 16px; }
-  .battle-overview .battle-deck-trigger { min-height: 28px; padding: 2px 4px; }
-  .battle-overview .battle-deck-trigger__label { display: none; }
-  .battle-overview .player-status-panel__metrics > div:nth-child(2) { display: none; }
-  .battle-overview .player-status-panel__metrics > div:first-child { grid-column: 1 / -1; justify-content: space-between; }
+  .battle-overview .player-status-panel__belly-numbers { font-size: 11px; flex-wrap: nowrap; }
+  .battle-overview .player-status-panel__belly-numbers p { line-height: 27px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 28px; line-height: 1; }
+  .battle-overview .player-status-panel__gauge { height: 7px; margin: 2px 0 4px; border: 0; }
+  .battle-overview .player-status-panel__metrics { display: none; justify-content: space-between; margin: 0; gap: 3px; }
+  .battle-overview .player-status-panel__metrics > div { flex-wrap: nowrap; gap: 2px; }
+  .battle-overview .player-status-panel__metrics > div:nth-child(2),
+  .battle-overview .player-status-panel:not(.player-status-panel--opponent) .player-status-panel__metrics > div:first-child,
+  .battle-overview .player-status-panel:not(.player-status-panel--opponent) .player-status-panel__metrics > div:nth-child(3),
   .battle-overview .player-status-panel--opponent .player-status-panel__metrics > div:first-child { display: none; }
-  .battle-overview .player-status-panel__details { flex: 0 0 auto; min-height: 0; padding: 3px 6px; display: block; }
-  .battle-overview .player-status-panel__details--empty { display: none; }
-  .battle-overview .player-status-panel__effects-heading { display: none; }
-  .battle-overview .player-status-panel__effects li { font-size: 10px; }
-  .battle-overview .player-status-panel__effects li strong { font-size: 11px; }
-  .battle-per-turn { display: block; margin-top: 6px; color: #6d5945; font-size: 11px; }
-  .battle-per-turn strong { color: #b52420; font-size: 16px; }
-  .battle-ap-dots { display: flex; gap: 4px; margin-top: 6px; }
-  .battle-ap-dots span { width: 12px; height: 12px; border: 2px solid #cabba5; border-radius: 50%; background: #e9dfcd; }
-  .battle-ap-dots span[data-filled='true'] { background: #d68b0d; border-color: #b5680c; }
-  .battle-status-combos { display: block; flex-shrink: 0; padding: 0 6px 5px; }
-  .battle-status-combos > div { justify-content: flex-start !important; }
-  .battle-status-combos > button { width: 100%; min-height: 28px; margin-top: 4px; border: 1px solid #cfbda1; border-radius: 6px; background: #fffaf0; color: #6f4b25; font-size: 11px; cursor: pointer; }
+  .battle-overview .player-status-panel__metrics dt, .battle-overview .player-status-panel__metrics dd span { font-size: 10px; }
+  .battle-overview .player-status-panel__metrics dd strong { font-size: 12px; }
+  .battle-overview .battle-deck-trigger { min-height: 22px; padding: 0 2px; }
+  .battle-overview .battle-deck-trigger__label { display: none; }
+  .battle-overview .player-status-panel__details, .battle-ap-dots, .battle-per-turn { display: none; }
+  .battle-status-combos { display: block; flex: 0 0 auto; }
+  .battle-status-combos > div { display: none !important; }
+  .battle-status-combos > button { width: 100%; min-height: 25px; padding: 2px; border-top: 1px solid #decfba; color: #6b5036; background: #f3eadc; font-size: 11px; cursor: pointer; }
 
-  .battle-arena { display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 0; gap: 7px; overflow: hidden; }
-  .battle-tables { flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 7px; }
-  .battle-player-area { min-height: 0; align-items: stretch; gap: 4px; }
+  .battle-player-area { grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) var(--battle-side-width); align-items: stretch; gap: 4px; min-height: 0; }
+  .battle-player-area + .battle-player-area { grid-row: 2; }
   .battle-table { display: flex; flex-direction: column; min-height: 0; padding: 3px 0 0; border-radius: 10px; }
-  .battle-table-heading { padding: 0 6px 3px; gap: 3px; flex-shrink: 0; flex-wrap: nowrap; }
-  .battle-table-heading h2 { font-size: 11px; line-height: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .battle-table-heading > span, .battle-table-heading h2 span { font-size: 10px; line-height: 15px; white-space: nowrap; }
-  .battle-combo-progress { display: none; }
-  .battle-field-cards, .battle-field-cards:has(.battle-empty-field) { flex: 1 1 0; min-height: 0; align-items: stretch; padding: 0 4px 4px; gap: 5px; }
-  .battle-field-cards > :first-child { margin-left: 0; }
-  .battle-field-cards > :last-child { margin-right: 0; }
-  .battle-empty-field { padding: 8px; margin: auto; font-size: 11px; }
-  .battle-hand-section { display: flex; flex-direction: column; flex: 0 0 40%; min-height: 112px; margin-top: 0; padding: 3px 0 0; background: transparent; border: 0; border-radius: 0; }
-  .battle-hand { flex: 1 1 0; min-height: 0; padding: 4px 5px; gap: 7px; align-items: stretch; }
-  .battle-field-card, .battle-hand-card { min-width: 0; min-height: 0; height: 100%; padding: 3px 4px; gap: 1px; border-radius: 10px; box-shadow: none; }
-  .battle-field-card { width: var(--battle-field-width); }
-  .battle-hand-card { width: var(--battle-hand-width); }
-  .battle-field-card-art, .battle-hand-card-art { flex: 1 1 0; height: 0; min-height: 0; overflow: hidden; }
-  .battle-field-card-name, .battle-hand-card-name { display: block; min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 18px; }
-  .battle-field-card-stats, .battle-hand-card-stats { flex-wrap: wrap; min-height: 17px; line-height: 17px; gap: 0 3px; }
+  .battle-table-heading { flex-shrink: 0; flex-wrap: nowrap; padding: 0 6px 3px; gap: 4px; }
+  .battle-table-heading h2 { font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .battle-table-heading h2 span, .battle-table-heading > span { font-size: 10px; line-height: 16px; white-space: nowrap; }
+  .battle-table-heading .battle-table-damage { color: #a33124; font-size: 12px; font-weight: 800; }
+  .battle-field-cards { display: flex; flex: 1; min-height: 0; padding: 0 3px 3px; gap: 3px; overflow: hidden; align-items: stretch; }
+  .battle-field-cards > :first-child, .battle-hand > :first-child { margin-left: 0; }
+  .battle-field-cards > :last-child, .battle-hand > :last-child { margin-right: 0; }
+  .battle-empty-field { padding: 4px; margin: auto; font-size: 11px; }
+  .battle-field-card { flex: 0 1 80px; width: 80px; min-width: 0; min-height: 0; height: 100%; padding: 1px 2px; gap: 0; border-radius: 7px; box-shadow: none; }
+  .battle-field-card-art { flex: 1; height: auto; min-height: 0; }
+  .battle-field-card-name { display: block; min-height: 0; font-size: 10px; line-height: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .battle-field-card-stats { min-height: 15px; line-height: 15px; flex-wrap: nowrap; gap: 2px; }
   .battle-field-card-attack, .battle-field-card-turns { font-size: 11px; }
-  .battle-hand-card-attack { font-size: 14px; }
+  .battle-field-card-effect { display: none; }
+  .battle-field-cards[data-crowded='true'] .battle-field-card-debuff { display: none; }
+
+  .battle-hand-section { grid-column: 1 / 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; margin: 0; padding: 4px 0 0; border: 0; border-top: 2px solid #d3bd99; border-radius: 0; background: #eee0cb; }
+  .battle-hand-section .battle-table-heading { padding: 0 5px 4px; }
+  .battle-hand-section .battle-table-heading h2 { font-size: 12px; }
+  .battle-hand-ap { display: flex; align-items: center; gap: 5px; color: #77400c; font-size: 12px; white-space: nowrap; }
+  .battle-hand-ap .battle-deck-trigger__label { display: inline; }
+  .battle-hand-ap .battle-deck-trigger { min-height: 26px; padding: 2px 7px; margin-right: 6px; font-size: 11px; }
+  .battle-hand-ap .battle-deck-trigger strong { font-size: 12px; }
+  .battle-hand-ap strong { font-size: 17px; }
+  .battle-hand-ap-dots { display: flex; gap: 3px; }
+  .battle-hand-ap-dots i { width: 9px; height: 9px; border: 1px solid #b8a182; border-radius: 50%; background: #dfd1ba; }
+  .battle-hand-ap-dots i[data-filled='true'] { border-color: #a8540b; background: #d78a15; }
+  .battle-hand { display: flex; flex: 1; min-height: 0; padding: 3px 5px 5px; gap: 6px; align-items: stretch; overflow: hidden; }
+  .battle-hand-card { position: relative; flex: 1 1 0; max-width: 132px; width: auto; min-width: 0; min-height: 0; height: 100%; padding: 3px 4px; gap: 0; border-radius: 9px; box-shadow: 0 2px 0 #ac8a6240; }
+  .battle-hand-card-heading { height: 22px; flex-shrink: 0; gap: 2px; }
+  .battle-hand-card-cost { font-size: 13px; line-height: 21px; padding: 0 3px; white-space: nowrap; }
+  .battle-hand-card-type { font-size: 10px; white-space: nowrap; }
+  .battle-hand-card-art { flex: 1; height: auto; min-height: 38px; }
+  .battle-hand-card-art svg { overflow: visible; }
+  .battle-hand-card-name { display: block; min-height: 0; font-size: 13px; line-height: 17px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .battle-hand-card-stats { flex-wrap: nowrap; min-height: 20px; line-height: 20px; gap: 3px; }
+  .battle-hand-card-attack { font-size: 16px; }
   .battle-hand-card-turns { font-size: 12px; }
-  .battle-hand-card-cost { padding: 0 3px; font-size: 12px; line-height: 21px; }
-  .battle-hand-card-type { font-size: 10px; }
-  .battle-field-card-effect, .battle-hand-card-effect { display: none; }
-  .battle-hand-card[data-selected='true'] { border-color: var(--card-border); outline: 3px solid #2563eb; outline-offset: 1px; box-shadow: none; }
+  .battle-hand-card-effect { display: none; }
+  .battle-hand-card[data-selected='true'] { border-color: #2563eb; outline: 2px solid #2563eb; outline-offset: 1px; box-shadow: none; }
+  .battle-hand-card[data-playable='false'] .battle-hand-card-type { color: #776b5b; }
 
-  .battle-side-slot { min-height: 0; height: 100%; padding: 4px; gap: 2px; border-width: 1px; border-radius: 10px; }
-  .battle-side-heading { justify-content: center; flex-wrap: wrap; gap: 1px; }
-  .battle-side-heading h2 { font-size: 9px; }
-  .battle-side-art, .battle-side-hint { display: none; }
-  .battle-side-name { font-size: 12px; line-height: 16px; }
-  .battle-side-empty { gap: 0; font-size: 10px; }
-  .battle-side-empty p { font-size: 9px; line-height: 1.4; }
-  .battle-side-action-area { gap: 0; }
-  .battle-side-use { min-height: 30px; padding: 3px 1px; gap: 2px; font-size: 11px; }
-  .battle-side-action-reason { display: none; }
+  .battle-side-slot { width: 100%; min-height: 0; height: 100%; padding: 3px; gap: 1px; border-width: 1px; border-radius: 10px; }
+  .battle-side-heading { justify-content: center; }
+  .battle-side-heading h2, .battle-side-hint, .battle-side-empty p, .battle-side-action-reason { display: none; }
+  .battle-side-slot[data-state='empty'] .battle-side-heading { flex-direction: column; margin: auto; }
+  .battle-side-slot[data-state='empty'] .battle-side-heading h2 { display: block; font-size: 10px; }
+  .battle-side-slot[data-state='empty'] .battle-side-empty { display: none; }
+  .battle-side-art { display: flex; flex: 1; width: 100%; min-height: 22px; max-height: 52px; }
+  .battle-side-name { font-size: 11px; line-height: 13px; }
+  .battle-side-use { min-height: 25px; padding: 2px 1px; font-size: 11px; }
+  .battle-side-remaining, .battle-side-used { font-size: 9px; line-height: 11px; }
 
-  .battle-actions { position: static; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; padding: 0; border: 0; box-shadow: none; background: transparent; align-items: stretch; }
+  .battle-actions { grid-column: 3; grid-row: 1 / 4; position: static; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; padding: 0; border: 0; box-shadow: none; background: transparent; align-items: stretch; }
   .battle-actions .battle-compact-only { display: block; }
-  .battle-compact-phase { grid-column: 1 / -1; padding: 7px 10px; border-radius: 12px; background: #efe3cc; }
-  .battle-compact-phase span { display: block; font-size: 12px; font-weight: 800; }
-  .battle-compact-phase strong { display: block; color: #8e3f1e; font-size: 14px; line-height: 1.3; }
-  .battle-selection { grid-column: 1 / -1; padding: 8px 10px; overflow-y: auto; border: 1px solid #cfbfaa; border-radius: 12px; background: #fffaf0; }
-  .battle-selection > span { color: #79644d; font-size: 11px; }
-  .battle-selection h2 { margin: 2px 0; color: #382c22; font-size: 17px; font-weight: 800; line-height: 1.3; }
-  .battle-selection p { margin-top: 3px; color: #6d5945; font-size: 11px; line-height: 1.5; }
-  .battle-selection small { display: block; margin-top: 3px; font-size: 10px; color: #a33724; }
-  .battle-actions .battle-quick-play { grid-column: 1 / -1; padding: 8px 5px; background: #a7471f; border: 1px solid #7a3216; color: white; border-radius: 12px; }
-  .battle-quick-play strong { display: block; font-size: 18px; }
+  .battle-compact-phase { grid-column: 1 / -1; padding: 6px 8px; border-radius: 10px; background: #e9dac0; }
+  .battle-compact-phase span { display: inline; margin-right: 4px; font-size: 11px; }
+  .battle-compact-phase strong { display: inline; color: #8e3f1e; font-size: 15px; line-height: 1.35; }
+  .battle-compact-phase small { display: block; margin-top: 2px; font-size: 10px; color: #745439; }
+  .battle-selection { grid-column: 1 / -1; overflow: hidden; padding: 7px 8px; border: 1px solid #cdb99a; border-radius: 10px; background: #fffaf0; }
+  .battle-selection > span { color: #7a634c; font-size: 10px; }
+  .battle-selection h2 { margin: 3px 0; font-size: 16px; line-height: 1.25; font-weight: 800; }
+  .battle-selection p { margin-top: 5px; color: #604b34; font-size: 12px; line-height: 1.4; }
+  .battle-selection .battle-selection-impact { color: #a33224; font-size: 15px; font-weight: 800; }
+  .battle-selection-impact > span { display: inline; font-size: 10px; font-weight: 500; color: #745439; }
+  .battle-selection-impact > strong { font-size: 20px; }
+  .battle-selection .battle-selection-effect { padding-top: 5px; border-top: 1px solid #e0d1b8; font-size: 11px; line-height: 1.4; }
+  .battle-selection small { display: block; margin-top: 4px; font-size: 11px; color: #953c21; }
+  .battle-selection-empty { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .battle-selection-empty svg { width: 56px; height: 42px; color: #bd9b68; }
+  .battle-selection-empty p { font-size: 13px; font-weight: 700; }
+  .battle-actions .battle-quick-play { grid-column: 1 / -1; min-height: 48px; padding: 6px 3px; background: #a7471f; border: 1px solid #7a3216; color: #fff; border-radius: 10px; }
+  .battle-quick-play strong { display: block; font-size: 17px; }
   .battle-quick-play span { display: block; font-size: 11px; font-weight: 400; }
-  .battle-quick-play:disabled { background: #e3d9c8; color: #756550; border-color: #c7b89f; cursor: default; }
+  .battle-quick-play:disabled { background: #dfd5c5; color: #756550; border-color: #c7b89f; cursor: default; }
   .battle-actions .battle-hand-jump, .battle-log-preview { display: none; }
-  .battle-actions .battle-selection-detail, .battle-actions .battle-log-button { min-height: 40px; padding: 5px; text-align: center; justify-content: center; background: #e7dbc7; border: 1px solid #b9a485; color: #4c3925; font-size: 13px; }
+  .battle-actions .battle-selection-detail, .battle-actions .battle-log-button { min-height: 32px; padding: 4px; text-align: center; justify-content: center; background: #e7dbc7; border: 1px solid #b9a485; color: #4c3925; font-size: 12px; }
   .battle-selection-detail:disabled { opacity: .5; cursor: default; }
-  .battle-actions .battle-end-turn { grid-column: 1 / -1; min-height: 48px; padding: 6px; border-radius: 12px; color: #8e3f1e; background: #fffaf0; border: 1.5px solid #a7471f; font-size: 16px; box-shadow: none; }
+  .battle-actions .battle-end-turn { grid-column: 1 / -1; min-height: 49px; padding: 5px; border-radius: 10px; color: #8e3f1e; background: #fffaf0; border: 1.5px solid #a7471f; font-size: 16px; box-shadow: none; }
+  .battle-end-turn small { display: block; font-size: 11px; font-weight: 500; }
   .battle-actions .battle-end-turn:disabled { color: #756550; background: #e3d9c8; border-color: #c7b89f; font-size: 13px; }
-  .battle-detail-sheet { max-width: 640px; padding: 12px 18px; }
-  .battle-detail-heading { margin-bottom: 8px; }
-  .battle-detail-heading h2 { margin-top: 3px; font-size: 22px; }
-  .battle-detail-art { min-height: 80px; }
-  .battle-detail-stats { gap: 4px 12px; }
-  .battle-detail-stats dd { font-size: 17px; }
-  .battle-detail-effect { margin-top: 8px; padding: 6px 10px; }
-  .battle-detail-effect p { font-size: 14px; }
-  .battle-detail-actions { margin-top: 10px; }
 }
 
 @media (min-width: 600px) and (max-width: 1100px) and (max-height: 350px) and (orientation: landscape) {
-  .battle-layout { gap: 5px; padding: 5px 5px max(5px, env(safe-area-inset-bottom, 0px)); }
-  .battle-overview .player-status-panel__summary { padding: 5px 7px; }
-  .battle-overview .player-status-panel__belly { margin-top: 4px; }
-  .battle-overview .player-status-panel__metrics { margin-top: 4px; gap: 3px; }
-  .battle-ap-dots { margin-top: 3px; }
-  .battle-per-turn { margin-top: 3px; }
+  .battle-layout { gap: 4px; padding: 4px; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr); }
+  .battle-overview .player-status-panel__summary { padding: 2px 5px; }
+  .battle-overview .player-status-panel__belly-numbers p { line-height: 23px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 24px; }
+  .battle-overview .player-status-panel__gauge { height: 6px; margin-bottom: 2px; }
+  .battle-status-combos > button { min-height: 22px; font-size: 10px; }
+  .battle-field-card-name { font-size: 9px; line-height: 11px; }
+  .battle-field-card-stats { min-height: 13px; line-height: 13px; }
+  .battle-field-card-attack, .battle-field-card-turns { font-size: 10px; }
+  .battle-field-card[data-defense-state] .battle-field-card-turns { font-size: 10px; }
+  .battle-hand-section .battle-table-heading { padding-bottom: 1px; }
+  .battle-hand-card-name { font-size: 12px; line-height: 16px; }
+  .battle-hand-card-cost { font-size: 12px; }
+  .battle-hand-card-stats { min-height: 18px; line-height: 18px; }
+  .battle-hand-card-art { min-height: 25px; }
+  .battle-hand-ap-dots i { width: 7px; height: 7px; }
   .battle-actions { gap: 4px; }
-  .battle-compact-phase { padding: 4px 8px; }
-  .battle-actions .battle-quick-play { padding-block: 4px; }
-  .battle-actions .battle-end-turn { min-height: 40px; }
+  .battle-compact-phase { padding: 4px 6px; }
+  .battle-compact-phase strong { font-size: 13px; }
+  .battle-compact-phase small { font-size: 9px; line-height: 12px; white-space: nowrap; }
+  .battle-selection { padding: 5px 6px; }
+  .battle-selection h2 { margin: 2px 0; font-size: 14px; }
+  .battle-selection p { margin-top: 3px; font-size: 11px; }
+  .battle-selection .battle-selection-impact { font-size: 13px; }
+  .battle-selection .battle-selection-effect { padding-top: 3px; font-size: 10px; }
+  .battle-actions .battle-quick-play { min-height: 44px; padding-block: 3px; }
+  .battle-quick-play span { font-size: 10px; line-height: 14px; }
+  .battle-quick-play strong { font-size: 13px; line-height: 18px; }
+  .battle-actions .battle-end-turn { min-height: 44px; font-size: 14px; }
+  .battle-side-heading { display: none; }
+  .battle-side-slot[data-state='empty'] .battle-side-heading { display: flex; }
 }
 
-/* 横スマホは一覧をページ送りにし、操作と閉じるボタンを常に画面内に置く。 */
+/* 補助情報だけをページ切替にする。判断中の手札・机はページを分けない。 */
 @media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
-  .battle-board { --battle-side-width: 64px; }
-  .battle-player-area { grid-template-columns: minmax(0, 1fr) var(--battle-side-width); }
-  .battle-side-slot { width: 100%; }
-  .battle-overview .player-status-panel { display: flex; flex-direction: column; overflow: hidden; }
-  .battle-overview .player-status-panel__summary { padding: 5px 7px; }
-  .battle-overview .player-status-panel__title-row { flex-wrap: nowrap; }
-  .battle-overview .player-status-panel__heading { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-  .battle-overview .player-status-panel__gari { flex-shrink: 0; font-size: 9px; }
-  .battle-overview .player-status-panel__belly { margin-top: 3px; }
-  .battle-overview .player-status-panel__belly-numbers strong { font-size: 24px; line-height: 1; }
-  .battle-overview .player-status-panel__gauge { height: 5px; margin-top: 3px; }
-  .battle-overview .player-status-panel__metrics { margin-top: 3px; gap: 1px 5px; }
-  .battle-overview .player-status-panel__metrics dd strong { font-size: 14px; }
-  .battle-overview .player-status-panel__details, .battle-ap-dots, .battle-side-empty p { display: none; }
-  /* ComboStatusBarのinline display:flexも打ち消し、詳細へのボタンだけを残す。 */
-  .battle-status-combos > div { display: none !important; }
-  .battle-status-combos { margin-top: auto; padding: 0 6px 5px; }
-  .battle-status-combos > button { margin-top: 0; min-height: 25px; }
-  .battle-per-turn { margin-top: 2px; font-size: 10px; }
-  .battle-per-turn strong { font-size: 13px; }
-  .battle-table-heading .screen-pager { flex-shrink: 0; margin: 0 0 0 auto; gap: 3px; }
-  .battle-table-heading .screen-pager button { min-width: 26px; min-height: 23px; padding: 1px 4px; font-size: 11px; }
-  .battle-table-heading .screen-pager span { font-size: 10px; }
-  .battle-table-heading > span { display: none; }
-  .battle-field-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
-  .battle-hand { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
-  .battle-field-card, .battle-hand-card { width: 100%; }
-  .battle-field-cards:has(.battle-empty-field), .battle-hand:has(.battle-empty-field) { display: flex; }
-  .battle-selection { overflow: hidden; padding: 6px 8px; }
-  .battle-selection h2 { font-size: 15px; }
-  .battle-selection p { line-height: 1.3; margin-top: 2px; }
-  .battle-selection small { line-height: 1.25; }
-  .battle-quick-play strong { font-size: 15px; }
-  .battle-actions .battle-selection-detail, .battle-actions .battle-log-button { min-height: 32px; }
   .battle-log-panel { inset: 8px !important; height: auto !important; overflow: hidden !important; border: 1px solid #b9a485; border-radius: 12px; }
   .battle-log-panel p { margin-block: 5px; font-size: 12px !important; line-height: 1.45 !important; }
   .battle-detail-overlay { padding: 8px; align-items: center; }
@@ -259,21 +249,11 @@
   .battle-hikari-defense .battle-defense__leave { min-height: 26px; margin-top: 4px; padding: 3px 8px; }
 }
 
-@media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
-  .battle-status-grid { grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  .battle-overview .player-status-panel__summary { padding: 4px 6px; }
-  .battle-overview .player-status-panel__heading { margin: 0; line-height: 14px; }
-  .battle-overview .player-status-panel__gari { padding: 0 3px; line-height: 14px; }
-  .battle-overview .player-status-panel__gari strong { font-size: 10px; }
-  .battle-overview .player-status-panel__belly-numbers p { line-height: 22px; }
-  .battle-overview .player-status-panel__belly-numbers strong { font-size: 22px; line-height: 22px; }
-  .battle-overview .player-status-panel__gauge { height: 3px; margin-top: 2px; }
-  .battle-overview .player-status-panel__metrics > div:first-child { grid-column: auto; justify-content: flex-start; }
-  .battle-overview .player-status-panel:not(.player-status-panel--opponent) .player-status-panel__metrics > div:nth-child(3) { display: none; }
-  .battle-overview .player-status-panel__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
-  .battle-overview .player-status-panel__metrics dt, .battle-overview .player-status-panel__metrics dd span { font-size: 10px; }
-  .battle-overview .player-status-panel__metrics dd strong { font-size: 12px; }
-  .battle-overview .battle-deck-trigger { min-height: 22px; padding: 0 2px; }
-  .battle-per-turn, .battle-per-turn strong { line-height: 14px; }
-  .battle-per-turn strong { font-size: 12px; }
+@media (min-width: 600px) and (max-width: 1100px) and (max-height: 300px) and (orientation: landscape) {
+  .battle-selection[data-source='hand'] > span { display: none; }
+  .battle-selection h2 { margin: 0; }
+  .battle-selection-impact > strong { font-size: 16px; }
+  .battle-actions .battle-end-turn { min-height: 40px; padding: 2px; line-height: 18px; }
+  .battle-end-turn small { line-height: 13px; }
+  .battle-actions .battle-selection-detail, .battle-actions .battle-log-button { min-height: 28px; }
 }
