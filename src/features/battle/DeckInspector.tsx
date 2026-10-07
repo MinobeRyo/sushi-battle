@@ -28,19 +28,34 @@ function DeckDialog({ entries, count, onClose }: {
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const listScrollRef = useRef(0)
   const titleId = useId()
   const noteId = useId()
   const compact = useCompactLandscape()
   const [page, setPage] = useState(0)
-  const entryPages = entries.flatMap(entry => {
-    const lines = getCardEffectDescription(entry.card).split('\n')
-    return Array.from({ length: Math.max(1, Math.ceil(lines.length / 4)) }, (_, part) => ({
-      ...entry, compactEffect: lines.slice(part * 4, part * 4 + 4).join('\n'),
-    }))
-  })
-  const pages = Math.max(1, entryPages.length)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [effectPage, setEffectPage] = useState(0)
+  const detailButtonsRef = useRef(new Map<string, HTMLButtonElement>())
+  const lastSelectedKeyRef = useRef<string | null>(null)
+  const backRef = useRef<HTMLButtonElement>(null)
+  const pageSize = 8
+  const pages = Math.max(1, Math.ceil(entries.length / pageSize))
   const currentPage = Math.min(page, pages - 1)
-  const visibleEntries = compact ? entryPages.slice(currentPage, currentPage + 1) : entries.map(entry => ({ ...entry, compactEffect: '' }))
+  const visibleEntries = compact ? entries.slice(currentPage * pageSize, (currentPage + 1) * pageSize) : entries
+  const selected = entries.find(entry => JSON.stringify(entry.card) === selectedKey)
+  const effectLines = selected ? getCardEffectDescription(selected.card).split('\n') : []
+  const effectPages = Math.max(1, Math.ceil(effectLines.length / 4))
+  const currentEffectPage = Math.min(effectPage, effectPages - 1)
+  const returnToList = () => { setSelectedKey(null); setEffectPage(0) }
+
+  useEffect(() => {
+    if (selectedKey) backRef.current?.focus({ preventScroll: true })
+    else if (lastSelectedKeyRef.current) {
+      if (bodyRef.current) bodyRef.current.scrollTop = listScrollRef.current
+      detailButtonsRef.current.get(lastSelectedKeyRef.current)?.focus({ preventScroll: true })
+    }
+  }, [selectedKey])
 
   useEffect(() => {
     const dialog = dialogRef.current!
@@ -54,45 +69,51 @@ function DeckDialog({ entries, count, onClose }: {
   }, [])
 
   return <dialog ref={dialogRef} className="battle-deck-dialog" aria-labelledby={titleId} aria-describedby={noteId}
-    onCancel={event => { event.preventDefault(); onClose() }}
+    onCancel={event => { event.preventDefault(); if (selected) returnToList(); else onClose() }}
     onClick={event => {
       if (event.target !== event.currentTarget) return
       const rect = event.currentTarget.getBoundingClientRect()
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose()
     }}>
     <header className="battle-deck-dialog__heading">
-      <div>
-        <h2 id={titleId}>自分の山札 <span>残り<strong>{count}</strong>枚</span></h2>
-        <p id={noteId}>AP順 · 引く順番は非公開</p>
+      <div className="battle-deck-dialog__title">
+        {selected && <button ref={backRef} type="button" onClick={returnToList}>‹ 一覧へ</button>}
+        <div>
+          <h2 id={titleId}>{selected ? selected.card.name : <>自分の山札 <span>残り<strong>{count}</strong>枚</span></>}</h2>
+          <p id={noteId}>{selected ? `山札に${selected.count}枚 · APは現在値、攻撃は基本値` : `${entries.length}種類 · AP順 · 引く順番は非公開`}</p>
+        </div>
       </div>
       <button ref={closeRef} type="button" onClick={onClose} aria-label="山札確認を閉じる">閉じる</button>
     </header>
-    <div className="battle-deck-dialog__body" role="region" aria-label="山札に残っているカード" tabIndex={0}>
-      {entries.length === 0 ? <p className="battle-deck-dialog__empty">山札は空です</p> : <>
-        <p className="battle-deck-dialog__guide">{entries.length}種類 · APは現在値、攻撃は基本値</p>
-        <ul className="battle-deck-list">
-          {visibleEntries.map(({ card, count: copies, compactEffect }) => {
-            const effect = card.effect || card.id === 'namahamu' ? getCardEffectDescription(card) : null
-            return <li key={JSON.stringify(card)} className="battle-deck-card" data-card-type={card.type} data-card-variant={card.variant}>
-              <div className="battle-deck-card__heading">
-                <div className="battle-deck-card__art" aria-hidden="true"><SushiArt card={card} size="100%" fit /></div>
-                <div className="battle-deck-card__title">
-                  <h3>{card.name}</h3>
-                  <p>{card.type === 'persist' ? `持続 ${card.fullness}ターン` : '即時型'}</p>
-                </div>
-                <strong className="battle-deck-card__count">×{copies}<span className="sr-only">枚</span></strong>
-              </div>
-              <div className="battle-deck-card__stats"><span>AP <strong>{card.cost}</strong></span><span>攻撃 <strong>{card.attack}</strong></span></div>
-              <div className="battle-deck-card__tags">{card.archetype.map(arch => <span key={arch}>{ARCH_LABEL[arch]}</span>)}</div>
-              {effect && compact ? <p className="battle-deck-card__compact-effect">{compactEffect}</p> : effect ? <details className="battle-deck-card__effect">
-                <summary>効果を見る</summary>
-                {effect && <p>{effect}</p>}
-              </details> : <p className="battle-deck-card__no-effect">特殊効果なし</p>}
-            </li>
-          })}
-        </ul>
-      </>}
+    <div ref={bodyRef} className={`battle-deck-dialog__body${selected ? ' battle-deck-dialog__body--detail' : ''}`} role="region" aria-label={selected ? 'カードの内容' : '山札に残っているカード'}>
+      {selected ? <>
+        <div className="battle-deck-detail__visual">
+          <div className="battle-deck-detail__art" aria-hidden="true"><SushiArt card={selected.card} size="100%" fit /></div>
+          <div className="battle-deck-detail__tags">{selected.card.archetype.map(arch => <span key={arch}>{ARCH_LABEL[arch]}</span>)}</div>
+        </div>
+        <div className="battle-deck-detail__content">
+          <dl className="battle-deck-detail__stats">
+            <div><dt>AP</dt><dd>{selected.card.cost}</dd></div>
+            <div><dt>基本攻撃</dt><dd>{selected.card.attack}</dd></div>
+            <div><dt>{selected.card.type === 'persist' ? '持続' : '種類'}</dt><dd>{selected.card.type === 'persist' ? `${selected.card.fullness}T` : '即時'}</dd></div>
+          </dl>
+          <p className="battle-deck-detail__effect">{(compact ? effectLines.slice(currentEffectPage * 4, currentEffectPage * 4 + 4) : effectLines).join('\n')}</p>
+        </div>
+      </> : entries.length === 0 ? <p className="battle-deck-dialog__empty">山札は空です</p> : <ul className="battle-deck-list">
+        {visibleEntries.map(({ card, count: copies }) => <li key={JSON.stringify(card)} className="battle-deck-card" data-card-type={card.type} data-card-variant={card.variant}>
+          <button type="button" className="battle-deck-card__open" data-last-selected={lastSelectedKeyRef.current === JSON.stringify(card)} aria-label={`${card.name}、AP${card.cost}、残り${copies}枚の詳細`}
+            ref={button => { const key = JSON.stringify(card); if (button) detailButtonsRef.current.set(key, button); else detailButtonsRef.current.delete(key) }}
+            onClick={() => { listScrollRef.current = bodyRef.current?.scrollTop ?? 0; if (bodyRef.current) bodyRef.current.scrollTop = 0; lastSelectedKeyRef.current = JSON.stringify(card); setEffectPage(0); setSelectedKey(JSON.stringify(card)) }}>
+            <span className="battle-deck-card__art" aria-hidden="true"><SushiArt card={card} size="100%" fit tight /></span>
+            <span className="battle-deck-card__name">{card.name}</span>
+            <span className="battle-deck-card__count">×{copies}<span className="sr-only">枚</span></span>
+            <span className="battle-deck-card__more">詳細 ›</span>
+          </button>
+        </li>)}
+      </ul>}
     </div>
-    {compact && <ScreenPager page={currentPage} pages={pages} onPageChange={setPage} />}
+    {compact && (selected
+      ? <ScreenPager page={currentEffectPage} pages={effectPages} onPageChange={setEffectPage} label="効果の続き" counterLabel="効果" />
+      : <ScreenPager page={currentPage} pages={pages} onPageChange={setPage} label="山札一覧のページ切替" />)}
   </dialog>
 }

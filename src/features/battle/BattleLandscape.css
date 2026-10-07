@@ -244,20 +244,6 @@
   .battle-status-pages dt span { color: #8b4c24; }
   .battle-status-pages dd { align-self: center; font-size: 12px; line-height: 1.5; }
   .battle-status-dialog .screen-pager { margin-top: 6px; }
-  .battle-deck-dialog { height: calc(100dvh - 16px); max-height: none; }
-  .battle-deck-dialog__heading { padding: 8px 14px; }
-  .battle-deck-dialog__heading h2 { font-size: 18px; }
-  .battle-deck-dialog__heading h2 strong { font-size: 18px; }
-  .battle-deck-dialog__heading p { font-size: 10px; margin: 0; }
-  .battle-deck-dialog__heading button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
-  .battle-deck-dialog__body { flex: 1; padding: 6px 14px; overflow: hidden; }
-  .battle-deck-dialog__guide { margin-bottom: 4px; font-size: 10px; }
-  .battle-deck-list { grid-template-columns: 1fr; }
-  .battle-deck-card { display: grid; grid-template-columns: minmax(150px, .8fr) 1.2fr; gap: 5px 14px; padding: 8px 10px; }
-  .battle-deck-card__heading { grid-column: 1; }
-  .battle-deck-card__stats, .battle-deck-card__tags { grid-column: 1; margin: 0; }
-  .battle-deck-card__compact-effect, .battle-deck-card__no-effect { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0; border: 0; align-self: center; white-space: pre-line; font-size: 12px; line-height: 1.5; }
-  .battle-deck-dialog > .screen-pager { flex-shrink: 0; margin: 0 14px 8px; }
   .battle-defense { overflow: hidden; }
   .battle-defense--combined { width: min(600px, calc(100vw - 24px)); }
   .battle-defense--combined[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 10px; }
