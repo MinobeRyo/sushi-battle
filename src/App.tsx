@@ -12,11 +12,13 @@ import type { CpuBattleMode } from './data/cpuDecks'
 type GameMode = 'cpu' | 'two_player'
 const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
 const VerticalDraftDemo = lazy(() => import('./features/demo/VerticalDraftDemo'))
+const ImprovementsDemo = lazy(() => import('./features/demo/ImprovementsDemo'))
 const CardCatalogScreen = lazy(() => import('./features/catalog/CardCatalogScreen').then(module => ({ default: module.CardCatalogScreen })))
 
 export default function App() {
   const [isMobileDemo] = useState(() => window.location.hash === '#mobile-demo')
   const [isVerticalDemo] = useState(() => window.location.hash === '#vertical-draft-demo')
+  const [isImprovementsDemo] = useState(() => window.location.hash === '#improvements-demo')
   const [phase, setPhase] = useState<Phase | 'online' | 'catalog'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [gameMode, setGameMode] = useState<GameMode>('cpu')
   const [cpuBattleMode, setCpuBattleMode] = useState<CpuBattleMode>('random')
@@ -79,6 +81,7 @@ export default function App() {
 
   if (isMobileDemo) return <Suspense fallback={<div style={{ padding: 32 }}>デモを準備しています…</div>}><MobileDraftDemo /></Suspense>
   if (isVerticalDemo) return <Suspense fallback={<div style={{ padding: 32 }} role="status">縦レーンのデモを準備しています…</div>}><VerticalDraftDemo /></Suspense>
+  if (isImprovementsDemo) return <Suspense fallback={<div style={{ padding: 32 }} role="status">改善デモを準備しています…</div>}><ImprovementsDemo /></Suspense>
 
   return (
     <div className="w-full h-full relative">

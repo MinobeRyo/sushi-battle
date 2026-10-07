@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, type ReactNode } from 'react'
 import { MAX_BELLY } from './battleEngine'
 import { battleStatusDetails } from './battleStatusModel'
 import type { FieldCard } from './types'
@@ -15,6 +15,7 @@ export type PlayerStatusProps = {
   fieldDamage: number
   handCount: number
   deckCount: number
+  deckControl?: ReactNode
   attackBuff: Record<string, number>
   drawBonus: number
   kireta: number
@@ -39,7 +40,7 @@ type ActiveEffect = {
 }
 
 export function PlayerStatusPanel({
-  label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount,
+  label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl,
   attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn,
   digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
@@ -103,7 +104,7 @@ export function PlayerStatusPanel({
           </div>
           <div className="player-status-panel__card-count">
             <dt>山札</dt>
-            <dd><strong>{deckCount}</strong><span>枚</span></dd>
+            <dd>{deckControl ?? <><strong>{deckCount}</strong><span>枚</span></>}</dd>
           </div>
         </dl>
       </div>

@@ -1,0 +1,68 @@
+.battle-deck-trigger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid #b49b78;
+  border-radius: 7px;
+  background: #eee1cb;
+  color: #493521;
+  cursor: pointer;
+  font: inherit;
+}
+.battle-deck-trigger:hover { background: #e1ceb0; }
+.battle-deck-trigger__label { margin-left: 3px; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+
+.battle-deck-dialog {
+  width: min(780px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #b49b78;
+  border-radius: 16px;
+  background: #faf5eb;
+  color: #382c22;
+  box-shadow: 0 24px 80px #20100666;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+.battle-deck-dialog[open] { display: flex; flex-direction: column; }
+.battle-deck-dialog::backdrop { background: #21140eb3; }
+.battle-deck-dialog__heading { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #d6c4a8; background: #f1e6d3; }
+.battle-deck-dialog__heading h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; font-size: 22px; font-weight: 800; }
+.battle-deck-dialog__heading h2 span { color: #6b5239; font-size: 14px; font-weight: 500; }
+.battle-deck-dialog__heading h2 strong { margin-inline: 4px; color: #923e1f; font-size: 22px; }
+.battle-deck-dialog__heading p { margin: 4px 0 0; color: #6b5945; font-size: 13px; }
+.battle-deck-dialog__heading button { flex-shrink: 0; min-height: 44px; padding: 8px 14px; border: 1px solid #b49b78; border-radius: 8px; background: #fffaf0; color: #493521; font-size: 14px; font-weight: 700; cursor: pointer; }
+.battle-deck-dialog__body { min-height: 0; padding: 16px 20px 20px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.battle-deck-dialog__guide { margin: 0 0 12px; color: #6b5945; font-size: 12px; }
+.battle-deck-dialog__empty { margin: 0; padding: 48px 12px; color: #6b5945; text-align: center; }
+.battle-deck-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.battle-deck-card { min-width: 0; padding: 12px; border: 1px solid #d4b18d; border-radius: 10px; background: #fffaf2; }
+.battle-deck-card[data-card-type='persist'] { border-color: #b2c2a1; background: #f8fbf1; }
+.battle-deck-card__heading { display: flex; align-items: center; gap: 8px; }
+.battle-deck-card__art { display: flex; align-items: center; flex: 0 0 64px; height: 48px; }
+.battle-deck-card__title { flex: 1; min-width: 0; }
+.battle-deck-card__title h3 { margin: 0; color: #382c22; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.battle-deck-card__title p { margin: 2px 0 0; color: #6b5945; font-size: 12px; }
+.battle-deck-card__count { flex-shrink: 0; color: #8b3f1d; font-size: 22px; }
+.battle-deck-card__stats { display: flex; gap: 16px; margin-top: 8px; font-size: 13px; }
+.battle-deck-card__stats strong { font-size: 18px; }
+.battle-deck-card__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.battle-deck-card__tags span { padding: 1px 5px; border: 1px solid #d4c4aa; border-radius: 4px; font-size: 11px; }
+.battle-deck-card__effect, .battle-deck-card__no-effect { margin: 10px 0 0; border-top: 1px solid #dfd2bd; color: #6b5239; font-size: 13px; }
+.battle-deck-card__effect summary { min-height: 36px; padding-top: 8px; cursor: pointer; font-weight: 700; }
+.battle-deck-card__effect p { margin: 0 0 8px; line-height: 1.7; overflow-wrap: anywhere; }
+.battle-deck-card__no-effect { padding-top: 8px; }
+.battle-deck-dialog button:focus-visible, .battle-deck-dialog summary:focus-visible, .battle-deck-dialog__body:focus-visible { outline: 3px solid #2469a0; outline-offset: -3px; }
+
+@media (max-width: 560px) {
+  .battle-deck-dialog__heading { padding: 12px; }
+  .battle-deck-dialog__body { padding: 12px; }
+  .battle-deck-list { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}

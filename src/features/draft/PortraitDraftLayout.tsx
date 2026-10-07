@@ -18,7 +18,7 @@ function focusableElements(element: HTMLElement | null) {
 }
 
 export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, playerNum = 1,
-  canOrder, delivering, remaining, finishLabel, disabled = false, overlayActive,
+  canOrder, remaining, finishLabel, disabled = false, overlayActive,
   onOrder, sideMenu, sideMenuEnabled = false, onSideMenu, onDeck, onFinish, onHelp, hint, notice, children, overlays, shinkansenPlate, onPickup }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -47,7 +47,7 @@ export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, pla
 
   const seconds = Math.max(0, Math.ceil(timeLeft))
   const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-  const orderLabel = delivering ? '下のトレイで受取' : deckCount >= maxCards ? 'お皿がいっぱい' : remaining ? `あと${remaining}回　›` : '受付終了'
+  const orderLabel = remaining ? `共通あと${remaining}回　›` : '注文枠を使い切りました'
 
   return <section className="draft-portrait" aria-label="寿司を選ぶ縦画面のドラフト" onClickCapture={event => {
     if (disabled && !overlayRef.current?.contains(event.target as Node)) { event.preventDefault(); event.stopPropagation() }
@@ -60,7 +60,7 @@ export function PortraitDraftLayout({ timeLeft, budget, deckCount, maxCards, pla
         <div data-urgent={seconds <= 20}><span>残り時間</span><strong role="timer" aria-label={`残り${seconds}秒`}>{time}</strong></div>
       </div>
       <div className={`pd-toolbar${onSideMenu ? ' pd-toolbar--with-side' : ''}`}>
-        <button className="pd-order-button" disabled={!canOrder || disabled} onClick={onOrder}><strong>特急で注文</strong><span>{orderLabel}</span></button>
+        <button className="pd-order-button" disabled={(!canOrder && !onSideMenu) || disabled} onClick={onOrder}><strong>タブレットで注文</strong><span>{orderLabel}</span></button>
         {onSideMenu ? <DraftSideMenuButton className="pd-side-button" sideMenu={sideMenu} enabled={sideMenuEnabled} disabled={disabled} onClick={onSideMenu} /> : <span className="pd-tap-hint">お皿をタップ<br />して選ぶ</span>}
       </div>
       <div className="pd-lane-headings"><h2>{sideMenuEnabled ? '汎用寿司・サイド' : '汎用寿司'}<span aria-hidden="true">↓</span></h2><h2>ビルド系<span aria-hidden="true">↓</span></h2></div>

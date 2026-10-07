@@ -1,17 +1,18 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode } from '../../data/cpuDecks'
-import { INBOUND_DON_SACRIFICE_BONUS } from '../../data/sideMenus'
+import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { calcFieldDmg, countNamahamu, getSacrificeLimit, MAKI_COMP_5, makimonoCount, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
+import { calcFieldDmg, countNamahamu, getSacrificeLimit, MAKI_COMP_5, makimonoCount, hasNamahamuAura, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HandSushi, CardDetailSheet } from './BattleCards'
 import { PlayerStatusPanel } from './PlayerStatusPanel'
+import { DeckInspector } from './DeckInspector'
 import { BattleTable } from './BattleTable'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { ComboCutIn } from './ComboCutIn'
@@ -152,6 +153,9 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               gari={s.pGari}
               belly={s.pBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
               handCount={s.pHand.length} deckCount={s.pDeckCount} {...playerStatus}
+              deckControl={['player', 'cpu', 'waiting', 'animating', 'syncing'].includes(s.phase) && !s.pendingAttack && !s.pendingReaction && !comboAnim
+                ? <DeckInspector key={`${s.activePlayer}:${s.turn}:${s.phase}`} entries={s.pDeckSummary} count={s.pDeckCount} />
+                : undefined}
               digestStopTurns={s.pDigestStopTurns} apNextBonus={s.pApNextBonus} />
           </div>
         </header>
@@ -191,6 +195,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               {s.pHand.length === 0
                 ? <p className="battle-empty-field">手札がありません</p>
                 : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
+                  namahamuBoost={hasNamahamuAura(s.pField)}
                   canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
                   isSelected={inspect?.card === card}
                   onSelect={() => setInspect({ card, canPlay: !playBlockedReason(card), playBlockedReason: playBlockedReason(card) })} />)}
@@ -242,11 +247,12 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <CardDetailSheet
             key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
-            fieldCards={s.pField}
+            fieldCards={currentInspect.owner === 'opponent' ? s.cField : s.pField}
             combosFired={currentInspect.owner === 'opponent' ? s.cCombosFired : s.pCombosFired}
             enemyFieldCards={s.cField}
             enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, s.pBelly, {
               gunkanBoost: makimonoCount(s.cField) >= MAKI_COMP_5,
+              namahamuBoost: hasNamahamuAura(s.cField),
             })}
             sacrificeAttackBonus={s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
@@ -283,6 +289,9 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 
       {s.pendingAttack && isDefender && (s.phase === 'defending' || s.phase === 'syncing') && (
         <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} gari={s.pGari}
+          key={`${s.turn}:${s.pendingAttack.attackerId}:${s.pendingAttack.source}:${s.pendingAttack.amount}:${s.pendingAttack.defenseCardId ?? ''}`}
+          defenseCard={s.pField.find(card => card.fid === s.pendingAttack!.defenseCardId)}
+          enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack}
           ready={s.phase === 'defending'} onRespond={respondDefense}
           onLeave={mode === 'online' ? onBack : undefined} />
       )}
@@ -347,6 +356,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             <DraftScreenThree
               key={reorderStep}
               mode="reorder"
+              sideMenuEnabled={canReorderSideMenu(s.pSideMenu)}
               onComplete={handleReorderComplete}
               initialBudget={REORDER_BUDGET}
               seconds={REORDER_SECONDS}

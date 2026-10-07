@@ -41,16 +41,16 @@ const allIds = state => Object.values(state.players).flatMap(player => [
 test('とびこ軍艦は既存の数値と軍艦タグを維持する', () => {
   const tobiko = card('tobiko_gunkan')
   assert.deepEqual([tobiko.cost, tobiko.price, tobiko.attack, tobiko.fullness, tobiko.type, tobiko.archetype, tobiko.effect],
-    [3, 200, 10, 0, 'instant', ['makimono', 'gunkan'], 'generate_tobiko_hand_50'])
+    [3, 200, 10, 0, 'instant', ['makimono', 'gunkan'], 'generate_tobiko_hand_decreasing'])
 })
 
-test('両プレイヤーの召喚で1回だけ抽選し、0.5未満のみ成功する', () => {
-  for (const playerId of [1, 2]) for (const value of [0, 0.5 - Number.EPSILON, 0.5, 1 - Number.EPSILON]) {
+test('両プレイヤーの初回召喚で1回だけ抽選し、0.75未満のみ成功する', () => {
+  for (const playerId of [1, 2]) for (const value of [0, 0.75 - Number.EPSILON, 0.75, 1 - Number.EPSILON]) {
     const state = make(playerId)
     let calls = 0
     const result = step(state, action(state), () => { calls++; return value })
     const player = result.state.players[playerId]
-    const success = value < 0.5
+    const success = value < 0.75
     assert.equal(calls, 1)
     assert.equal(player.ap, 7)
     assert.equal(player.field.length, 1)
@@ -149,7 +149,7 @@ test('不正な操作と確定済み召喚の再送は抽選せず、状態を�
 })
 
 test('CPUはとびこの抽選前で計画を区切り、実際の成功・失敗後に手札を選び直す', () => {
-  for (const value of [0, 0.5]) {
+  for (const value of [0, 0.75]) {
     const state = make(2, 'cpu')
     state.players[2].ap = state.players[2].maxAP = 6
     state.players[2].hand.push(instance('tamago', 'cpu-next-tamago'))
@@ -164,10 +164,26 @@ test('CPUはとびこの抽選前で計画を区切り、実際の成功・失�
     assert.deepEqual(commands, [action(state, 'original-p2')])
     const next = step(state, commands[0], () => value).state
     const replanned = getCpuActions(freeze(next))
-    const expectedId = value < 0.5
+    const expectedId = value < 0.75
       ? next.players[2].hand.find(item => item.id === 'tobiko_gunkan').instanceId : 'cpu-next-tamago'
     assert.equal(replanned[0].cardInstanceId, expectedId)
     const result = step(next, replanned[0], () => 0.9).state
-    assert.equal(result.players[2].ap, value < 0.5 ? 0 : 2)
+    assert.equal(result.players[2].ap, value < 0.75 ? 0 : 2)
+  }
+})
+
+test('累計召喚数で75・50・25・0%となり、別の元カードでもリセットされない', () => {
+  for (const count of [0, 1, 2, 3, 8]) {
+    const chance = Math.max(0, 0.75 - count * 0.25)
+    for (const value of [0, Math.max(0, chance - Number.EPSILON), chance]) {
+      const state = make()
+      state.players[1].summonedIds = Array(count).fill('tobiko_gunkan')
+      let calls = 0
+      const next = step(state, action(state), () => { calls++; return value }).state
+      assert.equal(next.players[1].hand.length, Number(value < chance))
+      assert.equal(calls, chance > 0 ? 1 : 0)
+      assert.equal(next.players[1].ap, 7)
+      assert.equal(next.players[1].summonedIds.length, count + 1)
+    }
   }
 })

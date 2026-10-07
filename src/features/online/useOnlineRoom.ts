@@ -18,10 +18,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   draft_full: 'デッキは20枚までです。',
   draft_budget: '残金が足りません。',
   draft_delivery_pending: '特急のお皿を受け取ってから次を注文してください。',
-  draft_orders_used: '特急の注文は3回までです。',
+  draft_orders_used: '特急・大将のおすすめ・サイド共通の注文枠3回を使い切りました。',
   draft_no_delivery: '受け取れる特急のお皿はありません。',
-  draft_side_menu_disabled: 'サイドメニューは最初の購入時だけ注文できます。',
-  draft_side_menu_owned: 'サイドメニューは1試合に1品までです。',
+  draft_side_menu_disabled: 'サイドメニューは所持中、または購入上限です。',
+  draft_side_menu_owned: '今回のサイドメニューは購入済みです。',
+  draft_omakase_used: '大将のおすすめは、今回の購入タイムに1回までです。',
+  draft_omakase_unavailable: '大将のおすすめは、ただいま準備中です。',
   draft_invalid_side_menu: 'このサイドメニューは注文できません。',
   already_in_room: 'すでに部屋に参加しています。現在の部屋を退出してからお試しください。',
   invalid_code: '部屋コードを半角数字6桁で入力してください。',
@@ -314,7 +316,8 @@ export function useOnlineRoom() {
   }, [request, resumeRoom])
   const endTurn = useCallback(() => sendAction({ type: 'end_turn' }), [sendAction])
   const useSideMenu = useCallback(() => sendAction({ type: 'use_side_menu' }), [sendAction])
-  const respondDefense = useCallback((useGari: boolean) => sendAction({ type: 'respond_defense', useGari }), [sendAction])
+  const respondDefense = useCallback((useGari: boolean, useDefense = false, targetFieldId?: string) =>
+    sendAction({ type: 'respond_defense', useGari, useDefense, targetFieldId }), [sendAction])
   const respondReaction = useCallback((useDefense: boolean, targetFieldId?: string) =>
     sendAction({ type: 'respond_reaction', useDefense, targetFieldId }), [sendAction])
   const rematch = useCallback(async () => {

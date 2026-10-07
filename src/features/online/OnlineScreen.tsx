@@ -93,7 +93,7 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
     },
     endTurn: () => { if (canAct) { setInspect(null); void room.endTurn() } },
     useSideMenu: () => { if (canAct) { setInspect(null); void room.useSideMenu() } },
-    respondDefense: useGari => { if (canDefend) { setInspect(null); void room.respondDefense(useGari) } },
+    respondDefense: (useGari, useDefense, targetFieldId) => { if (canDefend) { setInspect(null); void room.respondDefense(useGari, useDefense, targetFieldId) } },
     respondReaction: (useDefense, targetFieldId) => {
       if (canReact) { setInspect(null); void room.respondReaction(useDefense, targetFieldId) }
     },
@@ -108,7 +108,7 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
           : room.pending ? '操作を確認中…' : match.phase === 'reacting'
             ? yourReaction ? '光り物で防御するか選んでください' : '相手が光り物の防御を選んでいます'
             : match.phase === 'defending'
-            ? yourDefense ? 'ガリを使うか選んでください' : '相手がガリを使うか選んでいます'
+            ? yourDefense ? '防御を選んでください' : '相手が防御を選んでいます'
             : yourTurn ? 'あなたのターン' : '相手のターン'}</span>
         <button onClick={onBack} className="rounded border border-stone-600 px-3 py-1 hover:bg-stone-800">部屋を退出</button>
       </div>

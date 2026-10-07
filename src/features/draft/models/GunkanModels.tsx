@@ -1,7 +1,8 @@
 import { mulberry32 } from './modelRandom'
-import { useMemo } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { BASE_NETA_COLOR } from './sushiMaterials'
 import * as THREE from 'three'
+import { NigiriTopping } from './SushiPrimitives'
 
 // ネギトロ：そぼろ状のミンチ＋ネギの緑（軍艦・握り共通パーツ）
 const NEGITORO_LUMPS: Array<[number, number, number, number]> = [
@@ -215,18 +216,156 @@ export function SeafoodGunkan() {
   )
 }
 
-// 粒もの軍艦の粒配置（決め打ちで自然なばらつき）
-// いくら用：大粒12個
-const GUNKAN_DOTS_LARGE: Array<[number, number, number]> = [
-  [0, 0.60, 0], [0.13, 0.58, 0.07], [-0.13, 0.58, 0.05], [0.06, 0.59, -0.11],
-  [-0.08, 0.58, -0.10], [0.19, 0.55, -0.04], [-0.19, 0.55, -0.02], [0.01, 0.59, 0.13],
-  [0.11, 0.56, 0.14], [-0.12, 0.56, 0.13], [0.20, 0.54, 0.09], [-0.21, 0.54, 0.08],
-  // 縁と2段目を追加してぎっしり感を出す
-  [0.24, 0.52, 0.02], [-0.24, 0.52, 0.03], [0.16, 0.53, -0.13], [-0.15, 0.53, -0.12],
-  [0.05, 0.655, 0.04], [-0.05, 0.65, -0.04], [0.08, 0.645, -0.08], [-0.09, 0.64, 0.09],
-]
+// ツナは淡いピンクのほぐし身。薄く不揃いなフレークを重ねる。
+export function TunaGunkan() {
+  const { geometry, flakes } = useMemo(() => {
+    const outline = new THREE.Shape()
+    outline.moveTo(-0.09, -0.017)
+    outline.lineTo(-0.063, -0.044)
+    outline.lineTo(-0.019, -0.036)
+    outline.lineTo(0.017, -0.052)
+    outline.lineTo(0.063, -0.031)
+    outline.lineTo(0.082, 0.003)
+    outline.lineTo(0.052, 0.02)
+    outline.lineTo(0.009, 0.046)
+    outline.lineTo(-0.027, 0.023)
+    outline.lineTo(-0.074, 0.032)
+    outline.closePath()
+    const geometry = new THREE.ExtrudeGeometry(outline, { depth: 0.02, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.007, bevelThickness: 0.006 })
+    geometry.rotateX(-Math.PI / 2)
+    // 紙片のような平面にせず、薄い身の端をゆるく折り曲げる。
+    const positions = geometry.getAttribute('position')
+    for (let i = 0; i < positions.count; i++) {
+      positions.setY(i, positions.getY(i) + 0.018 * Math.sin(positions.getX(i) * 24) + 0.008 * Math.cos(positions.getZ(i) * 42))
+    }
+    positions.needsUpdate = true
+    geometry.computeVertexNormals()
+    const rand = mulberry32(103)
+    const flakes = Array.from({ length: 48 }, (_, i) => {
+      const layer = Math.floor(i / 16)
+      const radius = Math.sqrt(((i % 16) + 0.4) / 16)
+      const angle = i * 2.399963
+      const spread = 0.265 - layer * 0.055
+      return {
+        position: [Math.cos(angle) * radius * spread, 0.475 + layer * 0.067 + (1 - radius * radius) * 0.035 + rand() * 0.025, Math.sin(angle) * radius * spread] as [number, number, number],
+        rotation: [(rand() - 0.5) * 1.2, rand() * Math.PI, (rand() - 0.5) * 0.95] as [number, number, number],
+        scale: [0.8 + rand() * 0.45, 0.8 + rand() * 0.5, 0.8 + rand() * 0.45] as [number, number, number],
+        color: ['#e4b094', '#dda286', '#edbfa3', '#d9977e'][i % 4],
+      }
+    })
+    return { geometry, flakes }
+  }, [])
+  return <group scale={[1.45, 1, 0.85]}>
+    <GunkanCup />
+    {flakes.map(({ position, rotation, scale, color }, i) => (
+      <mesh key={i} geometry={geometry} position={position} rotation={rotation} scale={scale}>
+        <meshPhysicalMaterial color={color} roughness={0.52} clearcoat={0.15} clearcoatRoughness={0.55} />
+      </mesh>
+    ))}
+  </group>
+}
 
-// コーン・とびこ・納豆用：小粒を密に（中心+3重リング+2段目）
+// とびこは細かな粒を、位置を崩した3層で盛る。螺旋や同心円の配列を使わない。
+function TobikoTopping() {
+  const grains = useRef<THREE.InstancedMesh>(null)
+  const particles = useMemo(() => {
+    const rand = mulberry32(53)
+    const transform = new THREE.Object3D()
+    const particles: { matrix: THREE.Matrix4; color: THREE.Color }[] = []
+    const colors = ['#ed7510', '#ef7b10', '#f17f12', '#e9700c']
+    for (let layer = 0; layer < 3; layer++) {
+      // 一区画に一粒を置いてから大きくずらし、偏りと規則模様の両方を避ける。
+      for (let row = -13; row <= 13; row++) {
+        for (let column = -22; column <= 22; column++) {
+          const worldX = (column + (rand() - 0.5) * 0.96) * 0.0195
+          const worldZ = (row + (rand() - 0.5) * 0.96) * 0.0195
+          const radial = (worldX / 0.427) ** 2 + (worldZ / 0.247) ** 2
+          if (radial > 1) continue
+          const y = 0.526 + 0.095 * (1 - radial) - layer * 0.018 + (rand() - 0.5) * 0.01
+          transform.position.set(worldX / 1.45, y, worldZ / 0.85)
+          const scale = 0.86 + rand() * 0.26
+          transform.scale.set(scale / 1.45, scale, scale / 0.85)
+          transform.updateMatrix()
+          particles.push({ matrix: transform.matrix.clone(), color: new THREE.Color(colors[Math.floor(rand() * colors.length)]) })
+        }
+      }
+    }
+    return particles
+  }, [])
+  useLayoutEffect(() => {
+    if (!grains.current) return
+    particles.forEach(({ matrix, color }, i) => {
+      grains.current!.setMatrixAt(i, matrix)
+      grains.current!.setColorAt(i, color)
+    })
+    grains.current.instanceMatrix.needsUpdate = true
+    if (grains.current.instanceColor) grains.current.instanceColor.needsUpdate = true
+    grains.current.computeBoundingSphere()
+  }, [particles])
+  return <>
+    <instancedMesh ref={grains} args={[undefined, undefined, particles.length]}>
+      <sphereGeometry args={[0.011, 8, 6]} />
+      <meshPhysicalMaterial color="#ffffff" roughness={0.48} metalness={0} clearcoat={0.12} clearcoatRoughness={0.5} />
+    </instancedMesh>
+  </>
+}
+
+// いくらは大きさに少しだけ差のある丸い粒を、海苔の縁に沿った山にする。
+const IKURA_GRAINS = (() => {
+  const rand = mulberry32(79)
+  const top = Array.from({ length: 35 }, (_, i) => {
+    const radius = Math.sqrt((i + 0.45) / 35)
+    const angle = i * 2.399963 + (rand() - 0.5) * 0.08
+    return {
+      p: [Math.cos(angle) * radius * 0.284, 0.535 + 0.072 * (1 - radius * radius) + rand() * 0.008, Math.sin(angle) * radius * 0.268] as [number, number, number],
+      r: 0.054 + rand() * 0.005,
+      color: i % 4 === 0 ? '#ec6d20' : '#e75b16',
+    }
+  })
+  const lower = Array.from({ length: 35 }, (_, i) => {
+    const radius = Math.sqrt((i + 0.45) / 35)
+    const angle = i * 2.399963 + 0.28
+    return {
+      p: [Math.cos(angle) * radius * 0.282, 0.422 + rand() * 0.006, Math.sin(angle) * radius * 0.266] as [number, number, number],
+      r: 0.055 + rand() * 0.004, color: '#e75b16',
+    }
+  })
+  const middle = Array.from({ length: 18 }, (_, i) => {
+    const radius = Math.sqrt((i + 0.4) / 18)
+    const angle = i * 2.399963 + 0.65
+    return {
+      p: [Math.cos(angle) * radius * 0.232, 0.484 + 0.027 * (1 - radius * radius), Math.sin(angle) * radius * 0.217] as [number, number, number],
+      r: 0.055 + rand() * 0.004, color: '#ea631b',
+    }
+  })
+  return [...lower, ...middle, ...top]
+})()
+
+function IkuraTopping() {
+  const grains = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    if (!grains.current) return
+    const transform = new THREE.Object3D()
+    IKURA_GRAINS.forEach(({ p, r, color }, i) => {
+      transform.position.set(...p)
+      transform.scale.set(r / 1.45, r, r / 0.85)
+      transform.updateMatrix()
+      grains.current!.setMatrixAt(i, transform.matrix)
+      grains.current!.setColorAt(i, new THREE.Color(color))
+    })
+    grains.current.instanceMatrix.needsUpdate = true
+    if (grains.current.instanceColor) grains.current.instanceColor.needsUpdate = true
+    grains.current.computeBoundingSphere()
+  }, [])
+  return <instancedMesh ref={grains} args={[undefined, undefined, IKURA_GRAINS.length]}>
+    <sphereGeometry args={[1, 20, 14]} />
+    <meshPhysicalMaterial color="#ffffff" roughness={0.22} metalness={0}
+      clearcoat={0.42} clearcoatRoughness={0.3} transmission={0.1} thickness={0.11} ior={1.36}
+      attenuationColor="#f88423" attenuationDistance={0.45} />
+  </instancedMesh>
+}
+
+// コーン・納豆用：小粒を密に（中心+3重リング+2段目）
 const GUNKAN_DOTS_SMALL: Array<[number, number, number]> = (() => {
   const pts: Array<[number, number, number]> = [[0, 0.60, 0]]
   for (let i = 0; i < 8; i++) {
@@ -252,12 +391,10 @@ const GUNKAN_DOTS_SMALL: Array<[number, number, number]> = (() => {
 // 粒もの軍艦の見た目設定
 const GUNKAN_DOT_CONF: Record<string, {
   r: number; color: string; roughness: number; clearcoat: number
-  squash: number; large: boolean; emissive?: string
+  squash: number
 }> = {
-  'いくら': { r: 0.095, color: '#f8420a', roughness: 0.05, clearcoat: 1, squash: 1, large: true, emissive: '#7a1400' },
-  'とびこ': { r: 0.056, color: '#f06010', roughness: 0.08, clearcoat: 1, squash: 1, large: false },
-  'コーン': { r: 0.058, color: '#fbd23c', roughness: 0.5, clearcoat: 0.15, squash: 0.78, large: false },
-  '納豆': { r: 0.058, color: '#a8823c', roughness: 0.28, clearcoat: 0.7, squash: 0.85, large: false },
+  'コーン': { r: 0.058, color: '#fbd23c', roughness: 0.5, clearcoat: 0.15, squash: 0.78 },
+  '納豆': { r: 0.058, color: '#a8823c', roughness: 0.28, clearcoat: 0.7, squash: 0.85 },
 }
 
 // うにの房：頂点を波打たせた粒々の表面を持つ舌状ジオメトリ
@@ -323,14 +460,14 @@ function GunkanCup() {
   )
 }
 
-export function GunkanSushi({ base }: { base: string }) {
+export function GunkanSushi({ base, mayo = false }: { base: string; mayo?: boolean }) {
   const toppingColor = BASE_NETA_COLOR[base] ?? '#f0a830'
   const dotConf = GUNKAN_DOT_CONF[base]
   const isUni = base === 'うに'
   return (
     <group scale={[1.45, 1, 0.85]}>
       <GunkanCup />
-      {isUni ? (
+      {base === 'とびこ' ? <TobikoTopping /> : base === 'いくら' ? <IkuraTopping /> : isUni ? (
         <>
           {/* うに色の盛り（シャリが見えないように） */}
           <mesh position={[0, 0.42, 0]} scale={[1.02, 0.45, 1.02]}>
@@ -344,23 +481,21 @@ export function GunkanSushi({ base }: { base: string }) {
         </>
       ) : dotConf ? (
         <>
-          {/* シャリの盛り（粒の土台・粒が埋まらないよう低め） */}
-          <mesh position={[0, 0.46, 0]} scale={[0.95, 0.42, 0.95]}>
+          {/* ネタ色の土台に粒を密着させ、白い隙間をなくす。 */}
+          <mesh position={[0, 0.49, 0]} scale={[0.98, 0.43, 0.98]}>
             <sphereGeometry args={[0.29, 18, 12]} />
-            <meshStandardMaterial color="#f5f0e8" roughness={0.85} metalness={0} />
+            <meshStandardMaterial color={dotConf.color} roughness={0.7} metalness={0} />
           </mesh>
           {/* 粒 */}
-          {(dotConf.large ? GUNKAN_DOTS_LARGE : GUNKAN_DOTS_SMALL).map(([x, y, z], i) => (
-            <mesh key={i} position={[x, y, z]} scale={[1, dotConf.squash, 1]}>
+          {GUNKAN_DOTS_SMALL.map(([x, y, z], i) => (
+            <mesh key={i} position={[x, y, z]} scale={[0.94 + (i % 3) * 0.035, dotConf.squash, 1]}>
               <sphereGeometry args={[dotConf.r, 12, 10]} />
               <meshPhysicalMaterial
                 color={dotConf.color}
                 roughness={dotConf.roughness}
                 metalness={0}
                 clearcoat={dotConf.clearcoat}
-                clearcoatRoughness={0.12}
-                emissive={dotConf.emissive ?? '#000000'}
-                emissiveIntensity={dotConf.emissive ? 0.25 : 0}
+                clearcoatRoughness={0.48}
               />
             </mesh>
           ))}
@@ -379,6 +514,7 @@ export function GunkanSushi({ base }: { base: string }) {
           </mesh>
         </>
       )}
+      {mayo && <group position={[0, 0.075, 0]}><NigiriTopping topping="マヨ" /></group>}
     </group>
   )
 }

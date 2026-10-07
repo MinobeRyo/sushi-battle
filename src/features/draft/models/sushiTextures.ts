@@ -230,6 +230,7 @@ export const NIKU_TEX_CONF: Record<string, { flesh: string; marbling: number; se
   'ローストビーフ': { flesh: '#c25e49', marbling: 0.15, sear: 0.1, edge: '#6b3220', gloss: 0.45 },
   '焼肉': { flesh: '#7e3a16', marbling: 0.3, sear: 0.8, gloss: 0.8 },
   '牛タン': { flesh: '#c99490', marbling: 0.45, sear: 0.25, gloss: 0.4 },
+  '合鴨': { flesh: '#b76760', marbling: 0.1, sear: 0.12, edge: '#714124', gloss: 0.3 },
 }
 
 // 肉寿司用テクスチャ：サシ（霜降り）＋炙り目（Canvas生成）

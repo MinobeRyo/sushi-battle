@@ -364,7 +364,7 @@ try {
     assert.equal(after.you.sideMenu, sides[0].sideMenuId)
     assert.equal(after.you.budget, initial.you.budget - 300)
     assert.equal(after.you.deck.length, 0)
-    assert.equal(after.you.shinkansenLeft, initial.you.shinkansenLeft)
+    assert.equal(after.you.shinkansenLeft, initial.you.shinkansenLeft - 1)
     assert.equal(after.offers.find(offer => offer.id === sides[0].id).sold, true)
     assert.equal(after.revision, initial.revision + 1)
     assert.deepEqual((await sendDraft(left, { type: 'buy', offerId: sides[0].id })).reply,

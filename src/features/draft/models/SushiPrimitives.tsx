@@ -116,6 +116,7 @@ function MayoSqueeze() {
 
 // 握りの薬味トッピング共通描画
 export function NigiriTopping({ topping }: { topping?: string | null }) {
+  if (topping === 'マヨ') return <MayoSqueeze />
   if (topping === 'オニオン') {
     // 白い薄切りスライス
     return (

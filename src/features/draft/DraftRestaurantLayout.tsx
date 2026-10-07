@@ -103,14 +103,14 @@ export function DraftRestaurantLayout({
 
       <div className={`restaurant-back-wall${onSideMenu ? ' restaurant-back-wall--with-side' : ''}`}>
         <div className="restaurant-tablet-stand">
-          <button className="restaurant-tablet" onClick={canOrder ? onOrder : onSideMenu ?? onOrder} disabled={disabled || (!canOrder && !onSideMenu)} aria-label="注文タブレットを開く">
+          <button className="restaurant-tablet" onClick={onOrder} disabled={disabled || (!canOrder && !onSideMenu)} aria-label="注文タブレットを開く">
             <span className="restaurant-tablet-camera" aria-hidden="true" />
             <span className="restaurant-tablet-speaker" aria-hidden="true" />
             <span className="restaurant-tablet-power" aria-hidden="true" />
             <span className="restaurant-tablet-screen">
               <span className="restaurant-tablet-statusbar" aria-hidden="true"><span>お席 {String(playerNum).padStart(2, '0')}</span><span className="restaurant-tablet-battery" /></span>
               <span className="restaurant-tablet-menu"><span><small>{onSideMenu ? '特急と、勝負を支える一皿。' : '握りたてを、お席まで。'}</small><strong>{orderTitle}</strong></span><span className="restaurant-tablet-arrow">›</span></span>
-              <span className="restaurant-tablet-footnote">{delivering ? '特急は奥の金色のお皿をタップ' : !canOrder && onSideMenu ? 'サイドメニューを確認できます' : `特急はあと${remaining}回 ご注文いただけます`}</span>
+              <span className="restaurant-tablet-footnote">{remaining === 0 ? '共通の注文枠は使い切りました' : `特急・大将・サイド共通で あと${remaining}回`}</span>
             </span>
             <span className="restaurant-tablet-brand" aria-hidden="true">SUSHI BATTLE</span>
           </button>

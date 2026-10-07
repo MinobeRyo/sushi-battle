@@ -18,6 +18,29 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* レアのマヨコーンは、カードの四隅と金の縁で見分ける。 */
+:is(.battle-field-card, .battle-hand-card, .battle-detail-sheet, .battle-deck-card)[data-card-variant='rare_corn'] {
+  position: relative;
+  border-color: #d6a32c;
+  box-shadow: 0 0 0 1px #fff3bb, 0 0 16px #e8b64170;
+}
+:is(.battle-field-card, .battle-hand-card, .battle-detail-sheet, .battle-deck-card)[data-card-variant='rare_corn']::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  background: conic-gradient(from 45deg, #fffbe7, #efb73e, #fffbe7, #b77913, #fffbe7, #efb73e, #fffbe7) border-box;
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: rare-corn-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes rare-corn-shimmer { 50% { opacity: .45; filter: brightness(1.45); } }
+@media (prefers-reduced-motion: reduce) {
+  :is(.battle-field-card, .battle-hand-card, .battle-detail-sheet, .battle-deck-card)[data-card-variant='rare_corn']::after { animation: none; }
+}
+
 .battle-field-card[data-card-type='persist'],
 .battle-hand-card[data-card-type='persist'] {
   --card-accent: #237437;

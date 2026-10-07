@@ -7,6 +7,7 @@ export function toOnlineBattleView(match: PublicMatch, phase: ViewPhase): Battle
   const c = match.opponent
   return {
     pHand: p.hand, pField: p.field, pDeckCount: p.deckCount, pBelly: p.belly,
+    pDeckSummary: p.deckSummary,
     pAP: p.ap, pMaxAP: p.maxAP, pGari: p.gari, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
     pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
     pKiretaStack: p.kiretaStack, pThisTurnBases: p.thisTurnBases, pThisTurnArch: p.thisTurnArch,

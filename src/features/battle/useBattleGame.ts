@@ -192,13 +192,11 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
     if (dispatch({ type: 'use_side_menu', playerId: view.current.viewer })) syncPhase()
   }
 
-  const respondDefense = (useGari: boolean) => {
+  const respondDefense = (useGari: boolean, useDefense = false, targetFieldId?: string) => {
     const pending = matchRef.current!.pendingAttack
     if (view.current.busy || view.current.phase !== 'defending' || pending?.defenderId !== view.current.viewer) return
-    view.current.busy = true
     setInspect(null)
-    dispatch({ type: 'respond_defense', playerId: view.current.viewer, useGari })
-    syncPhase(450)
+    if (dispatch({ type: 'respond_defense', playerId: view.current.viewer, useGari, useDefense, targetFieldId })) syncPhase(450)
   }
 
   const respondReaction = (useDefense: boolean, targetFieldId?: string) => {
@@ -219,10 +217,10 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
     syncPhase()
   }
 
-  const handleReorderComplete = (cards: Card[]) => {
+  const handleReorderComplete = (cards: Card[], purchasedSideMenu?: SideMenuId | null) => {
     const match = matchRef.current!
     if (view.current.busy || view.current.phase !== 'reorder' || match.reorderPlayerId !== view.current.viewer) return
-    dispatch({ type: 'complete_reorder', playerId: match.reorderPlayerId, cards })
+    dispatch({ type: 'complete_reorder', playerId: match.reorderPlayerId, cards, sideMenu: purchasedSideMenu })
     syncPhase()
   }
 

@@ -6,13 +6,14 @@ export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
 export type RandomSource = () => number
 export type CardInstance = Card & { instanceId: string }
-export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number; defenseState?: 'reserved' | 'ready'; attackHalved?: boolean }
+export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number; defenseState?: 'reserved' | 'ready'; attackHalved?: boolean; attackReductionRate?: number }
 
 export type SideMenuState = {
   id: SideMenuId
   status: 'ready' | 'active' | 'used' | 'expired'
   turnsLeft: number | null
   usedThisTurn: boolean
+  purchaseCount?: number
 }
 
 export type MatchPlayer = {
@@ -48,6 +49,9 @@ export type PendingAttack = {
   defenderId: PlayerId
   amount: number
   source: 'summon' | 'end_turn'
+  defenseCardId?: string
+  fixedDamage?: number
+  kaisenReattack?: boolean
 }
 
 export type PendingReaction = {
@@ -81,9 +85,9 @@ export type MatchAction =
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
   | { type: 'respond_reaction'; playerId: PlayerId; useDefense: boolean; targetFieldId?: string }
-  | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean }
+  | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean; useDefense?: boolean; targetFieldId?: string }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。
-  | { type: 'complete_reorder'; playerId: PlayerId; cards: Card[] }
+  | { type: 'complete_reorder'; playerId: PlayerId; cards: Card[]; sideMenu?: SideMenuId | null }
 
 export type MatchEvent =
   | { type: 'summon'; playerId: PlayerId; cardInstanceId: string; cardId: string }
@@ -91,7 +95,7 @@ export type MatchEvent =
   | { type: 'reaction_requested'; reaction: PendingReaction }
   | { type: 'reaction_resolved'; playerId: PlayerId; usedDefense: boolean; targetFieldId?: string }
   | { type: 'defense_requested'; attack: PendingAttack }
-  | { type: 'defense_resolved'; playerId: PlayerId; usedGari: boolean; reduction: number }
+  | { type: 'defense_resolved'; playerId: PlayerId; usedGari: boolean; reduction: number; usedDefense?: boolean; targetFieldId?: string }
   | { type: 'combo'; playerId: PlayerId; comboId: string }
   | { type: 'turn_started'; playerId: PlayerId }
   | { type: 'reorder_started'; playerId: PlayerId }

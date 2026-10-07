@@ -183,6 +183,16 @@ test('生ハムの詳細表示はインバウン丼の通常攻撃+2を表示し
   assert.equal(meat.attackText, '5')
 })
 
+test('合鴨の生ハム強化は2枚いても+2で、退場すると詳細から消える', () => {
+  const ham = createHarness('namahamu', ['aigamo', 'aigamo'])
+  ham.props.attackBuff = { '生ハム': 1 }
+  assert.equal(ham.attackText, '1 +1 +2（合鴨）')
+  assert.equal(rules.calcFieldDmg([rules.toField(cards.NAMAHAM_CARD)], ham.props.attackBuff, 0, 0,
+    { namahamuBoost: rules.hasNamahamuAura(ham.props.fieldCards) }), 4)
+  ham.props.fieldCards = []
+  assert.equal(ham.attackText, '1 +1')
+})
+
 
 test('サーモンは相手の持続型を明示選択し、同名個体の選んだIDだけを送る', () => {
   const h = createHarness('salmon', ['namahamu'], ['tamago', 'namahamu', 'namahamu'])

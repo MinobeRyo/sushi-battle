@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import type { ReactNode } from 'react'
-import { calcFieldDmg, FIELD_MAX, MAKI_COMP_5, makimonoCount } from './battleEngine'
+import { calcFieldDmg, FIELD_MAX, MAKI_COMP_5, makimonoCount, hasNamahamuAura } from './battleEngine'
 import { FieldSushi } from './BattleCards'
 import type { FieldCard, FloatNum } from './types'
 
@@ -27,7 +27,7 @@ export function BattleTable({ label, cards, isEnemy = false, attackBuff, kiretaS
     <div className="battle-field-cards" role="region" aria-label={`${label}の机のカード`} tabIndex={0}>
       <AnimatePresence>
         {cards.map(card => {
-          const actualAttack = calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { nikuMatsuri, gunkanBoost })
+          const actualAttack = calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { nikuMatsuri, gunkanBoost, namahamuBoost: hasNamahamuAura(cards) })
           return <FieldSushi key={card.fid} card={card} isEnemy={isEnemy}
             actualAttack={actualAttack} combosFired={combosFired}
             onSelect={() => onInspect(card, actualAttack)} />

@@ -33,7 +33,7 @@ test('全7品を共通IDで扱い、インバウン丼だけ500円で提供す�
   for (const id of ['potato', 'aosa', '__proto__', 'constructor', {}, null]) assert.equal(isSideMenuId(id), false)
 })
 
-test('購入は残金と専用枠だけを更新し、入力と寿司・特急を変更しない', () => {
+test('サイド購入は共通注文枠を1回使い、入力と寿司・配送を変更しない', () => {
   const state = fresh()
   Object.freeze(state)
   const result = purchaseSideMenu(state, 'ramen', now)
@@ -43,7 +43,7 @@ test('購入は残金と専用枠だけを更新し、入力と寿司・特急�
   assert.equal(state.sideMenu, null)
   assert.equal(state.budget, 3000)
   assert.equal(result.state.deck, state.deck)
-  assert.equal(result.state.shinkansenLeft, 3)
+  assert.equal(result.state.shinkansenLeft, 2)
   assert.deepEqual(result.state.purchasedIds, [])
 })
 
@@ -53,7 +53,7 @@ test('同じ品・別の品への二重購入をともに拒否する', () => {
   rejected(state, 'miso', 'side_menu_owned')
 })
 
-test('追加注文ではサイドを買えず、初期購入のみ許可する', () => {
+test('サイド購入の可否は購入フェーズの許可に従う', () => {
   const state = createDraftState(1500, 45, now, false)
   assert.equal(state.sideMenuEnabled, false)
   rejected(state, 'fries', 'side_menu_disabled')
@@ -83,10 +83,10 @@ test('未知のIDを拒否し、価格などを含むオブジェクトも信用
   rejected(fresh(), { id: 'fries', price: -1000 }, 'invalid_side_menu')
 })
 
-test('寿司20枚・特急残数0・受領待ちでもサイド専用枠を購入できる', () => {
+test('寿司20枚・受領待ちでも注文枠が1回残っていればサイドを購入できる', () => {
   const state = fresh()
   state.deck = Array(20).fill(card)
-  state.shinkansenLeft = 0
+  state.shinkansenLeft = 1
   state.shinkansenPlate = { card, orderId: 'pending' }
   const result = purchaseSideMenu(state, 'chawanmushi', now)
   assert.equal(result.accepted, true)
@@ -102,8 +102,12 @@ test('寿司・特急・サイドは同じ予算を使い、完了時も購入�
   state = purchaseSideMenu(state, 'fries', now).state
   assert.equal(state.budget, before - 300)
   assert.equal(state.deck.length, 2)
-  assert.equal(state.shinkansenLeft, 2)
+  assert.equal(state.shinkansenLeft, 1)
   assert.equal(completeDraft(state).state.sideMenu, 'fries')
+})
+
+test('注文残数0ならサイドを拒否し、残金・専用枠を変えない', () => {
+  rejected({ ...fresh(), shinkansenLeft: 0 }, 'miso', 'orders_used')
 })
 
 console.log(`サイドメニュー購入: ${passed}件成功`)

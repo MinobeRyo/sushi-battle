@@ -1,4 +1,5 @@
 import type { Card } from '../../types'
+import type { DeckSummaryEntry } from '../../game/deckSummary'
 import type { CardInstance, FieldCard, PendingAttack, PendingReaction, PlayerId, SideMenuState } from '../../game/types'
 export type { FieldCard } from '../../game/types'
 
@@ -17,6 +18,7 @@ export type BattleView = {
   cSideMenu: SideMenuState | null
   // この端末から見た自分側
   pHand: CardInstance[]; pField: FieldCard[]; pDeckCount: number
+  pDeckSummary: DeckSummaryEntry[]
   pBelly: number; pAP: number; pMaxAP: number; pGari: number
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>

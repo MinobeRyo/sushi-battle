@@ -6,7 +6,7 @@ import { DRAFT_HOVER_LEASE_MS, ONLINE_LANES, onlineLaneElapsed, onlinePlatePosit
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../src/game/draftOffers'
 import type { PlayerId, RandomSource } from '../src/game/types'
 import type { Card } from '../src/types'
-import { completeDraft, createDraftState, orderShinkansen, pickupShinkansen, purchaseBeltCard, purchaseSideMenu } from '../src/features/draft/draftEngine'
+import { completeDraft, createDraftState, orderOmakase, orderShinkansen, pickupShinkansen, purchaseBeltCard, purchaseSideMenu } from '../src/features/draft/draftEngine'
 import type { DraftState } from '../src/features/draft/draftEngine'
 import type { OnlineDraftAction, OnlineDraftHover, PublicDraft, Reply } from '../src/network/protocol'
 
@@ -19,17 +19,17 @@ export type OnlineDraft = {
   players: Record<PlayerId, DraftPlayer>
 }
 
-export function createOnlineDraft(mode: OnlineDraft['mode'], now: number, random: RandomSource): OnlineDraft {
+export function createOnlineDraft(mode: OnlineDraft['mode'], now: number, random: RandomSource, sideMenuEnabled?: Record<PlayerId, boolean>): OnlineDraft {
   const initialBudget = mode === 'initial' ? 3000 : 1500
-  const player = (): DraftPlayer => ({
-    state: createDraftState(initialBudget, mode === 'initial' ? 90 : 45, now, mode === 'initial'), revision: 0,
+  const player = (id: PlayerId): DraftPlayer => ({
+    state: createDraftState(initialBudget, mode === 'initial' ? 90 : 45, now, sideMenuEnabled?.[id] ?? mode === 'initial'), revision: 0,
     offers: [], bags: { general: [], build: [] },
     laneClocks: {
       general: { pausedMs: 0, pausedAt: null, pauseUntil: null },
       build: { pausedMs: 0, pausedAt: null, pauseUntil: null },
     }, hoverSequence: 0,
   })
-  const draft: OnlineDraft = { id: randomUUID(), mode, startedAt: now, initialBudget, players: { 1: player(), 2: player() } }
+  const draft: OnlineDraft = { id: randomUUID(), mode, startedAt: now, initialBudget, players: { 1: player(1), 2: player(2) } }
   refreshOnlineDraft(draft, now, random)
   return draft
 }
@@ -56,7 +56,7 @@ export function refreshOnlineDraft(draft: OnlineDraft, now: number, random: Rand
         const generation = onlinePlatePosition(lane, slot, onlineLaneElapsed(draft.startedAt, clock, now)).generation
         const index = player.offers.findIndex(offer => offer.lane === lane && offer.slot === slot)
         if (index >= 0 && player.offers[index].generation === generation) continue
-        const sideMenuId = sideMenuForBeltSlot(lane, slot, generation, draft.mode === 'initial')
+        const sideMenuId = sideMenuForBeltSlot(lane, slot, generation, player.state.sideMenuEnabled)
         const common = { id: `${draft.id}:${id}:${lane}:${slot}:${generation}`, lane, slot, generation, sold: false }
         let offer: DraftOffer
         if (sideMenuId) offer = { ...common, sideMenuId }
@@ -133,12 +133,12 @@ export function validDraftAction(value: unknown): value is OnlineDraftAction {
   const validId = (id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 200
   return validId(action.draftId) && validId(action.actionId)
     && Number.isSafeInteger(action.expectedRevision) && Number(action.expectedRevision) >= 0
-    && (action.type === 'complete' || action.type === 'pickup'
+    && (action.type === 'complete' || action.type === 'pickup' || action.type === 'omakase'
       || (action.type === 'buy_side_menu' && isSideMenuId(action.sideMenuId))
       || (action.type === 'buy' && validId(action.offerId)) || (action.type === 'order' && validId(action.cardId)))
 }
 
-export function applyDraftAction(draft: OnlineDraft, id: PlayerId, action: OnlineDraftAction, now: number): Reply {
+export function applyDraftAction(draft: OnlineDraft, id: PlayerId, action: OnlineDraftAction, now: number, random: RandomSource = Math.random): Reply {
   if (action.draftId !== draft.id) return { ok: false, error: 'stale_draft' }
   const player = draft.players[id]
   if (action.expectedRevision !== player.revision) return { ok: false, error: 'stale_revision' }
@@ -160,6 +160,7 @@ export function applyDraftAction(draft: OnlineDraft, id: PlayerId, action: Onlin
       result = orderShinkansen(player.state, action.actionId, card, now)
       break
     }
+    case 'omakase': result = orderOmakase(player.state, now, random); break
     case 'buy_side_menu': result = purchaseSideMenu(player.state, action.sideMenuId, now); break
     case 'pickup': result = pickupShinkansen(player.state); break
     case 'complete': result = completeDraft(player.state); break

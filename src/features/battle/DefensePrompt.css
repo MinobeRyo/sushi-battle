@@ -27,3 +27,31 @@
 
 .battle-defense__leave { min-height: 44px; margin-top: 10px; padding: 8px 12px; border: 1px solid #b9a183; border-radius: 8px; color: #6a513c; font-size: 13px; cursor: pointer; }
 .battle-defense__leave:focus-visible { outline: 3px solid #2469a0; outline-offset: 3px; }
+
+.battle-defense--combined { width: min(560px, calc(100vw - 24px)); }
+.battle-defense__preview { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; padding: 16px; background: #eee2ce; border-radius: 12px; }
+.battle-defense__preview > div > span { color: #74573c; font-size: 13px; }
+.battle-defense__preview p { margin: 5px 0 0; font-size: 18px; white-space: nowrap; }
+.battle-defense__preview s { color: #876d54; text-decoration: none; }
+.battle-defense__preview strong { color: #37583a; font-size: clamp(24px, 5vw, 32px); }
+.battle-defense__preview small { font-size: 12px; }
+.battle-defense__preview .is-lethal strong { color: #a33123; }
+.battle-defense__options { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.battle-defense__options > button { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-height: 100px; padding: 14px; border: 2px solid #b9a183; border-radius: 12px; background: #fffdf7; color: #513722; cursor: pointer; text-align: left; font-size: 13px; }
+.battle-defense__option-title { font-size: 18px; font-weight: 800; }
+.battle-defense__option-title small { font-size: 12px; font-weight: 500; }
+.battle-defense__options > button[aria-pressed='true'] { border-color: #92502e; background: #f5dfc1; box-shadow: inset 0 0 0 1px #92502e; }
+.battle-defense__options > button:disabled { opacity: .45; cursor: default; }
+.battle-defense__targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 26dvh; overflow: auto; margin-top: 12px; padding: 3px; }
+.battle-defense__targets button { display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 6px; border: 2px solid #cab497; border-radius: 9px; background: #fffaf0; color: #513722; cursor: pointer; text-align: left; font-size: 13px; }
+.battle-defense__targets button[aria-pressed='true'] { background: #e7efd8; border-color: #617945; }
+.battle-defense__hint { margin: 10px 0 0; color: #705c44; font-size: 12px; }
+.battle-defense__confirm { width: 100%; min-height: 48px; margin-top: 16px; padding: 12px; border: none; border-radius: 10px; background: #8f402b; color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
+.battle-defense__confirm:disabled { background: #a69587; cursor: default; }
+.battle-defense--combined button:focus-visible { outline: 3px solid #2469a0; outline-offset: 2px; }
+@media (max-width: 520px) {
+  .battle-defense__preview { grid-template-columns: minmax(0, 1fr); }
+  .battle-defense__preview > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .battle-defense__preview p { margin: 0; }
+}
+@media (max-width: 380px) { .battle-defense__preview { padding: 12px 8px; gap: 6px; } .battle-defense__preview p { font-size: 15px; } .battle-defense__options { grid-template-columns: 1fr; } .battle-defense__options > button { min-height: 78px; padding: 10px; } }

@@ -7,6 +7,8 @@ import { CARDS, NAMAHAM_CARD } from '../src/data/cards.ts'
 import { canPlayOnlineCard } from '../src/features/online/onlineBattleActions.ts'
 
 function fixture(t, sideMenu = null) {
+  let draftNow = Date.now()
+  if (sideMenu) t.mock.method(Date, 'now', () => draftNow)
   const service = createRoomService({ resumeTtlMs: 120_000, random: () => 0.5 })
   t.after(() => service.close())
   const peer = id => ({ id, data: {}, state() {}, closed() {} })
@@ -43,9 +45,20 @@ function fixture(t, sideMenu = null) {
     return send(host, { type: 'play_card', cardInstanceId: card.instanceId,
       ...(sacrificeCount === undefined ? {} : { sacrificeCount }) })
   }
-  if (sideMenu) assert.deepEqual(draft(host, { type: 'buy_side_menu', sideMenuId: sideMenu }), { ok: true })
+  if (sideMenu) {
+    assert.deepEqual(draft(host, { type: 'buy_side_menu', sideMenuId: sideMenu }), { ok: true })
+    // サイドを含む共通3回枠に収めるため、牛タンは通常レーンから取得する。
+    let offer
+    for (let step = 0; step < 60 && !offer; step++) {
+      draftNow += 1000
+      offer = read(host).draft.offers.find(item => item.card?.id === 'gyutan')
+    }
+    assert.ok(offer, '牛タンの通常皿が購入時間内に供給される')
+    assert.deepEqual(draft(host, { type: 'buy', offerId: offer.id }), { ok: true })
+  }
   for (const [player, ids] of [[host, ['gyutan', 'roast_beef', 'wagyu']], [guest, ['tamago']]]) {
     for (const cardId of ids) {
+      if (sideMenu && player === host && cardId === 'gyutan') continue
       assert.deepEqual(draft(player, { type: 'order', cardId }), { ok: true })
       assert.deepEqual(draft(player, { type: 'pickup' }), { ok: true })
     }

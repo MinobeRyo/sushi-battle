@@ -215,7 +215,7 @@ function BeltPlate3D({ offer, elapsed, drawCard, lane, slot, sideMenuStartGenera
           {!portraitLabels && <Html center position={[0, 1.2, 0]} zIndexRange={[8, 0]} style={{ pointerEvents: 'none' }}>
             <div style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #d9a55e', background: '#2c1006ee', color: '#fff2d9', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
               {item.name} <span style={{ color: '#fcd34d' }}>¥{item.price}</span>
-              {sideMenuId && <small style={{ display: 'block', marginTop: 3, color: '#d9e5b3', fontSize: 10 }}>{sideMenuPurchased ? 'サイドは購入済み · 詳細を見る' : 'サイドメニュー · 1試合に1品'}</small>}
+              {sideMenuId && <small style={{ display: 'block', marginTop: 3, color: '#d9e5b3', fontSize: 10 }}>{sideMenuPurchased ? 'サイドは購入済み · 詳細を見る' : 'サイドメニュー · 今回1品'}</small>}
             </div>
           </Html>}
         </>

@@ -13,6 +13,7 @@ export type Lane = 'general' | 'build' | 'shinkansen'
 
 export type Card = {
   id: string
+  variant?: 'sideways' | 'neta_missing' | 'rare_corn'
   name: string
   base: string
   subBases?: string[]  // 太巻きのように複数のネタを内包するカード（base扱いされる副ネタ）

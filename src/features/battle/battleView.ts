@@ -1,6 +1,7 @@
 import type { MatchState, PlayerId } from '../../game/types'
 import { getCpuDeckDefinition } from '../../data/cpuDecks'
 import { otherPlayer } from '../../game/matchEngine'
+import { summarizeDeck } from '../../game/deckSummary'
 import type { BattleView, ViewPhase } from './types'
 
 // 自分・相手を表示時に選ぶだけで、MatchState内のP1/P2は入れ替えない。
@@ -13,6 +14,7 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     pSideMenu: p.sideMenu, cSideMenu: c.sideMenu,
     // 手渡し中は相手に手札が見えないよう、表示用データからも外す。
     pHand: phase === 'pass' ? [] : p.hand,
+    pDeckSummary: phase === 'pass' ? [] : summarizeDeck(p.deck),
     pField: p.field, pDeckCount: p.deck.length, pBelly: p.belly, pGari: p.gari,
     pAP: p.ap, pMaxAP: p.maxAP, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
     pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
