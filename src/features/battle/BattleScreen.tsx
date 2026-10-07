@@ -4,6 +4,8 @@ import type { CpuBattleMode } from '../../data/cpuDecks'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { useBattlePortrait } from '../../hooks/useBattlePortrait'
+import { BattleOrientationNotice } from './BattleOrientationNotice'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
@@ -50,13 +52,25 @@ export function BattleScreen({
 
 export type BattleController = ReturnType<typeof useBattleGame>
 
-export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: {
+type BattleBoardProps = {
   game: BattleController
   mode: 'cpu' | 'two_player' | 'online'
   onBack?: () => void
   canRestart?: boolean
   restartLabel?: string
-}) {
+}
+
+export function BattleBoard(props: BattleBoardProps) {
+  const portrait = useBattlePortrait()
+  // 対戦の状態・通信は親で保持し、縦向きでは盤面や防御ダイアログを描画しない。
+  // 追加注文はドラフト画面なので、縦向きでも購入を続けられる。
+  if (portrait && props.game.s.phase !== 'reorder') {
+    return <BattleOrientationNotice onBack={props.mode === 'online' ? undefined : props.onBack} />
+  }
+  return <BattleBoardContent {...props} />
+}
+
+function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: BattleBoardProps) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
     playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart,
