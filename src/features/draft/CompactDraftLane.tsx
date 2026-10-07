@@ -125,10 +125,8 @@ export function CompactDraftLane({ lane, cards, supply, paused, disabled, budget
           disabled={disabled || offer.sold} onClick={() => select(offer)}
           aria-label={offer.sold ? '購入済みのお皿' : `${item.name}、${kind}、${stats}、${item.price}円。詳細を確認`}>
           {offer.sold ? <span className="cd-sold-label">購入済み</span> : <>
-            <span className="cd-offer-type">{kind}</span>
             <span className="cd-offer-art" aria-hidden="true">{card ? <SushiArt card={card} size="100%" fit /> : <SideMenuArt id={offer.sideMenuId!} />}</span>
             <strong className="cd-offer-name">{item.name}</strong>
-            <span className="cd-offer-stats">{stats}</span>
             <b className="cd-offer-price">¥{item.price}</b>
           </>}
         </button>

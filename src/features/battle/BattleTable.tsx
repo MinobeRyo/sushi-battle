@@ -5,10 +5,11 @@ import { calcFieldDmg, FIELD_MAX, MAKI_COMP_5, makimonoCount, hasNamahamuAura } 
 import { FieldSushi } from './BattleCards'
 import type { FieldCard, FloatNum } from './types'
 
-export function BattleTable({ label, cards, isEnemy = false, attackBuff, kiretaStack, enemyBelly, nikuMatsuri, combosFired, floats, flash, onInspect, onShowStatus, children }: {
+export function BattleTable({ label, cards, isEnemy = false, attackBuff, kiretaStack, enemyBelly, nikuMatsuri, combosFired, floats, flash, onInspect, onShowStatus, selectedFieldId, children }: {
   label: string
   cards: FieldCard[]
   isEnemy?: boolean
+  selectedFieldId?: string
   attackBuff: Record<string, number>
   kiretaStack: number
   enemyBelly: number
@@ -31,7 +32,7 @@ export function BattleTable({ label, cards, isEnemy = false, attackBuff, kiretaS
         {cards.map(card => {
           const actualAttack = calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { nikuMatsuri, gunkanBoost, namahamuBoost: hasNamahamuAura(cards) })
           return <FieldSushi key={card.fid} card={card} isEnemy={isEnemy}
-            actualAttack={actualAttack} combosFired={combosFired} compact={compact}
+            actualAttack={actualAttack} combosFired={combosFired} compact={compact} isSelected={selectedFieldId === card.fid}
             onSelect={() => onInspect(card, actualAttack)} />
         })}
       </AnimatePresence>

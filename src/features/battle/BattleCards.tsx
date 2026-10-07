@@ -84,7 +84,7 @@ export function CardDetailSheet({
     : targetError ? '破壊する相手の持続型を選択'
     : reserveDefense && defenseError ? defenseBlockedReason ?? '防御予約できません'
     : reserveDefense ? `防御を予約して召喚（AP −${card.cost}・切れ味 −${defenseCost}）`
-    : selectedSacrifices > 0 ? `${selectedSacrifices}体を消費して召喚（AP −${card.cost}）`
+    : selectedSacrifices > 0 ? `${selectedSacrifices}体消費・攻${card.attack + buff + auraBonus + kBonus + selectedAttackBonus}で召喚（AP −${card.cost}）`
     : `召喚する（AP −${card.cost}）`
 
   // 最新の場から消えた対象や、操作不能になった際の選択は引き継がない。
@@ -274,8 +274,8 @@ export function CardDetailSheet({
   )
 }
 
-export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, compact = false, onSelect }: {
-  card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; compact?: boolean; onSelect: () => void
+export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, compact = false, isSelected = false, onSelect }: {
+  card: FieldCard; isEnemy?: boolean; actualAttack?: number; combosFired?: readonly string[]; compact?: boolean; isSelected?: boolean; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const defenseLabel = card.defenseState === 'ready' ? '防御待機' : card.defenseState === 'reserved' ? '防御予約' : null
@@ -285,6 +285,8 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, c
     <motion.button
       type="button"
       className="battle-field-card"
+      data-selected={isSelected}
+      aria-pressed={compact ? isSelected : undefined}
       data-card-type={card.type}
       data-card-variant={card.variant}
       data-defense-state={card.defenseState}
@@ -331,8 +333,8 @@ export function HandSushi({
       data-selected={isSelected}
       aria-label={`${card.name}、消費AP${card.cost}の詳細${canPlay ? '、召喚可能' : ''}`}
       onClick={onSelect}
-      whileHover={{ y: -6, scale: 1.02 }}
-      whileTap={{ scale: 0.93, y: -6 }}
+      whileHover={compact ? {} : { y: -6, scale: 1.02 }}
+      whileTap={compact ? { scale: 0.97 } : { scale: 0.93, y: -6 }}
       transition={{ type: 'spring', stiffness: 400, damping: 22 }}
     >
       <div className="battle-hand-card-heading">
