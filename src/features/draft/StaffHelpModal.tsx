@@ -153,7 +153,7 @@ function CompactHelpModal({ onClose }: { onClose: () => void }) {
   const pages = section === 'flow' ? 2 : section === 'sides' ? Math.ceil(SIDE_MENUS.length / 2) + 1 : 3
   const flow = [
     { title: '1. 寿司をとる', cardId: 'maguro', headline: '軍資金 ¥3,000', text: '流れる寿司を選び、20枚まで集めます。準備ができたらバトルへ。' },
-    { title: '2. 寿司を召喚', cardId: 'tamago', headline: 'カードを選ぶ → 召喚', text: 'APを使って寿司を出します。即時はその場で攻撃、持続は机に残ります。' },
+    { title: '2. 寿司を召喚', cardId: 'tamago', headline: 'カードを選ぶ → 召喚', text: 'APを使って寿司を出します。通常攻撃はターン終了時。即時は1回、持続は机に残ります。' },
     { title: '3. ターン終了', cardId: 'kappa_maki', headline: '机の寿司で毎ターン攻撃', text: '召喚が終わったら「ターン終了」。持続の寿司が攻撃し、相手の番になります。' },
     { title: '4. 相手を満腹に', cardId: 'otoro', headline: '相手のお腹 100 で勝利', text: 'ガリは1個で攻撃を半減。切れ味やサイドメニューも活用しましょう。' },
   ]

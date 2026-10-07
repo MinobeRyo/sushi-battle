@@ -20,9 +20,7 @@ const textContent = value => Array.isArray(value) ? value.map(textContent).join(
   : value && typeof value === 'object' && value.props ? textContent(value.props.children)
     : typeof value === 'string' || typeof value === 'number' ? String(value) : ''
 
-const ScreenPager = () => null
-
-function harness(defenseId, compact = false) {
+function harness(defenseId) {
   const hooks = []
   let cursor = 0
   const react = {
@@ -34,8 +32,6 @@ function harness(defenseId, compact = false) {
     },
   }
   const imports = { react, 'react/jsx-runtime': require('react/jsx-runtime'), './battleEngine': rules,
-    '../../hooks/useCompactLandscape': { useCompactLandscape: () => compact },
-    '../../components/ScreenPager': { ScreenPager },
     './defensePreview': preview, '../../components/SushiArt': { SushiArt: () => null }, './DefensePrompt.css': {} }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', outputText)(name => {
@@ -61,7 +57,6 @@ function harness(defenseId, compact = false) {
     get confirm() { return this.byClass('battle-defense__confirm') },
     get options() { return this.byClass('battle-defense__options').props.children.filter(Boolean) },
     get targets() { return this.byClass('battle-defense__targets')?.props.children ?? [] },
-    get pager() { return this.nodes.find(node => node.type === ScreenPager) },
   }
 }
 
@@ -119,17 +114,18 @@ test('ランダム防御と召喚時のガリ使用不可を維持する', () =>
   assert.deepEqual(h.responses, [[false, true, undefined]])
 })
 
-test('横スマホでは次ページの防御対象を選び、個体IDを保持して確定できる', () => {
-  const h = harness('iwashi_shoga', true)
-  h.props.enemyField = Array.from({ length: 6 }, (_, index) => rules.toField(cards.getCardById('tamago'), `enemy-${index}`))
+test('防御対象8枚を同時に比較でき、後半の個体を選んで正しいfidを送る', () => {
+  const h = harness('iwashi_shoga')
+  h.props.enemyField = Array.from({ length: 8 }, (_, index) => rules.toField(cards.getCardById('tamago'), `enemy-${index}`))
+  h.props.attack.amount = rules.calcFieldDmg(h.props.enemyField, {})
   h.options[1].props.onClick()
-  assert.equal(h.targets.length, 4)
-  assert.equal(h.pager.props.pages, 2)
-  h.pager.props.onPageChange(1)
-  assert.equal(h.targets.length, 2)
-  h.targets[1].props.onClick()
-  h.pager.props.onPageChange(0)
+  assert.equal(h.targets.length, 8, '後半の対象もページ操作なしで選べる')
+  assert.equal(h.confirm.props.disabled, true)
+  assert.ok(h.targets.every(node => /攻4 → 2受ける \+30 −2/.test(textContent(node))), '全候補の攻撃と軽減結果を選択前から比較できる')
+  h.targets[7].props.onClick()
   assert.equal(h.confirm.props.disabled, false)
+  assert.equal(h.targets[7].props['aria-pressed'], true)
+  assert.match(textContent(h.byClass('battle-defense__preview')), /\+32 → \+30/)
   h.confirm.props.onClick()
-  assert.deepEqual(h.responses, [[false, true, 'enemy-5']])
+  assert.deepEqual(h.responses, [[false, true, 'enemy-7']])
 })

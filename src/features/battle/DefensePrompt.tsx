@@ -1,9 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { calcGariReduction, getDefenseReductionRate, MAX_BELLY } from './battleEngine'
+import { calcFieldDmg, calcGariReduction, getDefenseReductionRate, hasNamahamuAura, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
 import { defensePreview } from './defensePreview'
 import { SushiArt } from '../../components/SushiArt'
-import { useCompactLandscape } from '../../hooks/useCompactLandscape'
-import { ScreenPager } from '../../components/ScreenPager'
 import type { FieldCard, PendingAttack } from '../../game/types'
 import './DefensePrompt.css'
 
@@ -25,13 +23,9 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
   const [useGari, setUseGari] = useState(false)
   const [useDefense, setUseDefense] = useState(false)
   const [targetFieldId, setTargetFieldId] = useState<string>()
-  const compact = useCompactLandscape()
-  const [targetPage, setTargetPage] = useState(0)
   const canGari = attack.source === 'end_turn' && gari > 0
   const needsTarget = defenseCard?.effect === 'reserve_target_half_2'
   const preview = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, useDefense, useGari && canGari, targetFieldId)
-  const targetPages = Math.max(1, Math.ceil(preview.targets.length / 4))
-  const currentTargetPage = Math.min(targetPage, targetPages - 1)
   const canDefense = defenseCard?.defenseState === 'ready' && defenseCard.fid === attack.defenseCardId && preview.targets.length > 0
   const validTarget = !needsTarget || preview.targets.some(card => card.fid === targetFieldId)
   const canConfirm = ready && (!useDefense || canDefense && validTarget)
@@ -42,6 +36,10 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
   const range = (low: number, high: number) => low === high ? String(low) : `${low}〜${high}`
   const minBelly = Math.min(MAX_BELLY, belly + preview.min)
   const maxBelly = Math.min(MAX_BELLY, belly + preview.max)
+  const fieldDamageOptions = { gunkanBoost: makimonoCount(enemyField) >= MAKI_COMP_5, namahamuBoost: hasNamahamuAura(enemyField) }
+  const targetAttack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, belly, fieldDamageOptions)
+  const consumption = [useGari && canGari ? `ガリ −1（残${gari - 1}）` : 'ガリ温存',
+    useDefense && defenseCard ? `${defenseCard.name} 退場` : null].filter(Boolean).join('・')
 
   useEffect(() => {
     const dialog = dialogRef.current!
@@ -50,7 +48,7 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
     return () => dialog.close()
   }, [])
 
-  return <dialog ref={dialogRef} className={`battle-defense ${gariOnly ? 'battle-defense--gari' : 'battle-defense--combined'}`} aria-labelledby={headingId}
+  return <dialog ref={dialogRef} className={`battle-defense ${gariOnly ? 'battle-defense--gari' : 'battle-defense--combined'}${onLeave ? ' battle-defense--with-leave' : ''}`} aria-labelledby={headingId}
     onCancel={event => event.preventDefault()}>
     <header className="battle-defense__header">
       <h2 ref={headingRef} tabIndex={-1} id={headingId}>{gariOnly ? 'ガリを使う？' : '防御を選ぶ'}</h2>
@@ -66,6 +64,7 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
           <strong className="battle-defense__damage">+{guardedDamage}<small>ダメージ</small></strong>
           <span className="battle-defense__belly">お腹 {belly} → <b>{guardedBelly}</b></span>
           {guardedBelly >= MAX_BELLY && <span className="battle-defense__lethal">満腹で負け</span>}
+          <small className="battle-defense__cost">ガリ −1 · 残{Math.max(0, gari - 1)}個</small>
         </button>
         <button type="button" className="battle-defense__keep" disabled={!ready}
           aria-label={`使わない。ダメージ${attack.amount}、お腹${belly}から${unguardedBelly}。${unguardedBelly >= MAX_BELLY ? '満腹で負け' : `ガリ${gari}個を残す`}`}
@@ -74,11 +73,12 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
           <strong className="battle-defense__damage">+{attack.amount}<small>ダメージ</small></strong>
           <span className="battle-defense__belly">お腹 {belly} → <b>{unguardedBelly}</b></span>
           {unguardedBelly >= MAX_BELLY && <span className="battle-defense__lethal">満腹で負け</span>}
+          <small className="battle-defense__cost">消費なし · ガリ{gari}個</small>
         </button>
       </div>
     </> : <>
     <div className="battle-defense__preview" aria-live="polite">
-      <div><span>攻撃</span><p><s>+{attack.amount}</s><span aria-hidden="true"> → </span><strong>+{range(preview.min, preview.max)}</strong></p></div>
+      <div><span>受ける量</span><p><s>+{attack.amount}</s><span aria-hidden="true"> → </span><strong>+{range(preview.min, preview.max)}</strong></p></div>
       <div className={maxBelly >= MAX_BELLY ? 'is-lethal' : ''}><span>お腹</span><p>{belly} → <strong>{range(minBelly, maxBelly)}</strong><small> / {MAX_BELLY}</small></p></div>
     </div>
     <div className="battle-defense__options">
@@ -94,15 +94,22 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
       </button>}
     </div>
     {useDefense && needsTarget && <div className="battle-defense__target-area"><div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
-      {(compact ? preview.targets.slice(currentTargetPage * 4, currentTargetPage * 4 + 4) : preview.targets).map(card => <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}
-        disabled={!ready} onClick={() => setTargetFieldId(card.fid)}>
-        <SushiArt card={card} size={36} /><span>{card.name}</span>
-      </button>)}
-    </div>{compact && <ScreenPager page={currentTargetPage} pages={targetPages} onPageChange={setTargetPage} />}</div>}
+      {preview.targets.map(card => {
+        const after = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, true, useGari && canGari, card.fid)
+        const currentAttack = targetAttack(card)
+        const reducedAttack = defenseCard ? targetAttack(withDefenseReduction(card, defenseCard)) : currentAttack
+        return <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}
+          aria-label={`${card.name}、攻撃${currentAttack}から${reducedAttack}、受ける量${after.min}、軽減${attack.amount - after.min}、お腹${Math.min(MAX_BELLY, belly + after.min)}`}
+          disabled={!ready} onClick={() => setTargetFieldId(card.fid)}>
+          <SushiArt card={card} size={36} /><span className="battle-defense__target-copy"><strong title={card.name}>{card.name}</strong>
+            <small>攻{currentAttack} → {reducedAttack}</small><b>受ける +{after.min}<em> −{attack.amount - after.min}</em></b></span>
+        </button>
+      })}
+    </div></div>}
     {useDefense && needsTarget && !validTarget && <p className="battle-defense__hint">相手のカードを選択</p>}
     <button className="battle-defense__confirm" type="button" disabled={!canConfirm}
       onClick={() => { if (canConfirm) onRespond(useGari && canGari, useDefense, useDefense && needsTarget ? targetFieldId : undefined) }}>
-      {useGari || useDefense ? '使う' : '使わない'}
+      <span>{useGari || useDefense ? 'この防御で確定' : '使わずに受ける'}</span><small>{consumption}</small>
     </button>
     </>}
     {!ready && <p className="battle-defense__connection" role="status">通信中…</p>}

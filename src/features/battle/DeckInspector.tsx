@@ -9,13 +9,13 @@ import './BattleCards.css'
 import './DeckInspector.css'
 
 // 手番・表示するプレイヤーが変わると、呼び出し側のkeyで閉じた状態に戻す。
-export function DeckInspector({ entries, count }: { entries: DeckSummaryEntry[]; count: number }) {
+export function DeckInspector({ entries, count, showName = false }: { entries: DeckSummaryEntry[]; count: number; showName?: boolean }) {
   const [open, setOpen] = useState(false)
   return <>
     <button type="button" className="battle-deck-trigger"
       aria-label={`自分の山札を確認、残り${count}枚`} aria-haspopup="dialog" aria-expanded={open}
       onClick={() => setOpen(true)}>
-      <strong>{count}</strong><span>枚</span><span className="battle-deck-trigger__label">確認</span>
+      {showName && <span>山札</span>}<strong>{count}</strong><span>枚</span>{!showName && <span className="battle-deck-trigger__label">確認</span>}
     </button>
     {open && createPortal(<DeckDialog entries={entries} count={count} onClose={() => setOpen(false)} />, document.body)}
   </>
