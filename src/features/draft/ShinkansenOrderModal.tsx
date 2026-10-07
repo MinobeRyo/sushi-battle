@@ -8,6 +8,8 @@ import { SIDE_MENUS, SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMen
 import { SideMenuCard } from '../side-menu/SideMenuCard'
 import { OMAKASE_PRICE, OMAKASE_COUNT, DRAFT_MAX_CARDS, SHINKANSEN_TOTAL } from './draftEngine'
 import './OrderTablet.css'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { CompactOrderMenu } from './CompactOrderMenu'
 
 export type OrderCategory = 'all' | Archetype | 'side_menu' | 'omakase'
 
@@ -25,7 +27,7 @@ const TABS: { id: OrderCategory; label: string }[] = [
 const PER_PAGE = 9
 const adCard = CARDS.find(card => card.name === '大トロ')
 
-type Props = {
+export type ShinkansenOrderModalProps = {
   budget: number
   initialCategory?: OrderCategory
   onOrder: (card: Card, premiumPrice: number) => void
@@ -41,7 +43,8 @@ type Props = {
   remainingOrders?: number
 }
 
-export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder, onClose, sideMenu, sideMenuEnabled = false, disabled = false, canOrderSushi = true, onOrderSideMenu, onOrderOmakase, omakaseCards = null, deckCount = 0, remainingOrders = SHINKANSEN_TOTAL }: Props) {
+export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder, onClose, sideMenu, sideMenuEnabled = false, disabled = false, canOrderSushi = true, onOrderSideMenu, onOrderOmakase, omakaseCards = null, deckCount = 0, remainingOrders = SHINKANSEN_TOTAL }: ShinkansenOrderModalProps) {
+  const compact = useCompactLandscape()
   const [category, setCategory] = useState<OrderCategory>(initialCategory)
   const [page, setPage] = useState(0)
   const closeButton = useRef<HTMLButtonElement>(null)
@@ -63,6 +66,11 @@ export function ShinkansenOrderModal({ budget, initialCategory = 'all', onOrder,
   const pages = Math.max(1, Math.ceil(cards.length / PER_PAGE))
   const view = cards.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
   const label = TABS.find(tab => tab.id === category)?.label ?? 'おすすめ'
+
+  if (compact) return <CompactOrderMenu budget={budget} initialCategory={initialCategory} onOrder={onOrder} onClose={onClose}
+    sideMenu={sideMenu} sideMenuEnabled={sideMenuEnabled} disabled={disabled} canOrderSushi={canOrderSushi}
+    onOrderSideMenu={onOrderSideMenu} onOrderOmakase={onOrderOmakase} omakaseCards={omakaseCards}
+    deckCount={deckCount} remainingOrders={remainingOrders} />
 
   return <motion.div className="order-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
     <motion.div className={`order-menu-device${isSideMenu || isOmakase ? ' order-menu-device--side' : ''}`} role="dialog" aria-modal="true" aria-labelledby="order-menu-heading"

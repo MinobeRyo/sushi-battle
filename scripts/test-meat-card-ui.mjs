@@ -51,6 +51,8 @@ function createHarness(cardId, fieldIds, enemyIds = []) {
     'react/jsx-runtime': require('react/jsx-runtime'),
     'framer-motion': { motion: { div: 'div', button: 'button' }, useIsPresent: () => true },
     '../../components/SushiArt': { SushiArt: () => null },
+    '../../hooks/useCompactLandscape': { useCompactLandscape: () => false },
+    '../../components/ScreenPager': { ScreenPager: () => null },
     './battleStatusModel': status,
     './battleEngine': rules,
     './battlePresentation': presentation,
@@ -461,6 +463,8 @@ function createReactionHarness(defenseId = 'iwashi_shoga') {
   }
   const { HikariDefensePrompt } = loadComponent('HikariDefensePrompt', {
     react, 'react/jsx-runtime': require('react/jsx-runtime'), './battleEngine': rules,
+    '../../hooks/useCompactLandscape': { useCompactLandscape: () => false },
+    '../../components/ScreenPager': { ScreenPager: () => null },
     './DefensePrompt.css': {}, './HikariDefensePrompt.css': {},
   })
   const responses = []

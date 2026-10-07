@@ -13,8 +13,6 @@ import type { OrderCategory } from './ShinkansenOrderModal'
 import { DraftDeckSheet, DraftRestaurantLayout } from './DraftRestaurantLayout'
 import { CompactDraftLayout } from './CompactDraftLayout'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
-import { PortraitDraftLayout } from './PortraitDraftLayout'
-import { VerticalDraftScene } from '../demo/VerticalDraftScene'
 import { StaffHelpModal } from './StaffHelpModal'
 import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
 import {
@@ -30,7 +28,6 @@ import { onlineLaneElapsed } from '../../game/draftOffers'
 const DRAFT_SECONDS = 90
 
 const INITIAL_BUDGET = 3000
-const PORTRAIT_QUERY = '(max-width: 700px) and (orientation: portrait)'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -60,7 +57,6 @@ export function DraftScreenThree({
   sideMenuEnabled = mode === 'initial',
 }: Props) {
   const compact = useCompactLandscape()
-  const [portrait, setPortrait] = useState(() => window.matchMedia(PORTRAIT_QUERY).matches)
   const [localDraft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now(), sideMenuEnabled))
   const draft = online ? { ...online.draft.you, purchasedIds: [] } : localDraft
   const { budget, deck, shinkansenLeft, shinkansenPlate } = draft
@@ -82,16 +78,10 @@ export function DraftScreenThree({
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   useEffect(() => {
-    const media = window.matchMedia(PORTRAIT_QUERY)
-    const update = () => {
-      setPortrait(media.matches)
-      // 向きを変えると表示中の皿が組み直されるため、以前の選択は閉じる。
-      selectedRef.current = null; setSelected(null)
-      if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
-    }
-    update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
+    // 画面幅が変わると表示中の皿が組み直されるため、以前の選択は閉じる。
+    selectedRef.current = null
+    setSelected(null)
+    if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
   }, [compact])
 
   const completeDraft = useCallback(() => {
@@ -288,7 +278,7 @@ export function DraftScreenThree({
   const emptyDeckHint = mode === 'reorder'
     ? '0枚で終了すると、補充なしでバトルを再開します。'
     : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
-  const Layout = compact ? CompactDraftLayout : portrait ? PortraitDraftLayout : DraftRestaurantLayout
+  const Layout = compact ? CompactDraftLayout : DraftRestaurantLayout
   const onlineSupply = online && {
     offers: online.draft.offers,
     elapsed: (lane: 'general' | 'build') => onlineLaneElapsed(online.draft.startedAt, online.draft.laneClocks[lane], online.now()),
@@ -307,8 +297,8 @@ export function DraftScreenThree({
       overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
       onOrder={() => { playGameSound('tabletTouch'); setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
-      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : compact ? 'バトルへ進む' : portrait ? 'バトルへ' : 'お会計・バトルへ'}
-      hint={shinkansenPlate ? compact ? '特急レーンからお受け取りください。' : portrait ? '下の特急トレイからお受け取りください。' : '奥の金色のお皿をタップしてお受け取りください。' : online ? portrait ? 'オンラインでは詳細表示中も皿と時間が進みます。' : 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : portrait ? 'お皿か名前をタップして、効果を確認' : '寿司もお皿もタップで選べます。'}
+      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : compact ? 'バトルへ進む' : 'お会計・バトルへ'}
+      hint={shinkansenPlate ? '特急レーンからお受け取りください。' : online ? 'オンラインでは詳細表示中も皿と時間が進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
       notice={purchaseNotice}
       overlays={<>
         {handOpen && <DraftDeckSheet deck={deck} sideMenu={draft.sideMenu} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}
@@ -332,12 +322,9 @@ export function DraftScreenThree({
         </AnimatePresence>
       </>}
     >
-      <Canvas className={portrait ? 'pd-main-canvas' : undefined} orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+      <Canvas orthographic resize={{ offsetSize: true }} camera={{ position: [0, 5, 9], zoom: 40 }} shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          {portrait ? <VerticalDraftScene onlineSupply={onlineSupply} generalCards={generalCards} buildCards={buildCards}
-            onBeltSelect={handleBeltSelect} onSideMenuSelect={handleBeltSideSelect}
-            sideMenusEnabled={draft.sideMenuEnabled} sideMenuPurchased={Boolean(draft.sideMenu)}
-            paused={Boolean(selected || showShinkansenModal || showHelp || handOpen)} /> : <Scene
+          <Scene
             onlineSupply={onlineSupply}
             generalCards={generalCards}
             buildCards={buildCards}
@@ -349,7 +336,7 @@ export function DraftScreenThree({
             onShinkansenPickup={handleShinkansenPickup}
             paused={Boolean(selected || showShinkansenModal || showHelp)}
             sevenPlates
-          />}
+          />
         </Suspense>
       </Canvas>
     </Layout>

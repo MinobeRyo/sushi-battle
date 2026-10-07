@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Inspect, FieldCard } from './types'
-import { C, ARCH_LABEL } from './battlePresentation'
+import { C, ARCH_LABEL, getCardEffectDescription } from './battlePresentation'
 import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
@@ -8,6 +8,8 @@ import { cardAttackBuff } from './battleStatusModel'
 import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError, hasNamahamuAura } from './battleEngine'
 import { NAMAHAM_CARD } from '../../data/cards'
 import { CardEffectText } from './CardEffectText'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
 import './BattleCards.css'
 
 export function CardDetailSheet({
@@ -26,6 +28,10 @@ export function CardDetailSheet({
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
+  const compact = useCompactLandscape()
+  const [detailTab, setDetailTab] = useState<string | null>(null)
+  const [targetPage, setTargetPage] = useState(0)
+  const [effectPage, setEffectPage] = useState(0)
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const sacrificeHeadingId = useId()
@@ -35,6 +41,8 @@ export function CardDetailSheet({
   const [destroySelection, setDestroySelection] = useState<{ cardKey: string; targetFieldId: string } | null>(null)
   const [sacrificeSelection, setSacrificeSelection] = useState<{ cardKey: string; count: number } | null>(null)
   const { card, canPlay, remainingTurns } = inspect
+  const effectPages = Math.max(1, Math.ceil(getCardEffectDescription(card).split('\n').length / 4))
+  const currentEffectPage = Math.min(effectPage, effectPages - 1)
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
   const auraBonus = card.base === '生ハム' && hasNamahamuAura(fieldCards) ? 2 : 0
@@ -58,6 +66,15 @@ export function CardDetailSheet({
   const selectedAttackBonus = (selectedSacrifices ?? 0) * sacrificeBonus
   const lacksFieldSpace = selectedSacrifices !== null && fieldCards.length - selectedSacrifices >= FIELD_MAX
   const destroyTargets = getDestroyTargets(card, enemyFieldCards)
+  const targetPages = Math.max(1, Math.ceil(destroyTargets.length / 4))
+  const currentTargetPage = Math.min(targetPage, targetPages - 1)
+  const detailTabs = [
+    { id: 'basic', label: '基本' }, { id: 'effect', label: '効果' },
+    ...(!isField && defenseCost > 0 ? [{ id: 'defense', label: '防御予約' }] : []),
+    ...(needsSacrificeChoice ? [{ id: 'sacrifice', label: '生ハム' }] : []),
+    ...(!isField && card.effect === 'destroy_enemy_persist_1' ? [{ id: 'target', label: '対象を選ぶ' }] : []),
+  ]
+  const activeTab = detailTabs.some(tab => tab.id === detailTab) ? detailTab : canPlay && detailTabs.length > 2 ? detailTabs[2].id : 'basic'
   const targetFieldId = destroySelection?.cardKey === cardKey ? destroySelection.targetFieldId : undefined
   const targetError = getDestroyTargetError(card, enemyFieldCards, targetFieldId)
   const canConfirm = canPlay && isPresent && selectedSacrifices !== null && !lacksFieldSpace && !targetError && !(reserveDefense && defenseError)
@@ -138,7 +155,10 @@ export function CardDetailSheet({
           <button ref={closeButtonRef} type="button" className="battle-detail-dismiss" onClick={onClose} aria-label="カード詳細を閉じる">✕</button>
         </div>
 
-        <div className="battle-detail-body">
+        {compact && <nav className="battle-detail-tabs" aria-label="カード詳細の表示">
+          {detailTabs.map(tab => <button type="button" key={tab.id} aria-pressed={activeTab === tab.id} onClick={() => setDetailTab(tab.id)}>{tab.label}</button>)}
+        </nav>}
+        {(!compact || activeTab === 'basic') && <div className="battle-detail-body">
           <div className="battle-detail-art" aria-hidden="true">
             <SushiArt card={card} size="92%" />
           </div>
@@ -157,13 +177,14 @@ export function CardDetailSheet({
             {isPersist && <div><dt>{isField ? '残りターン' : '持続ターン'}</dt><dd>{isField ? remainingTurns : card.fullness}ターン</dd></div>}
             <div><dt>{isGenerated ? '入手方法' : 'ドラフト価格'}</dt><dd>{isGenerated ? '生成専用' : `¥${card.price}`}</dd></div>
           </dl>
-        </div>
-        <div className="battle-detail-effect">
+        </div>}
+        {(!compact || activeTab === 'effect') && <div className="battle-detail-effect">
           <h3>特殊効果</h3>
-          <p><CardEffectText card={card} variant="full" combosFired={combosFired} /></p>
-        </div>
+          <p><CardEffectText card={card} variant="full" combosFired={combosFired} lineRange={compact ? { start: currentEffectPage * 4, count: 4 } : undefined} /></p>
+          {compact && effectPages > 1 && <ScreenPager page={currentEffectPage} pages={effectPages} onPageChange={setEffectPage} />}
+        </div>}
 
-        {!isField && defenseCost > 0 && (
+        {!isField && defenseCost > 0 && (!compact || activeTab === 'defense') && (
           <section className="battle-defense-reserve" aria-labelledby={defenseHeadingId}>
             <h3 id={defenseHeadingId}>召喚後の防御を予約</h3>
             <p>攻撃後に防御待機。次の相手の攻撃時、ガリと一緒に選べます。</p>
@@ -181,7 +202,7 @@ export function CardDetailSheet({
           </section>
         )}
 
-        {needsSacrificeChoice && (
+        {needsSacrificeChoice && (!compact || activeTab === 'sacrifice') && (
           <section className="battle-sacrifice" aria-labelledby={sacrificeHeadingId}>
             <div className="battle-sacrifice-heading">
               <h3 id={sacrificeHeadingId}>生ハムをどうしますか？</h3>
@@ -210,13 +231,13 @@ export function CardDetailSheet({
           </section>
         )}
 
-        {!isField && card.effect === 'destroy_enemy_persist_1' && (
+        {!isField && card.effect === 'destroy_enemy_persist_1' && (!compact || activeTab === 'target') && (
           <section className="battle-destroy-target" aria-labelledby={destroyHeadingId}>
             <h3 id={destroyHeadingId}>破壊する相手の持続型を選択</h3>
             {destroyTargets.length > 0 ? <>
               <p>相手の机から1枚を選び、下の召喚ボタンで確定します。</p>
               <div className="battle-destroy-options" role="group" aria-labelledby={destroyHeadingId}>
-                {destroyTargets.map(target => (
+                {(compact ? destroyTargets.slice(currentTargetPage * 4, currentTargetPage * 4 + 4) : destroyTargets).map(target => (
                   <button type="button" key={target.fid}
                     aria-pressed={targetFieldId === target.fid}
                     disabled={!canPlay || !isPresent}
@@ -227,6 +248,7 @@ export function CardDetailSheet({
                   </button>
                 ))}
               </div>
+              {compact && <ScreenPager page={currentTargetPage} pages={targetPages} onPageChange={setTargetPage} />}
               {targetError === 'invalid_target' && <p role="status">選んだ対象がいなくなりました。選び直してください。</p>}
             </> : <p>相手の机に持続型がありません。破壊効果を使わずに召喚できます。</p>}
           </section>

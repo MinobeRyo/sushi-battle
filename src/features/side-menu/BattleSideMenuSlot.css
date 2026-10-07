@@ -44,3 +44,14 @@
 .battle-side-detail-art { width: 140px; height: 104px; margin: 10px auto 0; }
 .battle-side-details p { margin: 12px 0 0; font-size: 14px; line-height: 1.7; }
 .battle-side-details .battle-side-timing { color: #78644e; font-size: 12px; }
+
+@media (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .battle-side-details { width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 10px 12px; overflow: hidden; }
+  .battle-side-details:popover-open { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 14px; }
+  .battle-side-details > header { grid-column: 1 / -1; }
+  .battle-side-detail-art { align-self: center; width: 120px; height: 110px; margin: 0; }
+  .battle-side-detail-copy { min-width: 0; }
+  .battle-side-details p { margin-top: 6px; font-size: 13px; line-height: 1.6; }
+  .battle-side-details p:first-child { margin-top: 0; }
+  .battle-side-details .battle-side-timing { font-size: 11px; }
+}

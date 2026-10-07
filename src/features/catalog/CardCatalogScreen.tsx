@@ -5,6 +5,9 @@ import { SIDE_MENU_CATALOG } from '../side-menu/sideMenuCatalog'
 import type { Archetype, Card, CardType } from '../../types'
 import { CardEffectText } from '../battle/CardEffectText'
 import { getCardEffectDescription } from '../battle/battlePresentation'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
+import { SideMenuArt } from '../side-menu/SideMenuArt'
 import './CardCatalogScreen.css'
 
 const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
@@ -71,6 +74,17 @@ function CatalogCard({ card, onView }: { card: Card; onView: () => void }) {
   )
 }
 
+function CompactCardEffect({ card }: { card: Card }) {
+  const [page, setPage] = useState(0)
+  // 最小の横向き画面でも読める行幅で区切り、長い効果を切り捨てない。
+  const lines = getCardEffectDescription(card).split('\n').flatMap(line => {
+    const characters = Array.from(line)
+    return Array.from({ length: Math.max(1, Math.ceil(characters.length / 22)) }, (_, index) => characters.slice(index * 22, index * 22 + 22).join(''))
+  })
+  const pages = Math.max(1, Math.ceil(lines.length / 4))
+  return <div className="catalog-compact-effect"><p>{lines.slice(page * 4, page * 4 + 4).join('\n')}</p>{pages > 1 && <ScreenPager page={page} pages={pages} onPageChange={setPage} label="効果の続き" />}</div>
+}
+
 function ModelDialog({ card, index, count, onNavigate, onClose }: {
   card: Card
   index: number
@@ -83,6 +97,8 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
   const [view, setView] = useState<'angle' | 'top' | 'side'>('angle')
   const [zoom, setZoom] = useState(1)
   const [resetKey, setResetKey] = useState(0)
+  const compact = useCompactLandscape()
+  const [detailPage, setDetailPage] = useState<'stats' | 'effect'>('stats')
   const generated = GENERATED_IDS.has(card.id)
   const number = String(CATALOG_CARDS.findIndex(item => item.id === card.id) + 1).padStart(3, '0')
 
@@ -106,7 +122,7 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
   return (
     <dialog
       ref={dialogRef}
-      className="catalog-model-dialog"
+      className={`catalog-model-dialog${compact ? ' catalog-model-dialog--compact' : ''}`}
       aria-labelledby="catalog-model-title"
       aria-describedby="catalog-model-help"
       onCancel={event => { event.preventDefault(); onClose() }}
@@ -142,9 +158,10 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
           </div>
         </section>
         <section className="catalog-model-detail" aria-labelledby="catalog-model-title">
+          {compact && <nav className="catalog-detail-tabs" aria-label="カードの情報"><button aria-pressed={detailPage === 'stats'} onClick={() => setDetailPage('stats')}>基本情報</button><button aria-pressed={detailPage === 'effect'} onClick={() => setDetailPage('effect')}>効果</button></nav>}
           <p className="catalog-model-eyebrow">おしながき <span>／ {number}</span></p>
           <h2 id="catalog-model-title" aria-live="polite">{card.name}</h2>
-          <div className="catalog-card-tags">
+          {(!compact || detailPage === 'stats') && <><div className="catalog-card-tags">
             <span>{card.type === 'persist' ? '持続型' : '即時型'}</span>
             {generated && <span className="catalog-generated-tag">生成専用</span>}
             {card.archetype.map(value => <span key={value}>{ARCHETYPES[value]}</span>)}
@@ -154,13 +171,13 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
             <div><dt>消費AP</dt><dd>{card.cost}</dd></div>
             <div><dt>攻撃力</dt><dd>{card.attack}</dd></div>
             <div><dt>滞在</dt><dd>{card.type === 'persist' ? `${card.fullness}ターン` : '即時'}</dd></div>
-          </dl>
-          <p className="catalog-card-effect"><span className="catalog-effect-label">この寿司の効果</span><CardEffectText card={card} /></p>
-          <dl className="catalog-model-ingredients">
+          </dl></>}
+          {compact ? detailPage === 'effect' && <CompactCardEffect key={card.id} card={card} /> : <p className="catalog-card-effect"><span className="catalog-effect-label">この寿司の効果</span><CardEffectText card={card} /></p>}
+          {(!compact || detailPage === 'stats') && <dl className="catalog-model-ingredients">
             <div><dt>ネタ</dt><dd>{[card.base, ...card.subBases ?? []].join('・')}</dd></div>
             <div><dt>トッピング</dt><dd>{card.topping ?? 'なし'}</dd></div>
-          </dl>
-          <p className="catalog-model-note">{generated ? '生ハムはカードの効果で生成される専用の寿司です。' : 'レーンを流れる寿司と同じ3Dモデルです。'}<br />数値は強化前の基本値です。</p>
+          </dl>}
+          {(!compact || detailPage === 'stats') && <p className="catalog-model-note">{generated ? '生ハムはカードの効果で生成される専用の寿司です。' : 'レーンを流れる寿司と同じ3Dモデルです。'}<br />数値は強化前の基本値です。</p>}
         </section>
       </div>
       <footer className="catalog-model-footer">
@@ -173,11 +190,13 @@ function ModelDialog({ card, index, count, onNavigate, onClose }: {
 }
 
 export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
+  const compact = useCompactLandscape()
   const [query, setQuery] = useState('')
   const [cardType, setCardType] = useState<CardType | 'all'>('all')
   const [archetype, setArchetype] = useState<Archetype | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showSideMenus, setShowSideMenus] = useState(false)
+  const [page, setPage] = useState(0)
   const sideMenuButton = useRef<HTMLButtonElement>(null)
   const returningFromSideMenu = useRef(false)
   useEffect(() => {
@@ -203,6 +222,26 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
     setQuery('')
     setCardType('all')
     setArchetype('all')
+  }
+
+  if (compact) {
+    const pages = Math.max(1, Math.ceil((showSideMenus ? SIDE_MENU_CATALOG.length : filteredCards.length) / (showSideMenus ? 2 : 4)))
+    const currentPage = Math.min(page, pages - 1)
+    return <main className="compact-catalog" aria-labelledby="catalog-title">
+      <header><button onClick={onBack}>← タイトル</button><h1 id="catalog-title">カード図鑑</h1><nav aria-label="図鑑の種類"><button aria-pressed={!showSideMenus} onClick={() => { setShowSideMenus(false); setPage(0) }}>寿司</button><button aria-pressed={showSideMenus} onClick={() => { setShowSideMenus(true); setPage(0) }}>サイド</button></nav></header>
+      {showSideMenus ? <p className="compact-catalog-hint">自分の番に0APで使用。寿司20枚・机8枠とは別枠です。</p> : <section className="compact-catalog-filters" aria-label="カードを探す">
+        <input aria-label="カードを検索" type="search" value={query} placeholder="名前・効果で検索" onChange={event => { setQuery(event.target.value); setPage(0) }} />
+        <select aria-label="タイプ" value={cardType} onChange={event => { setCardType(event.target.value as CardType | 'all'); setPage(0) }}><option value="all">全タイプ</option><option value="instant">即時型</option><option value="persist">持続型</option></select>
+        <select aria-label="系統" value={archetype} onChange={event => { setArchetype(event.target.value as Archetype | 'all'); setPage(0) }}><option value="all">全系統</option>{(Object.entries(ARCHETYPES) as [Archetype, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <button disabled={!hasFilters} onClick={() => { resetFilters(); setPage(0) }}>リセット</button>
+      </section>}
+      <div className={`compact-catalog-grid${showSideMenus ? ' compact-catalog-grid--sides' : ''}`}>
+        {showSideMenus ? SIDE_MENU_CATALOG.slice(currentPage * 2, currentPage * 2 + 2).map(menu => <article className="compact-catalog-side" key={menu.id}><div className="compact-catalog-side-heading"><SideMenuArt id={menu.id} /><div><h2>{menu.name}</h2><strong>¥{menu.price}</strong></div></div><p>{menu.effect}</p><small>{menu.timing}</small></article>) : filteredCards.slice(currentPage * 4, currentPage * 4 + 4).map(card => <button key={card.id} className={`compact-catalog-card${card.type === 'persist' ? ' is-persist' : ''}`} onClick={() => setSelectedId(card.id)} aria-label={`${card.name}の詳細・3Dを見る`}><span className="compact-catalog-card-kind">{card.type === 'persist' ? '持続' : '即時'}<span>AP {card.cost}</span></span><div className="compact-catalog-art"><SushiArt card={card} size="100%" /></div><h2>{card.name}</h2><strong>攻{card.attack}{card.type === 'persist' && ` ×${card.fullness}T`}</strong><span>{GENERATED_IDS.has(card.id) ? '生成専用' : `¥${card.price}`}</span><small>詳細・3D →</small></button>)}
+        {!showSideMenus && filteredCards.length === 0 && <p className="compact-catalog-empty">該当するカードがありません。条件を変えてください。</p>}
+      </div>
+      <footer><span>{showSideMenus ? SIDE_MENU_CATALOG.length : filteredCards.length}種</span><ScreenPager page={currentPage} pages={pages} onPageChange={setPage} /></footer>
+      {selectedCard && <ModelDialog card={selectedCard} index={selectedIndex} count={filteredCards.length} onNavigate={offset => { const nextCard = filteredCards[selectedIndex + offset]; if (nextCard) setSelectedId(nextCard.id) }} onClose={() => setSelectedId(null)} />}
+    </main>
   }
 
   if (showSideMenus) {

@@ -1,0 +1,12 @@
+.landscape-content { width: 100%; height: 100%; min-height: 0; }
+.landscape-content[data-portrait='true'] { visibility: hidden; pointer-events: none; }
+.landscape-notice[open] {
+  position: fixed; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  width: 100%; height: 100%; max-width: none; max-height: none; margin: 0;
+  padding: 20px; overflow: hidden; border: 0; background: #f5edde; color: #4d3626; text-align: center;
+}
+.landscape-notice::backdrop { background: #f5edde; }
+.landscape-notice svg { flex-shrink: 0; width: 120px; height: 96px; color: #a7471f; }
+.landscape-notice h1 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.6; outline: none; }
+.landscape-notice p { margin: 0; color: #79644d; font-size: 14px; }

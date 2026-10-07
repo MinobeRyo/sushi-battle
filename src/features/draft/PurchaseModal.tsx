@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Card } from '../../types'
 import { CardEffectText } from '../battle/CardEffectText'
+import './PurchaseModal.css'
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   akami: '赤身', makimono: '巻物', hikari: '光り物',
@@ -43,7 +44,8 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
         onClick={onClose}
       >
         <motion.div
-          className="rounded-2xl p-5 w-72 shadow-2xl max-h-[calc(100%_-_24px)] overflow-y-auto"
+          role="dialog" aria-modal="true" aria-label={`${card.name}を購入`}
+          className="draft-purchase-dialog rounded-2xl p-5 w-72 shadow-2xl max-h-[calc(100%_-_24px)] overflow-y-auto"
           initial={{ scale: 0.85, y: 20 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.85, y: 20 }}
@@ -52,7 +54,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
           onClick={e => e.stopPropagation()}
         >
           {/* 上部 */}
-          <div className="flex items-start justify-between mb-3">
+          <div className="draft-purchase-header flex items-start justify-between mb-3">
             <div>
               <h3 className="text-xl font-bold text-amber-100 flex items-center gap-2">
                 {card.name}
@@ -82,7 +84,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
           </div>
 
           {/* ステータス */}
-          <div className="grid grid-cols-2 gap-1.5 mb-3">
+          <div className="draft-purchase-stats grid grid-cols-2 gap-1.5 mb-3">
             <Stat label="コスト" value={`${card.cost} AP`} />
             <Stat label="攻撃" value={String(card.attack)} />
             {card.type === 'persist' && (
@@ -93,7 +95,7 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
           {/* 効果 */}
           {card.effect && (
             <div
-              className="rounded-lg p-2 mb-3 text-xs text-amber-300 leading-relaxed"
+              className="draft-purchase-effect rounded-lg p-2 mb-3 text-xs text-amber-300 leading-relaxed"
               style={{ background: 'rgba(120,53,15,0.4)' }}
             >
               ✨ <CardEffectText card={card} tone="dark" />
@@ -101,13 +103,13 @@ export function PurchaseModal({ card, displayPrice, isPremium, budget, deckCount
           )}
 
           {/* 残高・デッキ枚数 */}
-          <div className="flex justify-between text-xs text-stone-400 mb-3">
+          <div className="draft-purchase-budget flex justify-between text-xs text-stone-400 mb-3">
             <span>残り軍資金 ¥{budget.toLocaleString()}</span>
             <span>デッキ {deckCount}/20</span>
           </div>
 
           {/* ボタン */}
-          <div className="flex gap-2">
+          <div className="draft-purchase-actions flex gap-2">
             <button
               onClick={onClose}
               className="flex-1 py-2.5 bg-stone-700 hover:bg-stone-600 text-white rounded-xl transition-colors text-sm"

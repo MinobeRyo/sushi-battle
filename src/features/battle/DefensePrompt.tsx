@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { calcGariReduction, getDefenseReductionRate, MAX_BELLY } from './battleEngine'
 import { defensePreview } from './defensePreview'
 import { SushiArt } from '../../components/SushiArt'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
 import type { FieldCard, PendingAttack } from '../../game/types'
 import './DefensePrompt.css'
 
@@ -23,9 +25,13 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
   const [useGari, setUseGari] = useState(false)
   const [useDefense, setUseDefense] = useState(false)
   const [targetFieldId, setTargetFieldId] = useState<string>()
+  const compact = useCompactLandscape()
+  const [targetPage, setTargetPage] = useState(0)
   const canGari = attack.source === 'end_turn' && gari > 0
   const needsTarget = defenseCard?.effect === 'reserve_target_half_2'
   const preview = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, useDefense, useGari && canGari, targetFieldId)
+  const targetPages = Math.max(1, Math.ceil(preview.targets.length / 4))
+  const currentTargetPage = Math.min(targetPage, targetPages - 1)
   const canDefense = defenseCard?.defenseState === 'ready' && defenseCard.fid === attack.defenseCardId && preview.targets.length > 0
   const validTarget = !needsTarget || preview.targets.some(card => card.fid === targetFieldId)
   const canConfirm = ready && (!useDefense || canDefense && validTarget)
@@ -87,12 +93,12 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
         <strong>{needsTarget ? '選ぶ' : 'ランダム'}1体 −{getDefenseReductionRate(defenseCard) * 100}%</strong>
       </button>}
     </div>
-    {useDefense && needsTarget && <div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
-      {preview.targets.map(card => <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}
+    {useDefense && needsTarget && <div className="battle-defense__target-area"><div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
+      {(compact ? preview.targets.slice(currentTargetPage * 4, currentTargetPage * 4 + 4) : preview.targets).map(card => <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}
         disabled={!ready} onClick={() => setTargetFieldId(card.fid)}>
         <SushiArt card={card} size={36} /><span>{card.name}</span>
       </button>)}
-    </div>}
+    </div>{compact && <ScreenPager page={currentTargetPage} pages={targetPages} onPageChange={setTargetPage} />}</div>}
     {useDefense && needsTarget && !validTarget && <p className="battle-defense__hint">相手のカードを選択</p>}
     <button className="battle-defense__confirm" type="button" disabled={!canConfirm}
       onClick={() => { if (canConfirm) onRespond(useGari && canGari, useDefense, useDefense && needsTarget ? targetFieldId : undefined) }}>

@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { SushiArt } from '../../components/SushiArt'
+import { ScreenPager } from '../../components/ScreenPager'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import type { DeckSummaryEntry } from '../../game/deckSummary'
 import { ARCH_LABEL, getCardEffectDescription } from './battlePresentation'
 import './BattleCards.css'
@@ -28,6 +30,17 @@ function DeckDialog({ entries, count, onClose }: {
   const closeRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
   const noteId = useId()
+  const compact = useCompactLandscape()
+  const [page, setPage] = useState(0)
+  const entryPages = entries.flatMap(entry => {
+    const lines = getCardEffectDescription(entry.card).split('\n')
+    return Array.from({ length: Math.max(1, Math.ceil(lines.length / 4)) }, (_, part) => ({
+      ...entry, compactEffect: lines.slice(part * 4, part * 4 + 4).join('\n'),
+    }))
+  })
+  const pages = Math.max(1, entryPages.length)
+  const currentPage = Math.min(page, pages - 1)
+  const visibleEntries = compact ? entryPages.slice(currentPage, currentPage + 1) : entries.map(entry => ({ ...entry, compactEffect: '' }))
 
   useEffect(() => {
     const dialog = dialogRef.current!
@@ -58,7 +71,7 @@ function DeckDialog({ entries, count, onClose }: {
       {entries.length === 0 ? <p className="battle-deck-dialog__empty">山札は空です</p> : <>
         <p className="battle-deck-dialog__guide">{entries.length}種類 · APは現在値、攻撃は基本値</p>
         <ul className="battle-deck-list">
-          {entries.map(({ card, count: copies }) => {
+          {visibleEntries.map(({ card, count: copies, compactEffect }) => {
             const effect = card.effect || card.id === 'namahamu' ? getCardEffectDescription(card) : null
             return <li key={JSON.stringify(card)} className="battle-deck-card" data-card-type={card.type} data-card-variant={card.variant}>
               <div className="battle-deck-card__heading">
@@ -71,7 +84,7 @@ function DeckDialog({ entries, count, onClose }: {
               </div>
               <div className="battle-deck-card__stats"><span>AP <strong>{card.cost}</strong></span><span>攻撃 <strong>{card.attack}</strong></span></div>
               <div className="battle-deck-card__tags">{card.archetype.map(arch => <span key={arch}>{ARCH_LABEL[arch]}</span>)}</div>
-              {effect ? <details className="battle-deck-card__effect">
+              {effect && compact ? <p className="battle-deck-card__compact-effect">{compactEffect}</p> : effect ? <details className="battle-deck-card__effect">
                 <summary>効果を見る</summary>
                 {effect && <p>{effect}</p>}
               </details> : <p className="battle-deck-card__no-effect">特殊効果なし</p>}
@@ -80,5 +93,6 @@ function DeckDialog({ entries, count, onClose }: {
         </ul>
       </>}
     </div>
+    {compact && <ScreenPager page={currentPage} pages={pages} onPageChange={setPage} />}
   </dialog>
 }

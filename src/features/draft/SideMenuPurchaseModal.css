@@ -64,3 +64,21 @@
   .side-menu-purchase-footer { padding-block: 8px; }
   .side-menu-purchase-budget { margin-bottom: 6px; }
 }
+
+@media (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .side-menu-purchase-dialog { width: min(640px, 100%); }
+  .side-menu-purchase-header { padding: 5px 12px; }
+  .side-menu-purchase-header h2 { font-size: 17px; }
+  .side-menu-purchase-body { padding: 7px 12px; overflow: hidden; }
+  .side-menu-purchase-body .side-menu-card { display: grid; grid-template-columns: 128px minmax(0, 1fr); }
+  .side-menu-purchase-body .side-menu-card__artwork { height: 100%; min-height: 96px; border-bottom: 0; border-right: 1px solid #e9deca; }
+  .side-menu-purchase-body .side-menu-card__body { padding: 8px 10px; gap: 4px; }
+  .side-menu-purchase-body .side-menu-card .side-menu-card__name, .side-menu-purchase-body .side-menu-card__category { display: none; }
+  .side-menu-purchase-body .side-menu-card .side-menu-card__effect { font-size: 12px; line-height: 1.65; }
+  .side-menu-purchase-body .side-menu-card .side-menu-card__timing { font-size: 11px; line-height: 1.5; padding-top: 4px; }
+  .side-menu-purchase-notice { margin-top: 5px; padding: 5px 7px; font-size: 11px; line-height: 1.5; }
+  .side-menu-purchase-footer { display: flex; align-items: center; gap: 14px; padding: 6px 12px; }
+  .side-menu-purchase-budget { flex: 0 0 auto; flex-direction: column; gap: 0; margin: 0; }
+  .side-menu-purchase-actions { flex: 1; }
+  .side-menu-purchase-actions button { min-height: 42px; padding: 6px; }
+}

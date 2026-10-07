@@ -4,6 +4,8 @@ import { SushiArt } from '../../components/SushiArt'
 import { SideMenuArt } from '../side-menu/SideMenuArt'
 import { GENERATED_CARDS, getCardById } from '../../data/cards'
 import { SIDE_MENUS } from '../../data/sideMenus'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
 import { COMBO_META, GUNKAN_BOOST, MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED } from '../battle/battleEngine'
 import './StaffHelpModal.css'
 
@@ -132,6 +134,48 @@ function BattleFlowGuide({ side }: { side: number }) {
 }
 
 export function StaffHelpModal({ onClose }: { onClose: () => void }) {
+  return useCompactLandscape() ? <CompactHelpModal onClose={onClose} /> : <BookHelpModal onClose={onClose} />
+}
+
+function CompactHelpModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [section, setSection] = useState<'flow' | 'builds' | 'combos' | 'sides'>('flow')
+  const [page, setPage] = useState(0)
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const opener = document.activeElement
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [])
+  const pages = section === 'flow' ? 2 : section === 'sides' ? Math.ceil(SIDE_MENUS.length / 2) + 1 : 3
+  const flow = [
+    { title: '1. 寿司をとる', cardId: 'maguro', headline: '軍資金 ¥3,000', text: '流れる寿司を選び、20枚まで集めます。準備ができたらバトルへ。' },
+    { title: '2. 寿司を召喚', cardId: 'tamago', headline: 'カードを選ぶ → 召喚', text: 'APを使って寿司を出します。即時はその場で攻撃、持続は机に残ります。' },
+    { title: '3. ターン終了', cardId: 'kappa_maki', headline: '机の寿司で毎ターン攻撃', text: '召喚が終わったら「ターン終了」。持続の寿司が攻撃し、相手の番になります。' },
+    { title: '4. 相手を満腹に', cardId: 'otoro', headline: '相手のお腹 100 で勝利', text: 'ガリは1個で攻撃を半減。切れ味やサイドメニューも活用しましょう。' },
+  ]
+  return (
+    <dialog ref={dialogRef} className="compact-help" aria-labelledby="compact-help-title" onCancel={event => { event.preventDefault(); onClose() }}>
+      <header><h2 id="compact-help-title">遊び方</h2><button autoFocus onClick={onClose} aria-label="遊び方を閉じる">閉じる ×</button></header>
+      <nav className="compact-help-tabs" aria-label="遊び方の項目">
+        {([['flow', '遊びの流れ'], ['builds', '寿司の系統'], ['combos', 'コンボ'], ['sides', 'サイドメニュー']] as const).map(([value, label]) => <button key={value} aria-pressed={section === value} onClick={() => { setSection(value); setPage(0) }}>{label}</button>)}
+      </nav>
+      <div className="compact-help-cards" key={`${section}-${page}`}>
+        {section === 'flow' && flow.slice(page * 2, page * 2 + 2).map(step => <article key={step.title}><h3>{step.title}</h3><div className="compact-help-art"><SushiArt card={getHelpCard(step.cardId)!} size="100%" /></div><strong>{step.headline}</strong><p>{step.text}</p></article>)}
+        {section === 'builds' && BUILD_GUIDE.slice(page * 2, page * 2 + 2).map(build => <article key={build.label}><h3>{build.label}</h3><div className="compact-help-art"><SushiArt card={getHelpCard(build.cardId)!} size="100%" /></div><strong>{build.specialty}</strong><p>{build.desc}</p></article>)}
+        {section === 'combos' && COMBO_GUIDE.slice(page * 2, page * 2 + 2).map(combo => <article key={combo.id}><h3>{COMBO_META[combo.id].name.replace(/！+$/, '')}</h3><div className="compact-help-art">{combo.cards.map(id => <SushiArt key={id} card={getHelpCard(id)!} size="100%" />)}</div><small>{combo.timing}</small><p>{combo.cond}</p><strong>{combo.effect}</strong>{combo.note && <p>{combo.note}</p>}</article>)}
+        {section === 'sides' && SIDE_MENUS.slice(page * 2, page * 2 + 2).map(menu => <article key={menu.id}><h3>{menu.name} <small>¥{menu.price}</small></h3><div className="compact-help-art"><SideMenuArt id={menu.id} /></div><strong>{menu.timing}</strong><p>{menu.effect}</p></article>)}
+        {section === 'sides' && page === pages - 1 && <><article><h3>サイドの注文</h3><strong>特急・大将と共通で3回</strong><p>注文枠を1回使って購入します。寿司20枚の枠には含まれません。</p><p>未購入なら後半も購入できます。使い切りは使用後にもう一度、計2回まで。</p></article><article><h3>サイドの使い方</h3><strong>自分の番に0APで使用</strong><p>寿司の机8枠を使わずに設置できます。</p><p>大将のおすすめは750円分が500円に。たまにハズレもあります。</p></article></>}
+      </div>
+      <ScreenPager page={page} pages={pages} onPageChange={setPage} />
+    </dialog>
+  )
+}
+
+function BookHelpModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [bookOpen, setBookOpen] = useState(false)
   const [spread, setSpread] = useState(0)
