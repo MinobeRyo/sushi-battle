@@ -1,0 +1,228 @@
+.mode-shop-screen {
+  --mode-ink: #382b1f;
+  height: 100%;
+  overflow: auto;
+  background: #372619;
+  color: var(--mode-ink);
+}
+
+.mode-shop-room {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 30px 52px 25px;
+  background: radial-gradient(ellipse at 50% 33%, #fff4d6, #e5d4ae 75%, #c2a57e);
+}
+
+.mode-shop-room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .4;
+  background-image: repeating-linear-gradient(0deg, #795a2e06 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, #795a2e05 0 1px, transparent 1px 6px);
+}
+
+.mode-shop-ceiling {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 36px;
+  border-bottom: 6px solid #5b3b25;
+  background: repeating-linear-gradient(1deg, transparent 0 6px, #ffffff07 7px 8px, transparent 9px 14px), linear-gradient(#6a452b, #946237 45%, #704729);
+  box-shadow: 0 8px 12px #3b241f35;
+}
+
+.mode-shop-post {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  background: repeating-linear-gradient(89deg, transparent 0 5px, #3d20111b 6px 7px, transparent 8px 15px), linear-gradient(90deg, #7c4f2d, #ac7747 40%, #8c5b33 80%, #643d24);
+  box-shadow: 2px 0 8px #3b241f36;
+}
+.mode-shop-post--left { left: 0; }
+.mode-shop-post--right { right: 0; transform: scaleX(-1); }
+
+.mode-shop-noren {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 920px;
+  height: 174px;
+  margin: 0 auto;
+  color: #f8edce;
+  filter: drop-shadow(0 10px 7px #3c2c192b);
+}
+
+.mode-shop-noren-panels {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.12fr 1fr 1fr;
+  gap: 5px;
+}
+
+.mode-shop-noren-panels span {
+  border-top: 11px solid #132d35;
+  border-radius: 0 0 2px 3px;
+  background: repeating-linear-gradient(0deg, #ffffff04 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, #ffffff05 0 1px, transparent 1px 4px), linear-gradient(95deg, #19373d, #284b50 18%, #1c3c43 66%, #163239);
+  box-shadow: inset 3px 0 6px #071d2a25, inset 0 -3px 0 #132e3660;
+}
+
+.mode-shop-noren-panels span:nth-child(2), .mode-shop-noren-panels span:nth-child(4) { margin-bottom: 3px; }
+.mode-shop-noren-print { position: relative; display: flex; flex-direction: column; align-items: center; padding: 19px 12px 15px; text-align: center; text-shadow: 0 1px 2px #102e36; }
+.mode-shop-noren-print p, .mode-shop-noren-print > span { font-size: 10px; letter-spacing: .22em; }
+.mode-shop-noren-print h1 { margin: 3px 0 1px; font-family: 'Sushi Brush', 'Hiragino Mincho ProN', serif; font-size: 54px; font-weight: 400; line-height: 1.4; letter-spacing: .1em; }
+.mode-shop-noren-print > span { opacity: .65; }
+
+.mode-shop-selection { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 14px 0 4px; }
+.mode-shop-intro { margin-bottom: 20px; color: #6a5038; font-size: 12px; letter-spacing: .15em; }
+.mode-shop-boards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 20px; width: min(100%, 950px); }
+
+.mode-shop-board {
+  position: relative;
+  grid-column: span 2;
+  display: flex;
+  min-width: 0;
+  min-height: 153px;
+  flex-direction: column;
+  padding: 15px 17px 14px;
+  border: 1px solid #ae7847;
+  border-radius: 3px;
+  color: #392a1b;
+  background: repeating-linear-gradient(91deg, transparent 0 12px, #97632a10 13px 14px, transparent 15px 21px), linear-gradient(100deg, #e6bd7e, #f4d7a6 33%, #efcd96 68%, #dfb574);
+  box-shadow: 2px 5px 0 #9a663e, 4px 9px 11px #65422624, inset 0 0 0 4px #f8dcaa90;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-shop-board::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: calc(50% - 14px);
+  width: 28px;
+  height: 10px;
+  border: 1px solid #816546;
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+}
+
+.mode-shop-board:nth-child(4) { grid-column: 2 / span 2; }
+.mode-shop-board:nth-child(5) { grid-column: 4 / span 2; }
+.mode-shop-board-head { display: flex; justify-content: space-between; align-items: center; color: #705132; font-size: 10px; letter-spacing: .09em; }
+.mode-shop-board-head > span + span { font-family: Georgia, serif; font-size: 13px; }
+.mode-shop-board strong { margin-top: 12px; font-size: clamp(15px, 1.5vw, 20px); line-height: 1.3; letter-spacing: .04em; }
+.mode-shop-board-detail { margin-top: 7px; padding-right: 20px; color: #684f37; font-size: 11px; line-height: 1.55; }
+.mode-shop-board-arrow { position: absolute; right: 16px; bottom: 12px; color: #7b492f; font-size: 18px; }
+.mode-shop-board--challenge { border-color: #883928; color: #fff0ce; background: repeating-linear-gradient(91deg, transparent 0 12px, #5a160e14 13px 14px, transparent 15px 21px), linear-gradient(100deg, #973d2c, #ba5138 35%, #ac442f 80%, #933b29); box-shadow: 2px 5px 0 #743121, 4px 9px 11px #65422624, inset 0 0 0 4px #e2a07635; }
+.mode-shop-board--challenge .mode-shop-board-head, .mode-shop-board--challenge .mode-shop-board-detail, .mode-shop-board--challenge .mode-shop-board-arrow { color: #f9dcc0; }
+.mode-shop-board--online { background-color: #ead7af; }
+.mode-shop-board:focus-visible, .mode-shop-back:focus-visible { outline: 3px solid #1c454d; outline-offset: 5px; }
+.mode-shop-board:active { transform: translateY(3px); }
+.mode-shop-back { position: relative; z-index: 1; margin-top: 20px; padding: 7px 14px; color: #70583f; font-size: 12px; letter-spacing: .06em; cursor: pointer; }
+
+.mode-shop-counter { position: relative; flex: 0 0 170px; height: 170px; margin: 0 -52px -25px; }
+.mode-shop-counter-surface { position: absolute; inset: 31% 0 0; border-top: 1px solid #b7864f; background: repeating-linear-gradient(0deg, transparent 0 11px, #72462016 12px 13px, transparent 14px 26px), linear-gradient(#c19761, #e7bf83 65%, #d7a66b); box-shadow: 0 -3px 9px #5a371418; }
+.mode-shop-counter .title-counter-scene { position: absolute; inset: 0 0 17px; }
+.mode-shop-counter-front { position: absolute; right: 0; bottom: 0; left: 0; height: 23px; border-top: 3px solid #f1c894; background: repeating-linear-gradient(1deg, transparent 0 6px, #532a1412 7px 8px), linear-gradient(#b4804e, #81532f); box-shadow: 0 -1px 2px #4e2e1622; }
+
+@media (hover: hover) {
+  .mode-shop-board:hover { transform: translateY(-3px) rotate(-.5deg); box-shadow: 3px 7px 0 #9a663e, 6px 13px 15px #65422635, inset 0 0 0 4px #f8dcaa90; }
+  .mode-shop-board--challenge:hover { box-shadow: 3px 7px 0 #743121, 6px 13px 15px #65422635, inset 0 0 0 4px #e2a07635; }
+}
+
+/* 低めのPC画面でも、五つの品書きと戻るボタンを一画面に収める。 */
+@media (min-width: 761px) and (max-height: 820px) {
+  .mode-shop-noren { height: 150px; }
+  .mode-shop-noren-print { padding-top: 14px; }
+  .mode-shop-noren-print h1 { font-size: 46px; }
+  .mode-shop-counter { flex-basis: 150px; height: 150px; }
+}
+
+@media (min-width: 761px) and (max-height: 720px) {
+  .mode-shop-noren { height: 118px; }
+  .mode-shop-noren-print { padding-top: 10px; }
+  .mode-shop-noren-print h1 { font-size: 38px; }
+  .mode-shop-selection { padding-top: 10px; }
+  .mode-shop-intro { margin-bottom: 16px; }
+  .mode-shop-boards { gap: 14px 18px; }
+  .mode-shop-board { min-height: 116px; padding-top: 12px; padding-bottom: 11px; }
+  .mode-shop-board strong { margin-top: 7px; }
+  .mode-shop-board-detail { margin-top: 4px; }
+  .mode-shop-back { margin-top: 12px; }
+  .mode-shop-counter { flex-basis: 120px; height: 120px; }
+}
+
+@media (max-width: 760px) {
+  .mode-shop-room { padding: 24px 27px 17px; }
+  .mode-shop-ceiling { height: 29px; border-bottom-width: 4px; }
+  .mode-shop-post { width: 14px; }
+  .mode-shop-noren { height: 155px; }
+  .mode-shop-noren-panels { gap: 3px; }
+  .mode-shop-noren-panels span { border-top-width: 8px; }
+  .mode-shop-noren-print { padding-top: 24px; }
+  .mode-shop-noren-print p, .mode-shop-noren-print > span { font-size: 9px; }
+  .mode-shop-noren-print h1 { margin-top: 6px; font-size: 42px; }
+  .mode-shop-selection { padding-top: 22px; }
+  .mode-shop-intro { margin-bottom: 19px; font-size: 10px; }
+  .mode-shop-boards { grid-template-columns: 1fr; gap: 14px; max-width: 440px; }
+  .mode-shop-board, .mode-shop-board:nth-child(4), .mode-shop-board:nth-child(5) { grid-column: 1; min-height: 118px; padding: 13px 16px; }
+  .mode-shop-board strong { margin-top: 8px; font-size: 17px; }
+  .mode-shop-board-detail { margin-top: 4px; font-size: 10px; }
+  .mode-shop-back { margin-top: 22px; margin-bottom: 8px; }
+  .mode-shop-counter { flex-basis: 155px; height: 155px; margin-right: -27px; margin-left: -27px; }
+}
+
+@media (max-width: 360px) {
+  .mode-shop-room { padding-right: 22px; padding-left: 22px; }
+  .mode-shop-noren-print h1 { font-size: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-shop-board { transition: none; }
+  .mode-shop-board:hover { transform: none; }
+}
+
+/* 横持ちスマホ：品書きを三枚＋二枚に並べて一画面に収める。 */
+@media (max-height: 560px) and (orientation: landscape) {
+  .mode-shop-screen { overflow: hidden; }
+  .mode-shop-room { height: 100%; min-height: 0; padding: 22px max(30px, env(safe-area-inset-right)) clamp(52px, 18vh, 80px) max(30px, env(safe-area-inset-left)); }
+  .mode-shop-ceiling { height: 20px; border-bottom-width: 4px; }
+  .mode-shop-post { width: 16px; }
+  .mode-shop-noren { max-width: 600px; height: clamp(48px, 18vh, 76px); }
+  .mode-shop-noren-panels { gap: 3px; }
+  .mode-shop-noren-panels span { border-top-width: 6px; }
+  .mode-shop-noren-print { padding: clamp(5px, 2.6vh, 14px) 12px 0; }
+  .mode-shop-noren-print p, .mode-shop-noren-print > span { display: none; }
+  .mode-shop-noren-print h1 { margin: 0; font-size: clamp(24px, 9.5vh, 38px); line-height: 1.3; }
+  .mode-shop-selection { min-height: 0; padding: 14px 0 0; }
+  .mode-shop-intro { display: none; }
+  .mode-shop-boards { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 13px 14px; width: min(100%, 760px); max-width: none; }
+  .mode-shop-board, .mode-shop-board:nth-child(4), .mode-shop-board:nth-child(5) { grid-column: span 2; min-height: 0; padding: 7px 12px 8px; }
+  .mode-shop-board:nth-child(4) { grid-column: 2 / span 2; }
+  .mode-shop-board:nth-child(5) { grid-column: 4 / span 2; }
+  .mode-shop-board::before { top: -7px; height: 8px; }
+  .mode-shop-board-head { font-size: 9px; }
+  .mode-shop-board-head > span + span { font-size: 11px; }
+  .mode-shop-board strong { margin-top: 2px; font-size: 15px; }
+  .mode-shop-board-detail { margin-top: 1px; overflow: hidden; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+  .mode-shop-board-arrow { right: 10px; bottom: 6px; font-size: 14px; }
+  .mode-shop-back { margin: 5px 0 0; padding: 5px 14px; }
+  .mode-shop-counter { position: absolute; right: 0; bottom: 0; left: 0; height: clamp(52px, 18vh, 80px); margin: 0; }
+  .mode-shop-counter .title-counter-scene { inset: 0 0 7px; }
+  .mode-shop-counter-front { height: 9px; border-top-width: 2px; }
+}
+
+@media (max-height: 340px) and (orientation: landscape) {
+  .mode-shop-room { padding-bottom: 6px; }
+  .mode-shop-counter { display: none; }
+}

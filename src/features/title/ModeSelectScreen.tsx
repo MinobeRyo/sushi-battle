@@ -1,53 +1,68 @@
-import './TitleScreen.css'
+import { Suspense, lazy } from 'react'
+import './ModeSelectScreen.css'
+
+const TitleCounterScene = lazy(() => import('./TitleCounterScene').then(module => ({ default: module.TitleCounterScene })))
+
+type BattleMode = 'weak' | 'cpu' | 'challenge' | '2p' | 'online'
 
 type Props = {
-  onSelect: (mode: 'weak' | 'cpu' | 'challenge' | '2p' | 'online') => void
+  onSelect: (mode: BattleMode) => void
   onBack: () => void
 }
 
+const MODES: Array<{ id: BattleMode; number: string; label: string; kind: string; detail: string }> = [
+  { id: 'weak', number: '01', label: 'CPU対戦 · 最弱', kind: 'ひとりで遊ぶ', detail: 'これまでの汎用デッキCPU' },
+  { id: 'cpu', number: '02', label: 'CPU対戦 · 普通', kind: 'ひとりで遊ぶ', detail: '5つのビルドからランダムに対戦' },
+  { id: 'challenge', number: '03', label: 'CPU対戦 · 挑戦', kind: 'ひとりで遊ぶ', detail: '総額4,500円の肉寿司＋巻物CPU' },
+  { id: '2p', number: '04', label: '二人対戦', kind: '同じ端末で遊ぶ', detail: '画面を交代してデッキを構築' },
+  { id: 'online', number: '05', label: 'オンライン対戦', kind: '通信で遊ぶ', detail: '部屋を作成、またはコードで参加' },
+]
+
 export function ModeSelectScreen({ onSelect, onBack }: Props) {
   return (
-    <div className="mode-screen flex flex-col items-center h-full gap-6 py-6 overflow-y-auto">
-      <h2 className="mt-auto shrink-0 text-4xl font-bold text-amber-100">モード選択</h2>
-      <div className="mode-screen-actions flex flex-col shrink-0 gap-4 w-64 max-w-full px-2">
-        <button
-          onClick={() => onSelect('weak')}
-          className="py-4 bg-stone-700 hover:bg-stone-600 text-white text-xl font-bold rounded-xl transition-colors"
-        >
-          CPU対戦 · 最弱
-          <span className="mt-1 block text-xs font-normal text-stone-100">これまでの汎用デッキCPU</span>
-        </button>
-        <button
-          onClick={() => onSelect('cpu')}
-          className="py-4 bg-orange-700 hover:bg-orange-600 text-white text-xl font-bold rounded-xl transition-colors"
-        >
-          CPU対戦 · 普通
-          <span className="mt-1 block text-xs font-normal text-orange-100">5つのビルドからランダムに対戦</span>
-        </button>
-        <button
-          onClick={() => onSelect('challenge')}
-          className="py-4 bg-rose-800 hover:bg-rose-700 text-white text-xl font-bold rounded-xl transition-colors"
-        >
-          CPU対戦 · 挑戦
-          <span className="mt-1 block text-xs font-normal text-rose-100">総額4,500円の肉寿司＋巻物CPU</span>
-        </button>
-        <button
-          onClick={() => onSelect('2p')}
-          className="py-4 bg-emerald-700 hover:bg-emerald-600 text-white text-xl font-bold rounded-xl transition-colors"
-        >
-          二人対戦
-        </button>
-        <button
-          onClick={() => onSelect('online')}
-          className="py-4 bg-sky-800 hover:bg-sky-700 text-white text-xl font-bold rounded-xl transition-colors"
-        >
-          オンライン対戦
-          <span className="mt-1 block text-xs font-normal text-sky-200">デッキを組んで2人で対戦</span>
-        </button>
+    <main className="mode-shop-screen">
+      <div className="mode-shop-room">
+        <div className="mode-shop-ceiling" aria-hidden="true" />
+        <div className="mode-shop-post mode-shop-post--left" aria-hidden="true" />
+        <div className="mode-shop-post mode-shop-post--right" aria-hidden="true" />
+
+        <header className="mode-shop-noren">
+          <div className="mode-shop-noren-panels" aria-hidden="true">
+            <span /><span /><span /><span /><span />
+          </div>
+          <div className="mode-shop-noren-print">
+            <p>お品書き</p>
+            <h1>対戦を選ぶ</h1>
+            <span>ご注文をどうぞ</span>
+          </div>
+        </header>
+
+        <section className="mode-shop-selection" aria-label="対戦モード">
+          <p className="mode-shop-intro">遊び方に合わせて、お選びください。</p>
+          <div className="mode-shop-boards">
+            {MODES.map(mode => (
+              <button
+                type="button"
+                className={`mode-shop-board${mode.id === 'challenge' ? ' mode-shop-board--challenge' : ''}${mode.id === 'online' ? ' mode-shop-board--online' : ''}`}
+                key={mode.id}
+                onClick={() => onSelect(mode.id)}
+              >
+                <span className="mode-shop-board-head"><span>{mode.kind}</span><span>{mode.number}</span></span>
+                <strong>{mode.label}</strong>
+                <span className="mode-shop-board-detail">{mode.detail}</span>
+                <span className="mode-shop-board-arrow" aria-hidden="true">→</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="mode-shop-back" onClick={onBack}>← 店先へ戻る</button>
+        </section>
+
+        <div className="mode-shop-counter" aria-hidden="true">
+          <div className="mode-shop-counter-surface" />
+          <Suspense fallback={null}><TitleCounterScene /></Suspense>
+          <div className="mode-shop-counter-front" />
+        </div>
       </div>
-      <button onClick={onBack} className="mb-auto shrink-0 text-stone-400 hover:text-stone-200 transition-colors">
-        ← 戻る
-      </button>
-    </div>
+    </main>
   )
 }

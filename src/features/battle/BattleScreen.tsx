@@ -27,6 +27,7 @@ import type { BattleSideStatus } from './battleStatusModel'
 import { previewBattleSummon } from './battleSummonPreview'
 import './BattleScreen.css'
 import './BattleLandscape.css'
+import './BattleDesktop.css'
 
 export function BattleScreen({
   deck,

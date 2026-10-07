@@ -31,7 +31,17 @@ const step = (state, action) => {
   assert.deepEqual(JSON.parse(JSON.stringify(result.state)), result.state)
   return result.state
 }
-const use = (state, id = state.activePlayerId) => step(state, { type: 'use_side_menu', playerId: id })
+// 永続型（ポテト・天ぷら・あおさ・インバウン丼）は購入時から設置済み。使用操作は不要で、重ねて使えない。
+const PERSISTENT = ['fries', 'tempura', 'miso', 'inbound_don']
+const use = (state, id = state.activePlayerId) => {
+  const menu = state.players[id].sideMenu
+  if (menu && PERSISTENT.includes(menu.id)) {
+    assert.equal(menu.status, 'active', '永続型は最初から設置済み')
+    assert.equal(transitionMatch(state, { type: 'use_side_menu', playerId: id }).error, 'side_menu_already_active')
+    return state
+  }
+  return step(state, { type: 'use_side_menu', playerId: id })
+}
 const advance = (state, action) => {
   const next = step(state, action)
   return next.phase === 'defending'
@@ -63,11 +73,15 @@ function test(name, run) {
 
 test('双方の一品は専用スロットで保持し、寿司の手札・机枚数に混ぜない', () => {
   const state = make('fries', { p2SideMenu: 'tempura' })
-  assert.deepEqual(state.players[1].sideMenu, { id: 'fries', status: 'ready', turnsLeft: null, usedThisTurn: false })
+  assert.deepEqual(state.players[1].sideMenu, { id: 'fries', status: 'active', turnsLeft: null, usedThisTurn: false })
   assert.equal(state.players[2].sideMenu.id, 'tempura')
+  assert.equal(state.players[2].sideMenu.status, 'active')
   assert.equal(state.players[1].hand.length, 5)
   assert.equal(state.players[1].field.length, 0)
-  assert.equal(getSideMenuUseError(state, 1), undefined)
+  assert.equal(getSideMenuUseError(state, 1), 'side_menu_already_active')
+  assert.deepEqual(make('ramen').players[1].sideMenu, { id: 'ramen', status: 'ready', turnsLeft: null, usedThisTurn: false })
+  assert.equal(getSideMenuUseError(make('ramen', { }), 1), 'side_menu_ap_full')
+  assert.equal(getSideMenuUseError(make('karaage'), 1), undefined)
   reject(state, 'not_your_turn', 2)
   reject(make(null), 'side_menu_missing')
 })
@@ -88,7 +102,7 @@ test('インバウン丼は0APで永続設置し、在場の生ハムだけ攻�
   state.players[1].ap = 0
   state.players[1].field = [toField(NAMAHAM_CARD, 'own-ham'), toField(card('gyutan'), 'own-meat')]
   state.players[2].field = [toField(NAMAHAM_CARD, 'enemy-ham')]
-  assert.equal(calcFieldDmg(state.players[1].field, state.players[1].attackBuff), 6)
+  assert.equal(calcFieldDmg(state.players[1].field, {}), 6, '丼がなければ6')
   state = use(state)
   assert.equal(state.players[1].ap, 0)
   assert.equal(state.players[1].sideMenu.status, 'active')
@@ -191,14 +205,15 @@ test('ポテトは複合寿司を一枚と数え、本当の二枚目で一枚�
   assert.equal(state.players[1].deck.length, originalDeck - 1)
 })
 
-test('二枚目の後にポテトを設置しても遡及ドローはしない', () => {
+test('ポテトは開始時から設置済みで、使用操作なしで二枚目の寿司からドローする', () => {
   let state = make('fries', { deck: copies('kappa_maki') })
   state.players[1].ap = state.players[1].maxAP = 10
-  state = play(play(state))
+  assert.equal(state.players[1].sideMenu.status, 'active')
   const before = state.players[1].deck.length
-  state = use(state)
   state = play(state)
   assert.equal(state.players[1].deck.length, before)
+  state = play(state)
+  assert.equal(state.players[1].deck.length, before - 1)
 })
 
 test('天ぷらは双方に効き、2枚設置しても最初の対象一枚へ+3だけ', () => {
@@ -217,13 +232,13 @@ test('天ぷらは双方に効き、2枚設置しても最初の対象一枚へ+
   assert.equal(state.players[2].field[1].turnAttackBonus, undefined)
 })
 
-test('天ぷらは設置前の対象へ遡及せず、そのターンの対象二枚目にも付かない', () => {
+test('天ぷらは開始時から設置済みで、使用操作なしで最初の対象一枚だけに+3が付く', () => {
   let state = make('tempura', { deck: copies('ebi') })
   state.players[1].ap = state.players[1].maxAP = 10
-  state = play(state)
-  state = use(state)
-  state = play(state)
-  assert.ok(state.players[1].field.every(item => item.turnAttackBonus === undefined))
+  assert.equal(state.players[1].sideMenu.status, 'active')
+  state = play(play(state))
+  assert.equal(state.players[1].field[0].turnAttackBonus, 3)
+  assert.equal(state.players[1].field[1].turnAttackBonus, undefined)
 })
 
 test('天ぷらはsubBasesにも対応し、永続寿司へ付いた+3は手番終了で消える', () => {
@@ -249,10 +264,13 @@ test('鉄火巻きが増やしたAP上限までラーメンで回復できる', 
 })
 
 test('天ぷらの+3は海鮮再攻撃と通常の攻撃予測で同じ値を使う', () => {
-  let base = make('tempura', { deck: [card('tako'), card('ika_ten'), ...copies('tamago')] })
-  base.players[1].ap = base.players[1].maxAP = 10
-  base = play(base, 'tako')
-  let buffed = use(structuredClone(base))
+  const start = sideMenu => {
+    let state = make(sideMenu, { deck: [card('tako'), card('ika_ten'), ...copies('tamago')] })
+    state.players[1].ap = state.players[1].maxAP = 10
+    return play(state, 'tako')
+  }
+  const base = start(null)
+  let buffed = start('tempura')
   const beforeEnemy = base.players[2].belly
   const plain = play(structuredClone(base), 'ika_ten')
   buffed = play(buffed, 'ika_ten')
@@ -324,6 +342,20 @@ test('追加注文を終えても、使用済みメニューを復活させず�
   state = step(state, { type: 'complete_reorder', playerId: 2, cards: copies('tamago', 3) })
   assert.deepEqual(state.players[1].sideMenu, menu)
   reject(state, 'side_menu_spent')
+})
+
+test('追加注文で買った永続型は購入直後から設置済みになり、任意に使う品は未使用で待機する', () => {
+  for (const [bought, status] of [['miso', 'active'], ['fries', 'active'], ['tempura', 'active'], ['inbound_don', 'active'], ['ramen', 'ready'], ['chawanmushi', 'ready']]) {
+    let state = use(make('karaage'))
+    state.phase = 'reorder'
+    state.reorderPlayerId = 1
+    state = step(state, { type: 'complete_reorder', playerId: 1, cards: copies('tamago', 3), sideMenu: bought })
+    assert.equal(state.players[1].sideMenu.id, bought)
+    assert.equal(state.players[1].sideMenu.status, status, bought)
+    assert.equal(state.players[1].sideMenu.purchaseCount, 2)
+    assert.equal(state.players[1].attackBuff[NAMAHAM_CARD.base] ?? 0, bought === 'inbound_don' ? 2 : 0)
+  }
+  assert.equal(make('inbound_don').players[1].attackBuff[NAMAHAM_CARD.base], 2, '開始時の設置でも生ハム強化は一度だけ')
 })
 
 test('CPUは消費したAPをラーメンで回復した後に手札を再計画し、同じ操作で実行する', () => {

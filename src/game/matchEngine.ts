@@ -16,15 +16,29 @@ export type MatchOptions = {
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
 }
 
+/** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
+const PERSISTENT_SIDE_MENUS: readonly SideMenuId[] = ['fries', 'tempura', 'miso', 'inbound_don']
+
+/** 購入した一皿を専用枠に置く。永続型は使用操作を待たずに発動させる。 */
+function placeSideMenu(player: MatchPlayer, id: SideMenuId, purchaseCount?: number) {
+  const persistent = PERSISTENT_SIDE_MENUS.includes(id)
+  player.sideMenu = { id, status: persistent ? 'active' : 'ready', turnsLeft: null, usedThisTurn: false,
+    ...(purchaseCount === undefined ? {} : { purchaseCount }) }
+  // 試合中続くネタ別強化として保持し、既存の場・今後の生成・表示に同じ値を使う。
+  if (id === 'inbound_don') player.attackBuff[NAMAHAM_CARD.base] = (player.attackBuff[NAMAHAM_CARD.base] ?? 0) + INBOUND_DON_ATTACK_BONUS
+}
+
 function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
-  return {
+  const player: MatchPlayer = {
     id, hand: [], deck: [], field: [], belly: 0, ap: INIT_AP, maxAP: INIT_AP, gari: INIT_GARI[id],
     summonedIds: [], summonedArch: {}, drawBonus: 0, attackBuff: {}, combosFired: [],
     kiretaStack: 0, thisTurnBases: [], thisTurnArch: {}, digestStopTurns: 0,
     apNextBonus: 0, nikuMatsuri: false, sacrificedThisTurn: 0, kiretaSpent: false,
-    sideMenu: isSideMenuId(sideMenu) ? { id: sideMenu, status: 'ready', turnsLeft: null, usedThisTurn: false } : null,
+    sideMenu: null,
     sushiPlayedThisTurn: 0, tempuraTriggeredThisTurn: false, skippedDigestionThisTurn: 0,
   }
+  if (isSideMenuId(sideMenu)) placeSideMenu(player, sideMenu)
+  return player
 }
 
 function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSource) {
@@ -52,7 +66,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
     const id = SIDE_MENUS[Math.min(SIDE_MENUS.length - 1, Math.floor(random() * SIDE_MENUS.length))].id
-    state.players[2].sideMenu = { id, status: 'ready', turnsLeft: null, usedThisTurn: false }
+    placeSideMenu(state.players[2], id)
   }
   return state
 }
@@ -197,12 +211,6 @@ function applySideMenu(state: MatchState, id: PlayerId, events: MatchEvent[]) {
   menu.usedThisTurn = true
   addLog(state, `${label(state, id)}: ${SIDE_MENU_BY_ID[menu.id].name}を使用`)
   switch (menu.id) {
-    case 'inbound_don':
-      menu.status = 'active'
-      // 試合中続くネタ別強化として保持し、既存の場・今後の生成・表示に同じ値を使う。
-      player.attackBuff[NAMAHAM_CARD.base] = (player.attackBuff[NAMAHAM_CARD.base] ?? 0) + INBOUND_DON_ATTACK_BONUS
-      addLog(state, `${label(state, id)}: 生ハムの攻撃 +${INBOUND_DON_ATTACK_BONUS}・生贄1体につき攻撃 +${INBOUND_DON_SACRIFICE_BONUS}`)
-      break
     case 'karaage':
       menu.status = 'used'
       damage(state, id, 15, events)
@@ -492,8 +500,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
     deal(next, action.playerId, action.cards, random)
     if (action.sideMenu != null) {
       const previous = next.players[action.playerId].sideMenu
-      next.players[action.playerId].sideMenu = { id: action.sideMenu, status: 'ready', turnsLeft: null,
-        usedThisTurn: false, purchaseCount: previous ? (previous.purchaseCount ?? 1) + 1 : 1 }
+      placeSideMenu(next.players[action.playerId], action.sideMenu, previous ? (previous.purchaseCount ?? 1) + 1 : 1)
       addLog(next, `${label(next, action.playerId)}が${SIDE_MENU_BY_ID[action.sideMenu].name}を追加購入`)
     }
     if (next.mode === 'two_player' && action.playerId === next.activePlayerId) {
@@ -510,8 +517,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
           return true
         })
         deal(next, 2, cards, random)
-        if (menuId) next.players[2].sideMenu = { id: menuId, status: 'ready', turnsLeft: null,
-          usedThisTurn: false, purchaseCount: previous ? (previous.purchaseCount ?? 1) + 1 : 1 }
+        if (menuId) placeSideMenu(next.players[2], menuId, previous ? (previous.purchaseCount ?? 1) + 1 : 1)
       }
       next.phase = 'playing'
       next.reorderPlayerId = null

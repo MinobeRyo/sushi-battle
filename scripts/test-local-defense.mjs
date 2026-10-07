@@ -286,24 +286,26 @@ test('防御中のサイドメニュー使用を止め、回答後の使用・�
   h.advance(200 + 700 + 450 + 900)
   assert.equal(h.game.s.phase, 'defending')
   assert.equal(h.state.pendingAttack.source, 'end_turn')
-  assert.equal(h.game.s.pSideMenu.id, 'miso')
+  assert.equal(h.game.s.pSideMenu.id, 'chawanmushi')
   const waitingState = structuredClone(h.state)
   h.game.useSideMenu()
   assert.deepEqual(h.state, waitingState, '防御の選択中はサイドメニューを使えない')
   h.game.respondDefense(true)
   assert.equal(h.game.s.phase, 'player')
+  assert.equal(h.game.s.pSideMenu.status, 'ready')
   h.game.useSideMenu()
-  assert.equal(h.game.s.pSideMenu.status, 'active')
+  assert.equal(h.game.s.pSideMenu.status, 'used')
   const previousSummons = h.summonCount
   h.game.playCard(h.game.s.pHand[0])
   assert.equal(h.summonCount, previousSummons + 1, '召喚成功時のSE通知を維持する')
   h.game.restart()
   assert.equal(h.game.s.pGari, 1)
   assert.equal(h.game.s.cGari, 2)
-  assert.equal(h.game.s.pSideMenu.id, 'miso')
+  assert.equal(h.game.s.pSideMenu.id, 'chawanmushi')
   assert.equal(h.game.s.pSideMenu.status, 'ready')
-}, 'cpu', { sideMenu: 'miso' })
+}, 'cpu', { sideMenu: 'chawanmushi' })
 
+const PERSISTENT_SIDES = ['fries', 'tempura', 'miso', 'inbound_don']
 for (const { id: sideMenu } of SIDE_MENUS) {
   test(`CPU戦の追加注文後も未使用の${sideMenu}を使用できる`, h => {
     for (const player of Object.values(h.state.players)) {
@@ -315,7 +317,8 @@ for (const { id: sideMenu } of SIDE_MENUS) {
     assert.equal(h.game.s.phase, 'reorder')
     h.game.handleReorderComplete([byId('tamago'), byId('tamago')])
     assert.equal(h.game.s.phase, 'player')
-    assert.equal(h.game.s.pSideMenu.status, 'ready')
+    // 永続型は購入時から設置済み。使用操作をしても状態は変わらない。
+    assert.equal(h.game.s.pSideMenu.status, PERSISTENT_SIDES.includes(sideMenu) ? 'active' : 'ready')
     h.game.playCard(h.game.s.pHand[0])
     h.game.useSideMenu()
     assert.equal(h.game.s.pSideMenu.status,

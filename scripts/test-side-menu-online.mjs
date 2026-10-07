@@ -275,7 +275,7 @@ try {
       f.finish()
       const host = f.read(f.host).match, guest = f.read(f.guest).match
       assert.equal(host.you.sideMenu.id, menu.id)
-      assert.equal(host.you.sideMenu.status, 'ready')
+      assert.equal(host.you.sideMenu.status, ['fries', 'tempura', 'miso', 'inbound_don'].includes(menu.id) ? 'active' : 'ready')
       assert.equal(host.opponent.sideMenu.id, 'chawanmushi')
       assert.deepEqual(guest.opponent.sideMenu, host.you.sideMenu)
       assert.equal(host.you.hand.length + host.you.deckCount, 10)
@@ -308,19 +308,17 @@ try {
     assertPrivate(after)
   })
 
-  test('未購入と設置済みの再使用を拒否し、設置は0APで共有される', () => {
+  test('未購入と設置済みの使用を拒否し、永続型は購入時からの設置が共有される', () => {
     const f = fixture()
     f.buy(f.guest, 'miso')
     f.finish()
     assert.deepEqual(f.use(f.host), { ok: false, error: 'side_menu_missing' })
     f.end(f.host)
     const before = f.read(f.guest).match
-    assert.deepEqual(f.use(f.guest), { ok: true })
-    const after = f.read(f.guest).match
-    assert.equal(after.you.ap, before.you.ap)
-    assert.equal(after.you.sideMenu.status, 'active')
-    assert.deepEqual(f.read(f.host).match.opponent.sideMenu, after.you.sideMenu)
+    assert.equal(before.you.sideMenu.status, 'active')
+    assert.deepEqual(f.read(f.host).match.opponent.sideMenu, before.you.sideMenu)
     assert.deepEqual(f.use(f.guest), { ok: false, error: 'side_menu_already_active' })
+    assert.deepEqual(f.read(f.guest).match, before)
   })
 
   test('ラーメンはAP満タンでは消費せず、初回から回復し、同じ手番の二重使用と3手番後の使用を拒否する', () => {
@@ -382,7 +380,7 @@ try {
     f.buy(f.host, 'miso')
     for (const player of [f.host, f.guest]) f.draft(player, { type: 'order', cardId: 'tamago' })
     f.finish()
-    assert.deepEqual(f.use(f.host), { ok: true })
+    assert.equal(f.read(f.host).match.you.sideMenu.status, 'active')
     for (const player of [f.host, f.guest]) {
       const card = f.read(player).match.you.hand[0]
       assert.deepEqual(f.battle(player, { type: 'play_card', cardInstanceId: card.instanceId }), { ok: true })

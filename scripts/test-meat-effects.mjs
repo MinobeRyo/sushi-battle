@@ -260,7 +260,7 @@ test('肉祭りは満杯の手札や空山札でも追加でき、終了時に�
 test('ローストビーフ→和牛生贄2体は通常30+肉祭り5、インバウン丼ありは通常34+5', () => {
   for (const [sideMenu, expected] of [[null, 35], ['inbound_don', 39]]) {
     let state = make(['roast_beef', 'wagyu'], { sideMenu })
-    if (sideMenu) state = step(state, { type: 'use_side_menu', playerId: 1 }).state
+    // インバウン丼は永続型なので、購入時から設置済み。
     state = play(state, 'roast_beef').state
     const result = play(state, 'wagyu', 2)
     const immediate = result.events.filter(e => e.type === 'damage' && e.playerId === 2).reduce((sum, e) => sum + e.amount, 0)
@@ -394,7 +394,6 @@ for (const [id, count, expected] of [['karubi', 0, 9], ['karubi', 1, 15], ['wagy
   test(`インバウン丼の設置後は${id}の生贄${count}体で攻撃${expected}、肉祭りは5のまま`, () => {
     let state = make([id], { sideMenu: 'inbound_don' })
     state.players[1].field = hams(count)
-    state = step(state, { type: 'use_side_menu', playerId: 1 }).state
     const result = play(state, id, count)
     assert.equal(calcFieldDmg(result.state.players[1].field, {}), expected)
     assert.equal(result.state.players[2].belly, count === 2 ? 5 : 0)
@@ -421,11 +420,11 @@ test('CPUは肉祭り→ポテトで実際に引いた手札に応じて再計�
   }
 })
 
-test('未設置・相手だけ設置したインバウン丼は自分の生贄攻撃を強化しない', () => {
-  for (const activeEnemy of [false, true]) {
-    const state = make(['wagyu'], { sideMenu: 'inbound_don', p2SideMenu: 'inbound_don' })
+test('未購入・相手だけ設置したインバウン丼は自分の生贄攻撃を強化しない', () => {
+  for (const p2SideMenu of [null, 'inbound_don']) {
+    const state = make(['wagyu'], { sideMenu: null, p2SideMenu })
     state.players[1].field = hams(2)
-    if (activeEnemy) state.players[2].sideMenu.status = 'active'
+    if (p2SideMenu) assert.equal(state.players[2].sideMenu.status, 'active')
     const result = play(state, 'wagyu', 2)
     assert.equal(calcFieldDmg(result.state.players[1].field, {}), 20)
     assert.equal(result.state.players[2].belly, 5)
@@ -524,7 +523,6 @@ test('焼肉寿司の生成は防御回答後に一度だけ行い、通常攻�
 test('焼肉寿司から引いた生ハムも0AP・3ターンで、肉祭りとインバウン丼の永続強化を一度だけ受ける', () => {
   let state = make(['yakiniku', 'wagyu'], { sideMenu: 'inbound_don' })
   state.players[1].field = hams(2)
-  state = step(state, { type: 'use_side_menu', playerId: 1 }).state
   state = play(state, 'yakiniku').state
   state = play(state, 'wagyu', 2).state
   assert.equal(state.players[1].attackBuff[NAMAHAM_CARD.base], 3)
