@@ -3,14 +3,16 @@ import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode } from '../../data/cpuDecks'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { calcFieldDmg, countNamahamu, getSacrificeLimit, MAKI_COMP_5, makimonoCount, hasNamahamuAura, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
+import { calcFieldDmg, countNamahamu, getSacrificeLimit, getDefenseCost, MAKI_COMP_5, makimonoCount, hasNamahamuAura, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HandSushi, CardDetailSheet } from './BattleCards'
+import { CardEffectText } from './CardEffectText'
 import { PlayerStatusPanel } from './PlayerStatusPanel'
 import { DeckInspector } from './DeckInspector'
 import { BattleTable } from './BattleTable'
@@ -21,7 +23,9 @@ import { HikariDefensePrompt } from './HikariDefensePrompt'
 import { BattleStatusDialog } from './BattleStatusDialog'
 import { BattleSideMenuSlot } from '../side-menu/BattleSideMenuSlot'
 import type { BattleSideStatus } from './battleStatusModel'
+import { cardAttackBuff } from './battleStatusModel'
 import './BattleScreen.css'
+import './BattleLandscape.css'
 
 export function BattleScreen({
   deck,
@@ -58,6 +62,8 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart,
   } = game
   const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
+  const isCompact = useCompactLandscape()
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
   // 状態ダイアログより優先して、双方のコンボ演出を見せる。
   useEffect(() => { if (comboAnim) setStatusSide(null) }, [comboAnim])
@@ -128,6 +134,16 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   const currentInspect = inspect && inspect.remainingTurns === undefined
     ? { ...inspect, canPlay: !playBlockedReason(inspect.card) && (mode !== 'online' || inspect.canPlay), playBlockedReason: playBlockedReason(inspect.card) }
     : inspect
+  const selectedCard = currentInspect?.card
+  const selectedOwnerIsOpponent = currentInspect?.owner === 'opponent'
+  const selectedAttack = selectedCard ? currentInspect?.actualAttack ?? selectedCard.attack
+    + cardAttackBuff(selectedCard, selectedOwnerIsOpponent ? s.cAttackBuff : s.pAttackBuff)
+    + (selectedCard.archetype.includes('hikari') ? selectedOwnerIsOpponent ? s.cKiretaStack : s.pKiretaStack : 0)
+    + (selectedCard.base === '生ハム' && hasNamahamuAura(selectedOwnerIsOpponent ? s.cField : s.pField) ? 2 : 0) : 0
+  // 生贄・対象指定・防御予約は、従来の詳細シートで選んでから確定する。
+  const needsPlayOptions = !!selectedCard && (getDefenseCost(selectedCard) > 0
+    || selectedCard.effect === 'destroy_enemy_persist_1'
+    || (getSacrificeLimit(selectedCard) > 0 && countNamahamu(s.pField) > 0))
 
   const winnerLabel = mode !== 'cpu'
     ? (s.winner === 'player' ? `P${s.activePlayer}の勝利！` : `P${s.activePlayer === 1 ? 2 : 1}の勝利！`)
@@ -148,11 +164,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               gari={s.cGari}
               belly={s.cBelly} ap={s.cAP} maxAP={s.cMaxAP} fieldDamage={opponentDmg}
               handCount={s.cHandCount} deckCount={s.cDeckCount} {...opponentStatus}
+              compactControl={<button type="button" onClick={() => setStatusSide('opponent')}>状態・コンボ</button>}
               digestStopTurns={s.cDigestStopTurns} apNextBonus={s.cApNextBonus} />
             <PlayerStatusPanel label={mode === 'cpu' ? 'あなた' : `あなた · ${activeLabel}`}
               gari={s.pGari}
               belly={s.pBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
               handCount={s.pHand.length} deckCount={s.pDeckCount} {...playerStatus}
+              compactControl={<><ComboStatusBar st={playerStatus} inline hideKireta /><button type="button" onClick={() => setStatusSide('player')}>状態・コンボ</button></>}
               deckControl={['player', 'cpu', 'waiting', 'animating', 'syncing'].includes(s.phase) && !s.pendingAttack && !s.pendingReaction && !comboAnim
                 ? <DeckInspector key={`${s.activePlayer}:${s.turn}:${s.phase}`} entries={s.pDeckSummary} count={s.pDeckCount} />
                 : undefined}
@@ -189,7 +207,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <section className="battle-hand-section" ref={handRef} aria-label="手札エリア" tabIndex={-1}>
             <header className="battle-table-heading">
               <h2>あなたの手札 <span>{s.pHand.length}枚</span></h2>
-              <span>{isPlayerTurn ? 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>
+              <span>{isPlayerTurn ? isCompact ? '選んで右から召喚' : 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>
             </header>
             <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}>
               {s.pHand.length === 0
@@ -198,12 +216,37 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
                   namahamuBoost={hasNamahamuAura(s.pField)}
                   canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
                   isSelected={inspect?.card === card}
-                  onSelect={() => setInspect({ card, canPlay: !playBlockedReason(card), playBlockedReason: playBlockedReason(card) })} />)}
+                  onSelect={() => {
+                    setDetailsOpen(false)
+                    setInspect({ card, canPlay: !playBlockedReason(card), playBlockedReason: playBlockedReason(card) })
+                  }} />)}
             </div>
           </section>
         </div>
 
         <footer className="battle-actions" ref={actionsRef}>
+          <div className="battle-compact-phase battle-compact-only">
+            <span>ターン {s.turn}</span><strong role={isCompact ? 'status' : undefined}>{phaseLabel}</strong>
+          </div>
+          <section className="battle-selection battle-compact-only" aria-label="選択中のカード" aria-live="polite">
+            {currentInspect ? <>
+              <span>選択中</span>
+              <h2>{currentInspect.card.name}</h2>
+              <p>{currentInspect.card.type === 'persist' ? '持続' : '即時'} · 攻撃 {selectedAttack}</p>
+              {currentInspect.card.type === 'persist' && <p>{currentInspect.remainingTurns !== undefined ? `残り ${currentInspect.remainingTurns}` : currentInspect.card.fullness} ターン</p>}
+              <p><CardEffectText card={currentInspect.card} variant="short" combosFired={selectedOwnerIsOpponent ? s.cCombosFired : s.pCombosFired} /></p>
+              {currentInspect.playBlockedReason && <small>{currentInspect.playBlockedReason}</small>}
+            </> : <><span>カードを選択</span><p>手札をタップして<br />ここから召喚できます</p></>}
+          </section>
+          <button className="battle-quick-play battle-compact-only" disabled={!currentInspect?.canPlay}
+            onClick={() => {
+              if (!currentInspect?.canPlay) return
+              if (needsPlayOptions) setDetailsOpen(true)
+              else playCard(currentInspect.card)
+            }}>
+            <strong>{needsPlayOptions ? '召喚方法を選ぶ' : '召喚する'}</strong><span>{currentInspect ? `AP −${currentInspect.card.cost}` : '手札を選んでください'}</span>
+          </button>
+          <button className="battle-selection-detail battle-compact-only" disabled={!currentInspect} onClick={() => setDetailsOpen(true)}>詳細</button>
           <button className="battle-hand-jump" onClick={toggleHand}>
             {handInView ? '盤面へ戻る' : <>手札へ <strong>{s.pHand.length}枚</strong></>}
           </button>
@@ -243,7 +286,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 
       {/* ══ カード詳細シート ══ */}
       <AnimatePresence>
-        {currentInspect && (
+        {currentInspect && (!isCompact || detailsOpen || currentInspect.remainingTurns !== undefined) && (
           <CardDetailSheet
             key={'instanceId' in currentInspect.card ? String(currentInspect.card.instanceId) : currentInspect.card.id}
             inspect={currentInspect}
@@ -259,7 +302,10 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
             kiretaSpent={s.pKiretaSpent}
             onPlay={(count, targetFieldId, reserveDefense) => { if (currentInspect?.canPlay) playCard(currentInspect.card, count, targetFieldId, reserveDefense) }}
-            onClose={() => setInspect(null)}
+            onClose={() => {
+              setDetailsOpen(false)
+              if (!isCompact || currentInspect.remainingTurns !== undefined) setInspect(null)
+            }}
           />
         )}
       </AnimatePresence>

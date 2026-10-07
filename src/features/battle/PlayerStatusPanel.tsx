@@ -16,6 +16,7 @@ export type PlayerStatusProps = {
   handCount: number
   deckCount: number
   deckControl?: ReactNode
+  compactControl?: ReactNode
   attackBuff: Record<string, number>
   drawBonus: number
   kireta: number
@@ -40,7 +41,7 @@ type ActiveEffect = {
 }
 
 export function PlayerStatusPanel({
-  label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl,
+  label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl, compactControl,
   attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn,
   digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
@@ -107,7 +108,12 @@ export function PlayerStatusPanel({
             <dd>{deckControl ?? <><strong>{deckCount}</strong><span>枚</span></>}</dd>
           </div>
         </dl>
+        {!isOpponent && <div className="battle-ap-dots battle-compact-only" aria-hidden="true">
+          {Array.from({ length: maxAP }, (_, index) => <span key={index} data-filled={index < ap} />)}
+        </div>}
+        <p className="battle-per-turn battle-compact-only">机から毎ターン <strong>+{fieldDamage}</strong></p>
       </div>
+      {compactControl && <div className="battle-status-combos battle-compact-only">{compactControl}</div>}
 
       <div
         className={`player-status-panel__details${effects.length === 0 ? ' player-status-panel__details--empty' : ''}`}

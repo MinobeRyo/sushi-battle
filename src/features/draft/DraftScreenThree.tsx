@@ -11,6 +11,8 @@ import { SideMenuPurchaseModal } from './SideMenuPurchaseModal'
 import { ShinkansenOrderModal } from './ShinkansenOrderModal'
 import type { OrderCategory } from './ShinkansenOrderModal'
 import { DraftDeckSheet, DraftRestaurantLayout } from './DraftRestaurantLayout'
+import { CompactDraftLayout } from './CompactDraftLayout'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { PortraitDraftLayout } from './PortraitDraftLayout'
 import { VerticalDraftScene } from '../demo/VerticalDraftScene'
 import { StaffHelpModal } from './StaffHelpModal'
@@ -57,6 +59,7 @@ export function DraftScreenThree({
   mode = 'initial',
   sideMenuEnabled = mode === 'initial',
 }: Props) {
+  const compact = useCompactLandscape()
   const [portrait, setPortrait] = useState(() => window.matchMedia(PORTRAIT_QUERY).matches)
   const [localDraft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now(), sideMenuEnabled))
   const draft = online ? { ...online.draft.you, purchasedIds: [] } : localDraft
@@ -86,9 +89,10 @@ export function DraftScreenThree({
       selectedRef.current = null; setSelected(null)
       if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current); autoCloseTimer.current = null }
     }
+    update()
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
-  }, [])
+  }, [compact])
 
   const completeDraft = useCallback(() => {
     if (onlineRef.current) {
@@ -284,7 +288,7 @@ export function DraftScreenThree({
   const emptyDeckHint = mode === 'reorder'
     ? '0枚で終了すると、補充なしでバトルを再開します。'
     : '0枚で終了すると、汎用カード10枚の代替デッキで開始します。'
-  const Layout = portrait ? PortraitDraftLayout : DraftRestaurantLayout
+  const Layout = compact ? CompactDraftLayout : portrait ? PortraitDraftLayout : DraftRestaurantLayout
   const onlineSupply = online && {
     offers: online.draft.offers,
     elapsed: (lane: 'general' | 'build') => onlineLaneElapsed(online.draft.startedAt, online.draft.laneClocks[lane], online.now()),
@@ -292,6 +296,8 @@ export function DraftScreenThree({
 
   return (
     <Layout
+      deck={deck} generalCards={generalCards} buildCards={buildCards} supply={onlineSupply}
+      emptyDeckHint={emptyDeckHint} onBeltSelect={handleBeltSelect} onBeltSideSelect={handleBeltSideSelect}
       shinkansenPlate={shinkansenPlate} onPickup={handleShinkansenPickup}
       timeLeft={timeLeft} budget={budget} deckCount={deck.length} maxCards={DRAFT_MAX_CARDS}
       playerNum={playerNum} canOrder={canOrder} delivering={Boolean(shinkansenPlate)} remaining={shinkansenLeft}
@@ -301,8 +307,8 @@ export function DraftScreenThree({
       overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
       onOrder={() => { playGameSound('tabletTouch'); setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
-      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : portrait ? 'バトルへ' : 'お会計・バトルへ'}
-      hint={shinkansenPlate ? portrait ? '下の特急トレイからお受け取りください。' : '奥の金色のお皿をタップしてお受け取りください。' : online ? portrait ? 'オンラインでは詳細表示中も皿と時間が進みます。' : 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : portrait ? 'お皿か名前をタップして、効果を確認' : '寿司もお皿もタップで選べます。'}
+      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : compact ? 'バトルへ進む' : portrait ? 'バトルへ' : 'お会計・バトルへ'}
+      hint={shinkansenPlate ? compact ? '特急レーンからお受け取りください。' : portrait ? '下の特急トレイからお受け取りください。' : '奥の金色のお皿をタップしてお受け取りください。' : online ? portrait ? 'オンラインでは詳細表示中も皿と時間が進みます。' : 'PCではお皿にカーソルを合わせるとハイライトされます。レーンと残り時間は進みます。' : deck.length === 0 ? emptyDeckHint : portrait ? 'お皿か名前をタップして、効果を確認' : '寿司もお皿もタップで選べます。'}
       notice={purchaseNotice}
       overlays={<>
         {handOpen && <DraftDeckSheet deck={deck} sideMenu={draft.sideMenu} budget={budget} maxCards={DRAFT_MAX_CARDS} emptyMessage={emptyDeckHint} onClose={() => setHandOpen(false)} />}

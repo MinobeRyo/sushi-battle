@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>すしバトル｜スマホ版プレビュー</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; color: #382c22; background: #ece5d8; font: 14px/1.6 system-ui, sans-serif; }
+      main { max-width: 1280px; margin: auto; }
+      header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 16px; }
+      h1 { margin: 0; font-size: 20px; }
+      p { margin: 3px 0 0; color: #715c45; }
+      .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+      select, button { min-height: 44px; padding: 8px 12px; border: 1px solid #b5a183; border-radius: 8px; font: inherit; }
+      select { background: #fffaf0; color: #382c22; }
+      button { background: #a7471f; color: white; cursor: pointer; }
+      :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+      #frame-space { margin: auto; position: relative; overflow: hidden; border-radius: 12px; background: #1a0a00; box-shadow: 0 8px 30px #382c2226; }
+      iframe { display: block; border: 0; transform-origin: top left; }
+      .note { margin-top: 14px; font-size: 12px; }
+      @media (max-width: 600px) { body { padding: 12px; } .controls { margin-left: 0; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><h1>スマホ版プレビュー</h1><p>ドラフトとバトルは横向き、遊び方と図鑑は縦向きで確認できます。</p></div>
+        <div class="controls">
+          <label for="size">画面サイズ</label>
+          <select id="size">
+            <option value="844x390">スマホ横 844 × 390</option>
+            <option value="667x320">小型スマホ横 667 × 320</option>
+            <option value="390x844">スマホ縦 390 × 844</option>
+            <option value="1280x800">PC 1280 × 800</option>
+          </select>
+          <button id="reload" type="button">最新版を読み込む</button>
+        </div>
+      </header>
+      <div id="frame-space"><iframe id="game" title="すしバトルのプレビュー"></iframe></div>
+      <p class="note">画面サイズの切替ではゲームを維持します。「最新版を読み込む」はタイトルから再開します。<span id="status" role="status"></span></p>
+    </main>
+    <script type="module">
+      const game = document.querySelector('#game')
+      const space = document.querySelector('#frame-space')
+      const size = document.querySelector('#size')
+      const status = document.querySelector('#status')
+      const fit = () => {
+        const [width, height] = size.value.split('x').map(Number)
+        const scale = Math.min(1, document.querySelector('main').clientWidth / width)
+        game.style.width = `${width}px`
+        game.style.height = `${height}px`
+        game.style.transform = `scale(${scale})`
+        space.style.width = `${width * scale}px`
+        space.style.height = `${height * scale}px`
+      }
+      const reload = () => {
+        // iframeのサイズを固定し、外側のプレビュー枠の大きさに左右されないようにする。
+        fit()
+        status.textContent = ' 読み込み中…'
+        game.src = `./?previewReload=${Date.now()}`
+      }
+      game.addEventListener('load', () => { status.textContent = ' 読み込み完了' })
+      document.querySelector('#reload').addEventListener('click', reload)
+      size.addEventListener('change', fit)
+      new ResizeObserver(fit).observe(document.querySelector('main'))
+      reload()
+    </script>
+  </body>
+</html>
