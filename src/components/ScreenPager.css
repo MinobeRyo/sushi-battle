@@ -1,0 +1,5 @@
+.screen-pager { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 14px; padding: 3px 0; font-size: 12px; }
+.screen-pager > button { min-width: 76px; min-height: 36px; padding: 6px 12px; border: 1px solid #b6a17e; border-radius: 7px; background: #fff8e9; color: #614329; font-size: 12px; font-weight: 700; touch-action: manipulation; }
+.screen-pager > button:disabled { opacity: .4; }
+.screen-pager > button:focus-visible { outline: 3px solid #ad5930; outline-offset: 2px; }
+.screen-pager > span { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }

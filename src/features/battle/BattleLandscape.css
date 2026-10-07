@@ -134,3 +134,146 @@
   .battle-actions .battle-quick-play { padding-block: 4px; }
   .battle-actions .battle-end-turn { min-height: 40px; }
 }
+
+/* 横スマホは一覧をページ送りにし、操作と閉じるボタンを常に画面内に置く。 */
+@media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .battle-board { --battle-side-width: 64px; }
+  .battle-player-area { grid-template-columns: minmax(0, 1fr) var(--battle-side-width); }
+  .battle-side-slot { width: 100%; }
+  .battle-overview .player-status-panel { display: flex; flex-direction: column; overflow: hidden; }
+  .battle-overview .player-status-panel__summary { padding: 5px 7px; }
+  .battle-overview .player-status-panel__title-row { flex-wrap: nowrap; }
+  .battle-overview .player-status-panel__heading { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .battle-overview .player-status-panel__gari { flex-shrink: 0; font-size: 9px; }
+  .battle-overview .player-status-panel__belly { margin-top: 3px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 24px; line-height: 1; }
+  .battle-overview .player-status-panel__gauge { height: 5px; margin-top: 3px; }
+  .battle-overview .player-status-panel__metrics { margin-top: 3px; gap: 1px 5px; }
+  .battle-overview .player-status-panel__metrics dd strong { font-size: 14px; }
+  .battle-overview .player-status-panel__details, .battle-ap-dots, .battle-side-empty p { display: none; }
+  /* ComboStatusBarのinline display:flexも打ち消し、詳細へのボタンだけを残す。 */
+  .battle-status-combos > div { display: none !important; }
+  .battle-status-combos { margin-top: auto; padding: 0 6px 5px; }
+  .battle-status-combos > button { margin-top: 0; min-height: 25px; }
+  .battle-per-turn { margin-top: 2px; font-size: 10px; }
+  .battle-per-turn strong { font-size: 13px; }
+  .battle-table-heading .screen-pager { flex-shrink: 0; margin: 0 0 0 auto; gap: 3px; }
+  .battle-table-heading .screen-pager button { min-width: 26px; min-height: 23px; padding: 1px 4px; font-size: 11px; }
+  .battle-table-heading .screen-pager span { font-size: 10px; }
+  .battle-table-heading > span { display: none; }
+  .battle-field-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
+  .battle-hand { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+  .battle-field-card, .battle-hand-card { width: 100%; }
+  .battle-field-cards:has(.battle-empty-field), .battle-hand:has(.battle-empty-field) { display: flex; }
+  .battle-selection { overflow: hidden; padding: 6px 8px; }
+  .battle-selection h2 { font-size: 15px; }
+  .battle-selection p { line-height: 1.3; margin-top: 2px; }
+  .battle-selection small { line-height: 1.25; }
+  .battle-quick-play strong { font-size: 15px; }
+  .battle-actions .battle-selection-detail, .battle-actions .battle-log-button { min-height: 32px; }
+  .battle-log-panel { inset: 8px !important; height: auto !important; overflow: hidden !important; border: 1px solid #b9a485; border-radius: 12px; }
+  .battle-log-panel p { margin-block: 5px; font-size: 12px !important; line-height: 1.45 !important; }
+  .battle-detail-overlay { padding: 8px; align-items: center; }
+  .battle-detail-sheet { display: flex; flex-direction: column; width: min(640px, 100%); height: calc(100dvh - 16px); max-height: none; padding: 10px 14px; overflow: hidden; border-radius: 12px; }
+  .battle-detail-heading { margin-bottom: 5px; align-items: center; }
+  .battle-detail-heading h2 { margin-top: 2px; font-size: 19px; line-height: 1.2; }
+  .battle-detail-tags { font-size: 10px; gap: 4px; }
+  .battle-detail-tags span { padding: 1px 4px; }
+  .battle-detail-dismiss { min-width: 32px; min-height: 32px; font-size: 18px; }
+  .battle-detail-tabs { display: flex; gap: 6px; margin-bottom: 7px; }
+  .battle-detail-tabs button { padding: 4px 14px; min-height: 28px; border: 1px solid #c6b7a0; border-radius: 6px; background: #ede3d2; font-size: 12px; }
+  .battle-detail-tabs button[aria-pressed='true'] { color: white; background: #8f402b; border-color: #8f402b; }
+  .battle-detail-body { flex: 1; gap: 18px; }
+  .battle-detail-art { min-height: 85px; max-height: 120px; }
+  .battle-detail-effect { margin: 0; padding: 9px 12px; }
+  .battle-detail-effect p { font-size: 13px; line-height: 1.55; }
+  .battle-detail-actions { margin-top: auto; padding-top: 8px; flex-shrink: 0; }
+  .battle-detail-actions button { min-height: 36px; padding: 7px 10px; font-size: 12px; }
+  .battle-sacrifice, .battle-destroy-target, .battle-defense-reserve { margin-top: 0; padding: 8px; }
+  .battle-sacrifice h3, .battle-destroy-target h3, .battle-defense-reserve h3 { font-size: 13px; }
+  .battle-sacrifice > p, .battle-destroy-target > p, .battle-defense-reserve > p { display: none; }
+  .battle-sacrifice-options, .battle-destroy-options, .battle-defense-reserve-options { margin-top: 6px; gap: 5px; }
+  .battle-sacrifice-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .battle-destroy-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .battle-sacrifice-options button, .battle-destroy-options button, .battle-defense-reserve-options button { min-height: 48px; padding: 5px 7px; gap: 2px; }
+  .battle-sacrifice-options button > strong { font-size: 17px; }
+  .battle-sacrifice-options button > span, .battle-destroy-options button > span, .battle-defense-reserve-options button > span { font-size: 11px; }
+  .battle-destroy-options button > small { display: none; }
+  .battle-destroy-options button > strong { font-size: 12px; }
+  .battle-sacrifice-options button > small, .battle-defense-reserve-options button > small { font-size: 10px; }
+  .battle-sacrifice .battle-sacrifice-note { margin-top: 4px; font-size: 10px; }
+  .battle-status-dialog { height: calc(100dvh - 16px); max-height: none; overflow: hidden; }
+  .battle-status-dialog-content { display: flex; flex-direction: column; height: 100%; padding: 0 14px 8px; }
+  .battle-status-dialog header { padding: 8px 0; }
+  .battle-status-dialog header p { display: none; }
+  .battle-status-dialog h2 { font-size: 18px; }
+  .battle-status-dialog header button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+  .battle-status-totals { padding: 6px 0; }
+  .battle-status-pages { display: grid; grid-template-columns: 1fr; gap: 10px; flex: 1; min-height: 0; }
+  .battle-status-pages > div { display: grid; grid-template-columns: 140px 1fr; gap: 14px; padding: 8px 10px; border: 1px solid #ddd0bf; border-radius: 9px; background: #fffdf8; }
+  .battle-status-pages dt { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 13px; }
+  .battle-status-pages dt { flex-direction: column; justify-content: center; }
+  .battle-status-pages dt small { width: 100%; font-size: 10px; color: #856e58; }
+  .battle-status-pages dt span { color: #8b4c24; }
+  .battle-status-pages dd { align-self: center; font-size: 12px; line-height: 1.5; }
+  .battle-status-dialog .screen-pager { margin-top: 6px; }
+  .battle-deck-dialog { height: calc(100dvh - 16px); max-height: none; }
+  .battle-deck-dialog__heading { padding: 8px 14px; }
+  .battle-deck-dialog__heading h2 { font-size: 18px; }
+  .battle-deck-dialog__heading h2 strong { font-size: 18px; }
+  .battle-deck-dialog__heading p { font-size: 10px; margin: 0; }
+  .battle-deck-dialog__heading button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+  .battle-deck-dialog__body { flex: 1; padding: 6px 14px; overflow: hidden; }
+  .battle-deck-dialog__guide { margin-bottom: 4px; font-size: 10px; }
+  .battle-deck-list { grid-template-columns: 1fr; }
+  .battle-deck-card { display: grid; grid-template-columns: minmax(150px, .8fr) 1.2fr; gap: 5px 14px; padding: 8px 10px; }
+  .battle-deck-card__heading { grid-column: 1; }
+  .battle-deck-card__stats, .battle-deck-card__tags { grid-column: 1; margin: 0; }
+  .battle-deck-card__compact-effect, .battle-deck-card__no-effect { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0; border: 0; align-self: center; white-space: pre-line; font-size: 12px; line-height: 1.5; }
+  .battle-deck-dialog > .screen-pager { flex-shrink: 0; margin: 0 14px 8px; }
+  .battle-defense { overflow: hidden; }
+  .battle-defense--combined { width: min(600px, calc(100vw - 24px)); }
+  .battle-defense--combined[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 10px; }
+  .battle-defense--combined .battle-defense__header { grid-column: 1 / -1; }
+  .battle-defense--combined .battle-defense__preview { margin: 0; padding: 6px 8px; }
+  .battle-defense--combined .battle-defense__options { gap: 6px; grid-template-columns: 1fr 1fr; }
+  .battle-defense--combined .battle-defense__options > button { padding: 6px 20px 6px 7px; min-height: 55px; }
+  .battle-defense--combined .battle-defense__option-title { font-size: 12px; }
+  .battle-defense__target-area { grid-column: 1 / -1; }
+  .battle-defense__targets { grid-template-columns: repeat(4, minmax(0, 1fr)); max-height: none; overflow: hidden; margin: 0; }
+  .battle-defense__targets button { min-height: 38px; font-size: 11px; }
+  .battle-defense__targets svg { max-width: 30px; }
+  .battle-defense__target-area .screen-pager { margin-top: 3px; }
+  .battle-defense--combined .battle-defense__confirm { grid-column: 1 / -1; margin: 0; min-height: 34px; padding: 5px; }
+  .battle-defense--combined .battle-defense__hint { margin: 0; grid-column: 1 / -1; font-size: 10px; }
+  .battle-defense--combined .battle-defense__leave { margin: 0; min-height: 26px; padding: 3px 8px; }
+  .battle-hikari-defense { padding: 10px 14px; }
+  .battle-hikari-defense h2 { font-size: 18px; }
+  .battle-hikari-defense__description { margin: 5px 0; font-size: 12px; }
+  .battle-hikari-defense__targets { max-height: none; overflow: hidden; gap: 5px; padding: 1px; }
+  .battle-hikari-defense__targets button { min-height: 42px; padding: 4px 8px; gap: 1px; }
+  .battle-hikari-defense__targets strong { font-size: 12px; }
+  .battle-hikari-defense__targets span { font-size: 12px; }
+  .battle-hikari-defense .battle-defense__choices { margin-top: 5px; gap: 6px; }
+  .battle-hikari-defense .battle-defense__choices button { min-height: 54px; padding: 6px 8px; gap: 2px; }
+  .battle-hikari-defense .battle-defense__leave { min-height: 26px; margin-top: 4px; padding: 3px 8px; }
+}
+
+@media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .battle-status-grid { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .battle-overview .player-status-panel__summary { padding: 4px 6px; }
+  .battle-overview .player-status-panel__heading { margin: 0; line-height: 14px; }
+  .battle-overview .player-status-panel__gari { padding: 0 3px; line-height: 14px; }
+  .battle-overview .player-status-panel__gari strong { font-size: 10px; }
+  .battle-overview .player-status-panel__belly-numbers p { line-height: 22px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 22px; line-height: 22px; }
+  .battle-overview .player-status-panel__gauge { height: 3px; margin-top: 2px; }
+  .battle-overview .player-status-panel__metrics > div:first-child { grid-column: auto; justify-content: flex-start; }
+  .battle-overview .player-status-panel:not(.player-status-panel--opponent) .player-status-panel__metrics > div:nth-child(3) { display: none; }
+  .battle-overview .player-status-panel__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+  .battle-overview .player-status-panel__metrics dt, .battle-overview .player-status-panel__metrics dd span { font-size: 10px; }
+  .battle-overview .player-status-panel__metrics dd strong { font-size: 12px; }
+  .battle-overview .battle-deck-trigger { min-height: 22px; padding: 0 2px; }
+  .battle-per-turn, .battle-per-turn strong { line-height: 14px; }
+  .battle-per-turn strong { font-size: 12px; }
+}

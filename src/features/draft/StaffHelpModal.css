@@ -15,6 +15,37 @@
   overscroll-behavior: contain;
 }
 
+/* 横持ちは読みやすい枚数だけを表示し、紙面をめくって読む。 */
+.compact-help { position: fixed; inset: 0; width: calc(100% - 20px); height: calc(100% - 16px); max-width: 1000px; max-height: none; margin: auto; padding: 10px 14px; border: 1px solid #b39b6f; border-radius: 12px; color: #473523; background: #f5ecdc; overflow: hidden; }
+.compact-help[open] { display: grid; grid-template-rows: 32px 32px minmax(0, 1fr) 42px; gap: 6px; }
+.compact-help::backdrop { background: #211409cf; }
+.compact-help > header { display: flex; align-items: center; justify-content: space-between; }
+.compact-help h2 { font-size: 20px; font-weight: 800; }
+.compact-help > header button { padding: 5px 10px; border-radius: 7px; background: #e5d7bf; font-size: 13px; }
+.compact-help-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.compact-help-tabs button { min-width: 0; border: 1px solid #ccba9e; border-radius: 6px; font-size: 13px; }
+.compact-help-tabs button[aria-pressed="true"] { color: #fff5e2; background: #684629; border-color: #684629; }
+.compact-help-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-height: 0; }
+.compact-help-cards article { display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 0; min-height: 0; padding: 10px 14px; border: 1px solid #dbccb2; border-radius: 8px; background: #fffaf0; }
+.compact-help-cards h3 { font-size: 17px; font-weight: 800; }
+.compact-help-cards h3 small { font-size: 13px; color: #8f5d30; }
+.compact-help-cards p { font-size: 13px; line-height: 1.5; }
+.compact-help-cards strong { font-size: 13px; color: #865025; line-height: 1.45; }
+.compact-help-cards small { font-size: 11px; color: #7d6d54; }
+.compact-help-art { display: flex; align-items: center; justify-content: center; height: clamp(30px, 12dvh, 68px); flex-shrink: 1; min-height: 22px; }
+.compact-help-art > svg { width: auto; max-width: 100px; height: 100%; }
+.compact-help :is(button, input):focus-visible { outline: 3px solid #bd7a2f; outline-offset: 1px; }
+@media (max-height: 350px) {
+  .compact-help { padding: 7px 10px; }
+  .compact-help[open] { grid-template-rows: 28px 30px minmax(0, 1fr) 42px; gap: 4px; }
+  .compact-help-cards article { padding: 7px 10px; gap: 3px; }
+  .compact-help-cards p, .compact-help-cards strong { font-size: 12px; }
+  .compact-help-cards h3 { font-size: 16px; }
+  .compact-help-cards article { position: relative; }
+  .compact-help-cards h3 { padding-right: 60px; }
+  .compact-help-art { position: absolute; top: 6px; right: 8px; width: 58px; height: 32px; }
+}
+
 .help-menu-overlay[open] { display: grid; place-items: center; }
 .help-menu-overlay::backdrop { background: transparent; }
 .help-book-stage, .help-book-stage * { box-sizing: border-box; }

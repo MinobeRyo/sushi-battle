@@ -4,8 +4,6 @@ import type { CpuBattleMode } from '../../data/cpuDecks'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
-import { useBattlePortrait } from '../../hooks/useBattlePortrait'
-import { BattleOrientationNotice } from './BattleOrientationNotice'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
@@ -15,6 +13,7 @@ import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HandSushi, CardDetailSheet } from './BattleCards'
 import { CardEffectText } from './CardEffectText'
+import { ScreenPager } from '../../components/ScreenPager'
 import { PlayerStatusPanel } from './PlayerStatusPanel'
 import { DeckInspector } from './DeckInspector'
 import { BattleTable } from './BattleTable'
@@ -60,17 +59,7 @@ type BattleBoardProps = {
   restartLabel?: string
 }
 
-export function BattleBoard(props: BattleBoardProps) {
-  const portrait = useBattlePortrait()
-  // 対戦の状態・通信は親で保持し、縦向きでは盤面や防御ダイアログを描画しない。
-  // 追加注文はドラフト画面なので、縦向きでも購入を続けられる。
-  if (portrait && props.game.s.phase !== 'reorder') {
-    return <BattleOrientationNotice onBack={props.mode === 'online' ? undefined : props.onBack} />
-  }
-  return <BattleBoardContent {...props} />
-}
-
-function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: BattleBoardProps) {
+export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: BattleBoardProps) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
     playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart,
@@ -78,6 +67,13 @@ function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabe
   const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
   const isCompact = useCompactLandscape()
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [handPage, setHandPage] = useState(0)
+  const [logPage, setLogPage] = useState(0)
+  const handPages = Math.max(1, Math.ceil(s.pHand.length / 4))
+  const currentHandPage = Math.min(handPage, handPages - 1)
+  const visibleHand = isCompact ? s.pHand.slice(currentHandPage * 4, currentHandPage * 4 + 4) : s.pHand
+  const logPages = Math.max(1, Math.ceil(s.log.length / 4))
+  const currentLogPage = Math.min(logPage, logPages - 1)
   const [statusSide, setStatusSide] = useState<'player' | 'opponent' | null>(null)
   // 状態ダイアログより優先して、双方のコンボ演出を見せる。
   useEffect(() => { if (comboAnim) setStatusSide(null) }, [comboAnim])
@@ -221,12 +217,12 @@ function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabe
           <section className="battle-hand-section" ref={handRef} aria-label="手札エリア" tabIndex={-1}>
             <header className="battle-table-heading">
               <h2>あなたの手札 <span>{s.pHand.length}枚</span></h2>
-              <span>{isPlayerTurn ? isCompact ? '選んで右から召喚' : 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>
+              {isCompact ? <ScreenPager page={currentHandPage} pages={handPages} onPageChange={setHandPage} /> : <span>{isPlayerTurn ? 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>}
             </header>
             <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}>
               {s.pHand.length === 0
                 ? <p className="battle-empty-field">手札がありません</p>
-                : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
+                : visibleHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
                   namahamuBoost={hasNamahamuAura(s.pField)}
                   canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
                   isSelected={inspect?.card === card}
@@ -248,7 +244,7 @@ function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabe
               <h2>{currentInspect.card.name}</h2>
               <p>{currentInspect.card.type === 'persist' ? '持続' : '即時'} · 攻撃 {selectedAttack}</p>
               {currentInspect.card.type === 'persist' && <p>{currentInspect.remainingTurns !== undefined ? `残り ${currentInspect.remainingTurns}` : currentInspect.card.fullness} ターン</p>}
-              <p><CardEffectText card={currentInspect.card} variant="short" combosFired={selectedOwnerIsOpponent ? s.cCombosFired : s.pCombosFired} /></p>
+              {!isCompact && <p><CardEffectText card={currentInspect.card} variant="short" combosFired={selectedOwnerIsOpponent ? s.cCombosFired : s.pCombosFired} /></p>}
               {currentInspect.playBlockedReason && <small>{currentInspect.playBlockedReason}</small>}
             </> : <><span>カードを選択</span><p>手札をタップして<br />ここから召喚できます</p></>}
           </section>
@@ -278,6 +274,7 @@ function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabe
       <AnimatePresence>
         {showLog && (
           <motion.div
+            className="battle-log-panel"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 280 }}
             style={{
@@ -289,9 +286,10 @@ function BattleBoardContent({ game, mode, onBack, canRestart = true, restartLabe
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontSize: R.fmd, color: C.txtSec, fontWeight: 700 }}>バトルログ</span>
+              {isCompact && <ScreenPager page={currentLogPage} pages={logPages} onPageChange={setLogPage} />}
               <button onClick={() => setShowLog(false)} style={{ fontSize: R.flg, color: C.txtMut, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
             </div>
-            {s.log.map((msg, i) => (
+            {(isCompact ? s.log.slice(currentLogPage * 4, currentLogPage * 4 + 4) : s.log).map((msg, i) => (
               <p key={i} style={{ fontSize: R.fsm, lineHeight: 1.8, color: msg.startsWith('──') ? C.apEmpty : msg.startsWith('🎉') ? '#b45309' : C.txtSec }}>{msg}</p>
             ))}
           </motion.div>

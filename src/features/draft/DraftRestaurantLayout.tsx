@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
 import type { ReactNode } from 'react'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
@@ -154,6 +156,11 @@ export type DraftDeckSheetProps = {
 
 export function DraftDeckSheet({ deck, sideMenu, budget, maxCards, emptyMessage, onClose }: DraftDeckSheetProps) {
   const titleId = useId()
+  const compact = useCompactLandscape()
+  const [page, setPage] = useState(0)
+  const pages = Math.max(1, Math.ceil(deck.length / 6))
+  const activePage = Math.min(page, pages - 1)
+  const view = compact ? deck.slice(activePage * 6, activePage * 6 + 6) : deck
   const sheetRef = useRef<HTMLElement>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -186,7 +193,7 @@ export function DraftDeckSheet({ deck, sideMenu, budget, maxCards, emptyMessage,
   }, [])
 
   return <div className="restaurant-sheet-backdrop" onClick={onClose}>
-    <section className="restaurant-deck-sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
+    <section className={`restaurant-deck-sheet${compact ? ' restaurant-deck-sheet--compact' : ''}`} ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
       onClick={event => event.stopPropagation()}>
       <div className="restaurant-sheet-handle" aria-hidden="true" />
       <header><h2 id={titleId}>取ったお皿 <span>{deck.length}皿</span></h2><button onClick={onClose}>レーンに戻る ×</button></header>
@@ -196,9 +203,10 @@ export function DraftDeckSheet({ deck, sideMenu, budget, maxCards, emptyMessage,
         {sideMenu && <b>購入済み</b>}
       </div>}
       {deck.length === 0 ? <p className="restaurant-empty-deck">{emptyMessage}</p>
-        : <div className="restaurant-deck-grid" tabIndex={0} role="region" aria-label="購入したお皿の一覧">{deck.map((card, index) => <article key={`${card.id}-${index}`}>
+        : <div className="restaurant-deck-grid" tabIndex={0} role="region" aria-label="購入したお皿の一覧">{view.map((card, index) => <article key={`${card.id}-${index}`}>
           <SushiArt card={card} size="100%" fit /><strong>{card.name}</strong><span>{card.cost} AP <b>攻撃 {card.attack}</b></span>
         </article>)}</div>}
+      {compact && deck.length > 0 && <ScreenPager page={activePage} pages={pages} onPageChange={setPage} label="取ったお皿のページ切替" />}
       <footer>残金 <strong>¥{budget.toLocaleString()}</strong><span>あと{Math.max(0, maxCards - deck.length)}皿お選びいただけます</span></footer>
     </section>
   </div>

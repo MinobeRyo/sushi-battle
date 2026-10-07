@@ -29,7 +29,7 @@ export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP 
         : '発動中'
   const finished = menu?.status === 'used' || menu?.status === 'expired'
   const passive = menu?.status === 'active' && !isRamen
-  const blockedReason = finished ? 'この試合では使い切りました'
+  const blockedReason = finished ? 'この一皿は使用終了です'
     : passive ? '設置した効果が続いています'
       : !canAct ? '自分のターンに使用できます'
         : isRamen && menu?.usedThisTurn ? 'このターンは使用済みです'
@@ -68,11 +68,13 @@ export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP 
             aria-label="効果の説明を閉じる">閉じる</button>
         </header>
         <div className="battle-side-detail-art"><SideMenuArt id={menu.id} decorative /></div>
+        <div className="battle-side-detail-copy">
         <p id={`${instanceId}-effect`}>{dish.effect}</p>
         <p className="battle-side-timing">{dish.timing}</p>
         {isRamen && <p>初回の使用で効果が始まります。自分のターン終了ごとに残りが1減り、使用しなかったターンも数えます。</p>}
-        {finished && <p>この試合では使い切りました。追加購入・交換はできません。</p>}
+        {finished && <p>この一皿は使用終了です。{isInstant && '使い切りの再購入は、後半の購入タイムに選べます（計2品まで）。'}</p>}
+        </div>
       </div>
-    </> : <div className="battle-side-empty"><p>専用1枠<br />購入は1試合に1品まで</p></div>}
+    </> : <div className="battle-side-empty"><p>専用1枠<br />購入タイムごとに1品</p></div>}
   </section>
 }

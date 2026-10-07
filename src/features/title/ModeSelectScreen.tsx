@@ -1,3 +1,5 @@
+import './TitleScreen.css'
+
 type Props = {
   onSelect: (mode: 'weak' | 'cpu' | 'challenge' | '2p' | 'online') => void
   onBack: () => void
@@ -5,9 +7,9 @@ type Props = {
 
 export function ModeSelectScreen({ onSelect, onBack }: Props) {
   return (
-    <div className="flex flex-col items-center h-full gap-6 py-6 overflow-y-auto">
+    <div className="mode-screen flex flex-col items-center h-full gap-6 py-6 overflow-y-auto">
       <h2 className="mt-auto shrink-0 text-4xl font-bold text-amber-100">モード選択</h2>
-      <div className="flex flex-col shrink-0 gap-4 w-64 max-w-full px-2">
+      <div className="mode-screen-actions flex flex-col shrink-0 gap-4 w-64 max-w-full px-2">
         <button
           onClick={() => onSelect('weak')}
           className="py-4 bg-stone-700 hover:bg-stone-600 text-white text-xl font-bold rounded-xl transition-colors"

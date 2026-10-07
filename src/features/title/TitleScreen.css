@@ -1,0 +1,13 @@
+@media (min-width: 600px) and (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  .title-screen { overflow: hidden; }
+  .title-screen-content { height: 100%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 22px max(24px, env(safe-area-inset-right)) 22px max(24px, env(safe-area-inset-left)); }
+  .title-screen h1 { font-size: clamp(24px, 4vw, 38px); line-height: 1.7; text-wrap: balance; }
+  .title-screen-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 12px; }
+  .title-screen-actions button { min-height: 66px; padding: 12px 8px; font-size: 17px; }
+  .mode-screen { justify-content: center; overflow: hidden; gap: 14px; padding: 16px max(22px, env(safe-area-inset-right)) 12px max(22px, env(safe-area-inset-left)); }
+  .mode-screen h2 { margin: 0; font-size: 25px; }
+  .mode-screen-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(850px, 100%); gap: 10px; padding: 0; }
+  .mode-screen-actions button { min-height: 76px; padding: 10px 7px; font-size: 16px; }
+  .mode-screen-actions button span { font-size: 11px; }
+  .mode-screen > button { margin: 0; min-height: 32px; }
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { StaffHelpModal } from '../draft/StaffHelpModal'
+import './TitleScreen.css'
 
 type Props = {
   onPlay: () => void
@@ -11,12 +12,12 @@ export function TitleScreen({ onPlay, onOpenCatalog }: Props) {
   const [showHelp, setShowHelp] = useState(false)
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="flex min-h-full flex-col items-center justify-center gap-6 px-5 py-8 sm:gap-8">
+    <div className="title-screen h-full overflow-y-auto">
+      <div className="title-screen-content flex min-h-full flex-col items-center justify-center gap-6 px-5 py-8 sm:gap-8">
         <h1 className="text-center text-3xl font-bold text-amber-100 tracking-widest sm:text-5xl lg:text-6xl">
           🍣 寿司デッキバトル
         </h1>
-        <div className="flex flex-col gap-4 w-48">
+        <div className="title-screen-actions flex flex-col gap-4 w-48">
           <button
             onClick={onPlay}
             className="py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-bold rounded-xl transition-colors"

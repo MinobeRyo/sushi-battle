@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { useCompactLandscape } from '../../hooks/useCompactLandscape'
+import { ScreenPager } from '../../components/ScreenPager'
 import { battleStatusDetails, type BattleSideStatus } from './battleStatusModel'
 
 export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCount, onClose }: {
@@ -13,6 +15,11 @@ export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCo
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const { effects, combos } = battleStatusDetails(status)
+  const compact = useCompactLandscape()
+  const [page, setPage] = useState(0)
+  const entries = [...effects.map(item => ({ ...item, category: '有効な効果' })), ...combos.map(item => ({ ...item, category: 'コンボ' }))]
+  const pages = Math.max(1, entries.length)
+  const currentPage = Math.min(page, pages - 1)
 
   useEffect(() => {
     const element = dialog.current!
@@ -37,7 +44,15 @@ export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCo
         <span>手札 <strong>{handCount}枚</strong></span>
         <span>山札 <strong>{deckCount}枚</strong></span>
       </div>
-      <section aria-label="ストックと有効な効果">
+      {compact ? <>
+        <dl className="battle-status-pages">
+          {entries.slice(currentPage, currentPage + 1).map(entry => <div key={`${entry.category}:${entry.id}`}>
+            <dt><small>{entry.category}</small><strong>{entry.name}</strong><span>{entry.value}</span></dt>
+            <dd style={{ whiteSpace: 'pre-line' }}>{entry.description}</dd>
+          </div>)}
+        </dl>
+        <ScreenPager page={currentPage} pages={pages} onPageChange={setPage} />
+      </> : <><section aria-label="ストックと有効な効果">
         <h3>ストックと有効な効果</h3>
         <dl className="battle-effects-list">
           {effects.map(effect => <div key={effect.id}>
@@ -53,6 +68,7 @@ export function BattleStatusDialog({ label, status, ap, maxAP, handCount, deckCo
           </div>)}
         </dl>
       </section>
+      </>}
     </div>
   </dialog>
 }

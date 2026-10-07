@@ -6,8 +6,8 @@
     <title>すしバトル｜スマホ版プレビュー</title>
     <style>
       * { box-sizing: border-box; }
-      body { margin: 0; padding: 24px; color: #382c22; background: #ece5d8; font: 14px/1.6 system-ui, sans-serif; }
-      main { max-width: 1280px; margin: auto; }
+      body { height: 100dvh; overflow: hidden; margin: 0; padding: 24px; color: #382c22; background: #ece5d8; font: 14px/1.6 system-ui, sans-serif; }
+      main { width: 100%; height: 100%; max-width: 1280px; margin: auto; }
       header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 16px; }
       h1 { margin: 0; font-size: 20px; }
       p { margin: 3px 0 0; color: #715c45; }
@@ -25,12 +25,13 @@
   <body>
     <main>
       <header>
-        <div><h1>スマホ版プレビュー</h1><p>ドラフトとバトルは横向き、遊び方と図鑑は縦向きで確認できます。</p></div>
+        <div><h1>スマホ版プレビュー</h1><p>全画面を横向きで、一画面に。縦向きでは回転案内が表示されます。</p></div>
         <div class="controls">
           <label for="size">画面サイズ</label>
           <select id="size">
             <option value="844x390">スマホ横 844 × 390</option>
             <option value="667x320">小型スマホ横 667 × 320</option>
+            <option value="667x280">高さが狭い横画面 667 × 280</option>
             <option value="390x844">スマホ縦 390 × 844</option>
             <option value="1280x800">PC 1280 × 800</option>
           </select>
@@ -47,7 +48,9 @@
       const status = document.querySelector('#status')
       const fit = () => {
         const [width, height] = size.value.split('x').map(Number)
-        const scale = Math.min(1, document.querySelector('main').clientWidth / width)
+        const main = document.querySelector('main')
+        const availableHeight = main.clientHeight - document.querySelector('header').offsetHeight - document.querySelector('.note').offsetHeight - 30
+        const scale = Math.max(0.1, Math.min(1, main.clientWidth / width, availableHeight / height))
         game.style.width = `${width}px`
         game.style.height = `${height}px`
         game.style.transform = `scale(${scale})`
