@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { SIDE_MENU_BY_ID, type SideMenuId } from '../../data/sideMenus'
 import { SideMenuCard } from '../side-menu/SideMenuCard'
+import { SHINKANSEN_TOTAL } from './draftEngine'
 import './SideMenuPurchaseModal.css'
 
 export type SideMenuPurchaseModalProps = {
@@ -10,6 +11,7 @@ export type SideMenuPurchaseModalProps = {
   purchasedSideMenu: SideMenuId | null
   enabled: boolean
   disabled?: boolean
+  remainingOrders?: number
   onPurchase: () => void
   onClose: () => void
 }
@@ -24,7 +26,7 @@ function focusableElements(root: HTMLElement | null) {
 
 /** レーンの購入確認。決済と購入済み状態の更新は親画面が行います。 */
 export function SideMenuPurchaseModal({
-  sideMenuId, budget, purchasedSideMenu, enabled, disabled = false, onPurchase, onClose,
+  sideMenuId, budget, purchasedSideMenu, enabled, disabled = false, remainingOrders = SHINKANSEN_TOTAL, onPurchase, onClose,
 }: SideMenuPurchaseModalProps) {
   const titleId = useId()
   const noticeId = useId()
@@ -33,14 +35,15 @@ export function SideMenuPurchaseModal({
   closeRef.current = onClose
   const menu = SIDE_MENU_BY_ID[sideMenuId]
   const blockedReason = purchasedSideMenu
-    ? `${SIDE_MENU_BY_ID[purchasedSideMenu].name}を購入済み。サイドメニューは1試合に1品までです。`
-    : !enabled ? 'サイドメニューは最初のデッキ構築で購入できます。追加注文では購入できません。'
+    ? `${SIDE_MENU_BY_ID[purchasedSideMenu].name}を購入済み。今回の注文では1品までです。`
+    : !enabled ? '未購入、または使用済みの使い切りのみ再注文できます（計2品まで）。'
       : disabled ? '通信または注文を確認中です。操作できるようになるまでお待ちください。'
+        : remainingOrders <= 0 ? '共通の注文枠3回を使い切りました。'
         : budget < menu.price ? `残金が不足しています。購入にはあと${(menu.price - budget).toLocaleString('ja-JP')}円必要です。`
           : undefined
   const canPurchase = blockedReason === undefined
-  const buttonLabel = purchasedSideMenu ? '購入済み' : !enabled ? '初期購入限定'
-    : disabled ? '確認中…' : budget < menu.price ? '残金不足' : `購入 ¥${menu.price.toLocaleString('ja-JP')}`
+  const buttonLabel = purchasedSideMenu ? '購入済み' : !enabled ? '追加購入不可'
+    : disabled ? '確認中…' : remainingOrders <= 0 ? '注文枠なし' : budget < menu.price ? '残金不足' : `購入 ¥${menu.price.toLocaleString('ja-JP')}`
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -80,7 +83,7 @@ export function SideMenuPurchaseModal({
       <div className="side-menu-purchase-body">
         <SideMenuCard id={sideMenuId} price={menu.price} disabled={!canPurchase} />
         <p className="side-menu-purchase-notice" id={noticeId} role="status" data-blocked={!canPurchase}>
-          {blockedReason ?? 'サイドメニューは1試合に1品まで。購入後は専用スロットに入り、寿司の20枚枠や特急の注文回数を使いません。'}
+          {blockedReason ?? `注文枠を1回使用（あと${remainingOrders}回）。寿司の20枚枠は使いません。`}
         </p>
       </div>
       <footer className="side-menu-purchase-footer">

@@ -5,7 +5,7 @@ import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
-import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError } from './battleEngine'
+import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError, hasNamahamuAura } from './battleEngine'
 import { NAMAHAM_CARD } from '../../data/cards'
 import { CardEffectText } from './CardEffectText'
 import './BattleCards.css'
@@ -37,6 +37,7 @@ export function CardDetailSheet({
   const { card, canPlay, remainingTurns } = inspect
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
+  const auraBonus = card.base === '生ハム' && hasNamahamuAura(fieldCards) ? 2 : 0
   const isField = remainingTurns !== undefined
   const showActualAttack = isField && inspect.actualAttack !== undefined
   const isGenerated = card.id === NAMAHAM_CARD.id
@@ -119,6 +120,7 @@ export function CardDetailSheet({
         aria-modal="true"
         aria-label={`${card.name}の詳細`}
         data-card-type={card.type}
+        data-card-variant={card.variant}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -147,6 +149,7 @@ export function CardDetailSheet({
               <dd className="battle-detail-attack">
                 {showActualAttack ? inspect.actualAttack : card.attack}
                 {!showActualAttack && buff > 0 && <span> +{buff}</span>}
+                {!showActualAttack && auraBonus > 0 && <span> +{auraBonus}（合鴨）</span>}
                 {!showActualAttack && kBonus > 0 && <span> +{kBonus}（切れ味）</span>}
                 {!showActualAttack && selectedAttackBonus > 0 && <span> +{selectedAttackBonus}（生贄）</span>}
               </dd>
@@ -163,8 +166,7 @@ export function CardDetailSheet({
         {!isField && defenseCost > 0 && (
           <section className="battle-defense-reserve" aria-labelledby={defenseHeadingId}>
             <h3 id={defenseHeadingId}>召喚後の防御を予約</h3>
-            <p>このターンは通常攻撃し、攻撃後に防御カードへ変化します。</p>
-            <p>次の相手の召喚直後に使用できます。相手ターン終了時に退場します。</p>
+            <p>攻撃後に防御待機。次の相手の攻撃時、ガリと一緒に選べます。</p>
             <div className="battle-defense-reserve-options" role="group" aria-labelledby={defenseHeadingId}>
               <button type="button" aria-pressed={!reserveDefense} disabled={!canPlay || !isPresent}
                 onClick={() => setDefenseSelection({ cardKey, reserve: false })}>
@@ -203,10 +205,7 @@ export function CardDetailSheet({
               })}
             </div>
             <div className="battle-sacrifice-note">
-              <p>肉祭り：同じターンに生ハムを計2体生贄（各ターン1回）。</p>
-              <p>即時5ダメージ（ガリ不可）。</p>
-              <p>0AP生ハム1枚を山札のランダムな位置に追加。</p>
-              <p>自分の全生ハムの攻撃+1（試合中・累積）。</p>
+              <p>同ターンに計2体で肉祭り：5ダメージ・生ハムを山札に1枚・全生ハムの攻撃＋1。</p>
             </div>
           </section>
         )}
@@ -258,12 +257,14 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
 }) {
   const isPersist = card.type === 'persist'
   const defenseLabel = card.defenseState === 'ready' ? '防御待機' : card.defenseState === 'reserved' ? '防御予約' : null
-  const statusLabel = [defenseLabel, card.attackHalved ? '攻撃半減' : null].filter(Boolean).join('・')
+  const reductionLabel = card.attackHalved ? '攻撃半減' : card.attackReductionRate ? `攻撃${Math.round(card.attackReductionRate * 100)}％減` : null
+  const statusLabel = [defenseLabel, reductionLabel].filter(Boolean).join('・')
   return (
     <motion.button
       type="button"
       className="battle-field-card"
       data-card-type={card.type}
+      data-card-variant={card.variant}
       data-defense-state={card.defenseState}
       data-attack-halved={card.attackHalved || undefined}
       aria-label={`${card.name}${statusLabel ? `、${statusLabel}` : ''}、攻撃力${actualAttack ?? card.attack}${isPersist ? `、残り${card.turnsLeft}ターン` : ''}の詳細`}
@@ -279,7 +280,7 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
       <div className="battle-field-card-art" aria-hidden="true"><SushiArt card={card} size="100%" fit /></div>
       <p className="battle-field-card-name">{card.name}</p>
       <div className="battle-field-card-stats">
-        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}{card.attackHalved && <small className="battle-field-card-debuff"> 半減</small>}</span>
+        <span className="battle-field-card-attack">攻撃 {actualAttack ?? card.attack}{reductionLabel && <small className="battle-field-card-debuff"> {reductionLabel.replace('攻撃', '')}</small>}</span>
         <span className="battle-field-card-turns">{defenseLabel ?? (isPersist ? `残り${card.turnsLeft}T` : '即時')}</span>
       </div>
       <p className="battle-field-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
@@ -288,20 +289,22 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, o
 }
 
 export function HandSushi({
-  card, canPlay, attackBuff, kiretaStack, isSelected, combosFired, onSelect,
+  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, onSelect,
 }: {
   card: Card; canPlay: boolean; attackBuff: Record<string, number>
-  kiretaStack: number; isSelected: boolean; combosFired?: readonly string[]; onSelect: () => void
+  kiretaStack: number; namahamuBoost?: boolean; isSelected: boolean; combosFired?: readonly string[]; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
   const kBonus = card.archetype.includes('hikari') ? kiretaStack : 0
+  const auraBonus = card.base === '生ハム' && namahamuBoost ? 2 : 0
 
   return (
     <motion.button
       type="button"
       className="battle-hand-card"
       data-card-type={card.type}
+      data-card-variant={card.variant}
       data-playable={canPlay}
       data-selected={isSelected}
       aria-label={`${card.name}、消費AP${card.cost}の詳細${canPlay ? '、召喚可能' : ''}`}
@@ -317,7 +320,7 @@ export function HandSushi({
       <div className="battle-hand-card-art" aria-hidden="true"><SushiArt card={card} size="96%" fit /></div>
       <p className="battle-hand-card-name">{card.name}</p>
       <div className="battle-hand-card-stats">
-        <span className="battle-hand-card-attack">攻撃 {card.attack + buff + kBonus}</span>
+        <span className="battle-hand-card-attack">攻撃 {card.attack + buff + kBonus + auraBonus}</span>
         {isPersist && <span className="battle-hand-card-turns">{card.fullness}T</span>}
       </div>
       <p className="battle-hand-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>

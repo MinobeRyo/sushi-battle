@@ -13,10 +13,16 @@ const getHelpCard = (id: string) => getCardById(id) ?? GENERATED_CARDS.find(card
 
 const HELP_SPREADS = [
   {
+    kind: 'flow', sideMenuOffset: 0,
+    title: '遊びの流れ', footer: '寿司を集めて、食べさせる',
+    running: ['まずは寿司を集めよう', '相手を満腹にしよう'],
+    intro: ['好きな寿司でデッキを作る。', '先に相手のお腹をいっぱいに！'],
+  },
+  {
     kind: 'builds', sideMenuOffset: 0,
     title: '寿司の系統', footer: '基本のお品書き',
     running: ['赤身・巻物・光り物', '海鮮・肉寿司・汎用'],
-    intro: ['同じ系統を集めてデッキに軸を。', '系統はカード左上のラベルで確認。'],
+    intro: ['寿司のAPを払って召喚。ターン終了で攻撃。', '持続の寿司は場に残り、毎ターン攻撃。'],
   },
   {
     kind: 'combos', sideMenuOffset: 0,
@@ -28,71 +34,102 @@ const HELP_SPREADS = [
     kind: 'sideMenus', sideMenuOffset: index * 6,
     title: 'サイドメニュー', footer: 'もう一品のお品書き',
     running: index === 0 ? ['揚げ物の一品', '麺・汁物・蒸し物'] : ['こだわりの一品', '注文と使い方'],
-    intro: ['初回のレーン・タブレットで1品まで。価格は各品に記載。', '寿司20枚・特急3回とは別枠。自分のターンに0APで設置・使用。'],
+    intro: ['注文枠を1回使用。特急・大将と共通3回。', '0APで使用。未購入・使い切り使用後は後半も購入可。'],
   })),
-  {
-    kind: 'meat', sideMenuOffset: 0,
-    title: '肉寿司と生ハム', footer: '肉寿司のお品書き',
-    running: ['生ハムを用意する', '生贄で攻撃を強める'],
-    intro: ['生ハムは机・山札へ供給されます。', '生贄の数は召喚時に選択。古い生ハムから退場。'],
-  },
 ]
 
 const BUILD_GUIDE = [
-  { label: '赤身', cardId: 'maguro', specialty: '攻撃力で勝負', desc: 'マグロ・トロ系。三種盛りで攻撃・回復・カード補充・AP・妨害を強化。' },
-  { label: '巻物', cardId: 'kappa_maki', specialty: '揃えて強く', desc: '持続型を机に残して揃えます。軍艦も巻物に数えます。' },
-  { label: '光り物', cardId: 'saba', specialty: '切れ味を重ねる', desc: 'アジなどで切れ味を貯め、攻撃・ドロー・防御予約に使います。' },
-  { label: '海鮮', cardId: 'ika', specialty: '連鎖を楽しむ', desc: 'いか・たこ・えび系。召喚の連鎖や海の幸三昧を狙います。' },
-  { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '机への生成・焼肉や肉祭りの山札補充で生ハムを用意。カルビ・和牛の生贄に。' },
-  { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: 'たまご・サーモンなど。低コストの攻撃・ドロー・相手の持続型の除去で支えます。' },
+  { label: '赤身', cardId: 'maguro', specialty: '三種を揃える', desc: 'マグロ・中トロ・大トロで追加効果解放。' },
+  { label: '巻物', cardId: 'kappa_maki', specialty: '机に並べる', desc: '3枚でドロー、5枚で軍艦を強化。' },
+  { label: '光り物', cardId: 'saba', specialty: '切れ味を貯める', desc: '攻撃・ドロー・防御に使えます。' },
+  { label: '海鮮', cardId: 'ika', specialty: '連鎖で攻める', desc: 'いか＋たこのペアで再攻撃。' },
+  { label: '肉寿司', cardId: 'wagyu', specialty: '生ハムを活用', desc: '残して攻撃、または生贄で強化。' },
+  { label: '汎用', cardId: 'tamago', specialty: '頼れる定番', desc: '回復・ドロー・除去で支えます。' },
 ]
 
 const COMBO_GUIDE = [
   {
     id: 'akami_mori', timing: '1試合に1回', cards: ['maguro', 'chutoro', 'otoro'],
-    cond: 'マグロ・中トロ・大トロを各1回召喚（累計）。',
-    effect: '相手のお腹 +10。\nマグロ系の攻撃 +2（試合中）。',
-    note: '成立後の追加効果：\n中トロ召喚時、自分の満腹度を10回復。\n大トロ召喚時、ビントロ1枚を山札のランダムな位置へ。\n大トロ召喚時、自分の満腹度を5回復。\n大トロで次の自分の開始時、回復後AP・上限＋1（1回・重複可）。\n鉄火巻き1枚ごとに開始時AP回復後 +1。\nビントロ召喚時、2枚ドロー。\nビントロ召喚時、自分のお腹−3。\nづけマグロの消化停止が2回。\n中トロ・大トロは初めて三種が揃う召喚から追加効果が有効。',
+    cond: 'マグロ・中トロ・大トロを各1回召喚。',
+    effect: '追加効果解放！',
+    note: '相手のお腹＋10・マグロ系の攻撃＋2。詳細は各カードへ。',
   },
   {
     id: 'maki_comp_3', timing: '1試合に1回', cards: ['kappa_maki', 'negitoro_maki', 'ikura_gunkan'],
-    cond: `自分の机に巻物を同時に${MAKI_COMP_3}枚。`,
-    effect: '以降、自分のターン終了時にドロー +1。',
-    note: '巻物が減っても追加ドローは継続。',
+    cond: `机に巻物${MAKI_COMP_3}枚（軍艦もOK）。`,
+    effect: '以降、ターン終了時に＋1枚ドロー。',
   },
   {
     id: 'maki_comp_5', timing: '条件を満たす間', cards: ['uni_gunkan', 'ikura_gunkan', 'negitoro_gunkan'],
-    cond: `自分の机に巻物を同時に${MAKI_COMP_5}枚。`,
-    effect: `巻物${MAKI_COMP_5}枚以上の間、軍艦の攻撃 ×${GUNKAN_BOOST}。`,
+    cond: `机に巻物${MAKI_COMP_5}枚（軍艦もOK）。`,
+    effect: `揃っている間、軍艦の攻撃×${GUNKAN_BOOST}。`,
   },
   {
     id: 'hikari_zanmai', timing: '1試合に1回', cards: ['saba', 'aji', 'kohada'],
-    cond: `大葉つきを累計${OBA_REQUIRED}枚召喚（同じカードも可）。`,
-    effect: '切れ味 +3。光り物の攻撃に加算。',
-    note: 'サバ：切れ味1で防御予約（任意）。\nイワシ生姜：切れ味2で防御予約（任意）。\n通常攻撃後：防御待機に変化（1枚まで）。\n次の相手ターン：召喚効果後・ダメージ前に使用か温存。\n相手の攻撃可能な1枚を、そのターンだけ切り捨て半減。\nサバはランダム／イワシ生姜は選択。\n固定ダメージは半減しません。\n使用時・相手ターン終了時に防御札が消えます。',
+    cond: `大葉つきを合計${OBA_REQUIRED}枚召喚。`,
+    effect: '切れ味＋3。光り物の攻撃アップ。',
   },
   {
     id: 'umi_zanmai', timing: '新しいペアごと', cards: ['ika', 'tako', 'ebi'],
-    cond: '自分の机に未ペアの「いか」系＋「たこ」系。',
-    effect: '海鮮の合計攻撃50%で再攻撃（切り捨て）。\n再攻撃に通常のえび1枚ごと +7。',
-    note: 'ペアは1枚1回。成立後も机に残ります。\nえびの+7は通常攻撃・召喚連鎖には無効。',
+    cond: '机に未使用のいか＋たこ。',
+    effect: '海鮮の攻撃50％で再攻撃。',
+    note: '通常のえび1枚ごとに＋7。',
   },
   {
     id: 'niku_matsuri', timing: '各ターンに1回', cards: ['namahamu', 'karubi', 'wagyu'],
-    cond: '同じターンに生ハムを合計2体生贄に。',
-    effect: '即時5ダメージ（ガリ不可）。\n山札に0AP生ハム1枚追加（ランダム位置）。\n全生ハムの攻撃+1（試合中・累積）。',
-    note: '今後生成する生ハムも強化。\n次のターンには再発動できます。',
+    cond: '同じターンに生ハム2体を生贄。',
+    effect: '5ダメージ・生ハムを山札に1枚。',
+    note: '以降、全生ハムの攻撃＋1（累積）。',
   },
 ]
 
-const MEAT_GUIDE = [
-  { cardId: 'gyutan', title: '牛タン寿司', timing: '2AP・攻撃5', desc: '召喚時、生ハムを1体、机に生成。', note: '寿司を置いた後の空き枠だけ生成します。' },
-  { cardId: 'roast_beef', title: 'ローストビーフ寿司', timing: '4AP・攻撃10', desc: '召喚時、生ハムを最大2体、机に生成。', note: '空きが1枠なら1体、0枠なら生成なし。' },
-  { cardId: 'yakiniku', title: '焼肉寿司', timing: '3AP・攻撃4・3ターン持続', desc: '自分のターン終了時、1枚につき生ハム1枚を山札に混ぜます。', note: '召喚ターンから最大3枚。通常攻撃後・ドロー前に追加。相手のお腹50以上で攻撃+2。' },
-  { cardId: 'namahamu', title: '生ハム', timing: '0AP・基本攻撃1・3ターン持続', desc: '机に出たターンを含む自分の3ターン攻撃。机の8枠を使います。', note: '生成専用で購入不可。肉祭りのたびに全生ハムの攻撃が試合中+1（累積）。' },
-  { cardId: 'karubi', title: 'カルビ寿司', timing: '3AP・攻撃9', desc: '生ハムを0〜1体生贄に。1体で攻撃＋4。', note: '強化は召喚したターンだけ。生贄で枠を空ければ、机が満杯でも召喚可能。' },
-  { cardId: 'wagyu', title: '和牛にぎり', timing: '4AP・攻撃12', desc: '生ハムを0〜2体生贄に。1体につき攻撃＋4（最大＋8）。', note: '強化は召喚したターンだけ。生贄なしでも召喚できます。' },
-]
+function BattleFlowGuide({ side }: { side: number }) {
+  const maguro = getHelpCard('maguro')
+  const maki = getHelpCard('kappa_maki')
+  const tamago = getHelpCard('tamago')
+  return side === 0 ? (
+    <div className="help-flow">
+      <article className="help-flow-step">
+        <h3><span>1</span>寿司をとる</h3>
+        <div className="help-flow-shopping">
+          <strong>¥3,000<span>分</span></strong>
+          <div className="help-flow-plates">{[maguro, maki, tamago].map(card => card && <SushiArt key={card.id} card={card} size="100%" />)}</div>
+        </div>
+        <p>好きな寿司を選ぼう！</p>
+      </article>
+      <div className="help-flow-down" aria-hidden="true">↓</div>
+      <article className="help-flow-step">
+        <h3><span>2</span>バトルに進む！</h3>
+        <div className="help-flow-match" aria-hidden="true">
+          <div><div className="help-flow-face"><i /><i /><b /></div><span>自分</span></div>
+          <strong>VS</strong>
+          <div><div className="help-flow-face"><i /><i /><b /></div><span>相手</span></div>
+        </div>
+      </article>
+    </div>
+  ) : (
+    <div className="help-flow">
+      <article className="help-flow-step">
+        <h3><span>3</span>寿司を食べさせる！</h3>
+        <div className="help-flow-illustration" aria-hidden="true">
+          <div className="help-flow-card">{maguro && <SushiArt card={maguro} size="100%" />}<span>召喚</span></div>
+          <span className="help-flow-arrow">→</span>
+          <div className="help-flow-eat"><div className="help-flow-face"><i /><i /><b /></div><span>相手</span></div>
+        </div>
+        <p>寿司を出して、相手のお腹を満たそう。</p>
+      </article>
+      <div className="help-flow-down" aria-hidden="true">↓</div>
+      <article className="help-flow-step help-flow-goal">
+        <h3><span>4</span>先に満腹にして勝利！</h3>
+        <div className="help-flow-fullness" aria-label="相手のお腹が100になると勝利">
+          <strong>100</strong>
+          <div className="help-flow-gauge"><span /></div>
+          <b className="help-flow-win">勝利！</b>
+        </div>
+      </article>
+    </div>
+  )
+}
 
 export function StaffHelpModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -159,7 +196,7 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
               exit={{ rotateY: reducedMotion ? 0 : 8, opacity: 0 }}
               transition={{ duration: reducedMotion ? 0 : 0.25, ease: 'easeOut' }}
             >
-              <div className="help-book-pages" id={`${pageId}-spread`}>
+              <div key={spread} className="help-book-pages" id={`${pageId}-spread`}>
                 {[0, 1].map((side) => (
                   <section
                     key={side}
@@ -172,7 +209,9 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                         <h2 id={`${pageId}-${side}-heading`}>{currentSpread.title}</h2>
                         <p className="help-menu-intro">{currentSpread.intro[side]}</p>
                       </header>
-                      {currentSpread.kind === 'builds' ? (
+                      {currentSpread.kind === 'flow' ? (
+                        <BattleFlowGuide side={side} />
+                      ) : currentSpread.kind === 'builds' ? (
                         <div className="help-menu-builds">
                           {BUILD_GUIDE.slice(side * 3, side * 3 + 3).map((build) => {
                             const card = getHelpCard(build.cardId)
@@ -206,7 +245,7 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                             </article>
                           ))}
                         </div>
-                      ) : currentSpread.kind === 'sideMenus' ? (
+                      ) : (
                         <div className="help-menu-combo-list">
                           {SIDE_MENUS.slice(currentSpread.sideMenuOffset + side * 3, currentSpread.sideMenuOffset + side * 3 + 3).map((menu) => (
                             <article className="help-menu-combo help-menu-side" key={menu.id}>
@@ -223,35 +262,18 @@ export function StaffHelpModal({ onClose }: { onClose: () => void }) {
                             <>
                               <article className="help-menu-combo">
                                 <h3>専用の一枠</h3>
-                                <p className="help-menu-description">初回注文で1品だけ。購入後の交換や追加注文はできません。</p>
+                                <p className="help-menu-description">未購入なら後半も購入可。使い切りは使用後にもう一度、計2回まで。</p>
                               </article>
                               <article className="help-menu-combo">
                                 <h3>自分の手番に</h3>
                                 <p className="help-menu-description">0APで使用・設置。寿司の机8枠を使いません。</p>
                               </article>
                               <article className="help-menu-combo">
-                                <h3>肉寿司のお供に</h3>
-                                <p className="help-menu-description">インバウン丼は肉丼ウニのせ。自分の生ハムと生贄による強化を支えます。</p>
+                                <h3>大将のおすすめ</h3>
+                                <p className="help-menu-description">750円分が500円に！（たまにハズレ）</p>
                               </article>
                             </>
                           )}
-                        </div>
-                      ) : (
-                        <div className="help-menu-combo-list">
-                          {MEAT_GUIDE.slice(side * 3, side * 3 + 3).map((item) => {
-                            const card = getHelpCard(item.cardId)
-                            return (
-                              <article className="help-menu-combo" key={item.title}>
-                                <div className="help-menu-platter" aria-hidden="true">{card && <SushiArt card={card} size="100%" />}</div>
-                                <div className="help-menu-combo-heading">
-                                  <h3>{item.title}</h3>
-                                  <span className="help-menu-timing">{item.timing}</span>
-                                </div>
-                                <p className="help-menu-description">{item.desc}</p>
-                                <p className="help-menu-note">{item.note}</p>
-                              </article>
-                            )
-                          })}
                         </div>
                       )}
                     </div>

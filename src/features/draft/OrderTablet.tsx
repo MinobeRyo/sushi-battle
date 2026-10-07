@@ -50,13 +50,13 @@ export function OrderTablet({ canOrder, delivering, budget, spent, deckCount, re
               </div>
               <button className="order-home-side-menu" onClick={() => onOpenCategory('side_menu')} aria-label="サイドメニューを開く">
                 <SideMenuArt id={sideMenu ?? 'ramen'} />
-                <span><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'}</strong><small>{sideMenu ? '購入済み・専用スロットへ' : sideMenuEnabled ? `全${SIDE_MENUS.length}品 · 1試合に1品` : '初期購入で注文できます'}</small></span>
+                <span><strong>{sideMenu ? SIDE_MENU_BY_ID[sideMenu].name : 'サイドメニュー'}</strong><small>{sideMenu ? '購入済み・専用スロットへ' : sideMenuEnabled ? `全${SIDE_MENUS.length}品 · 今回1品` : 'サイドを所持中です'}</small></span>
                 <b>{sideMenu ? '確認 ›' : '見る ›'}</b>
               </button>
             </div>
             <aside className="order-home-status">
               <h3>ご注文状況</h3>
-              <div><span>特急のこり</span><b>{remaining}<small>回</small></b></div>
+              <div><span>共通の注文枠</span><b>{remaining}<small>回</small></b></div>
               <div><span>ご注文</span><b>{deckCount}<small>皿</small></b></div>
               <div className="order-home-total"><span>ご利用額</span><strong>¥{spent.toLocaleString()}</strong></div>
               <p>残高 ¥{budget.toLocaleString()}</p>

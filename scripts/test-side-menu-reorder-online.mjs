@@ -64,7 +64,7 @@ for (const menu of SIDE_MENUS) for (const ownerId of [1, 2]) for (const usedBefo
     const before = f.read(ownerId)
     assert.equal(before.match.phase, 'reorder')
     assert.equal(before.draft.mode, 'reorder')
-    assert.equal(before.draft.you.sideMenuEnabled, false)
+    assert.equal(before.draft.you.sideMenuEnabled, usedBefore && ['karaage', 'chawanmushi'].includes(menu.id))
     assert.equal(before.match.you.sideMenu.id, menu.id)
     // 追加注文は寿司だけを補充し、サイドを初期化しない。
     for (const id of [1, 2]) f.ok(f.draft(id, { type: 'order', cardId: 'tamago' }))
@@ -97,5 +97,29 @@ for (const menu of SIDE_MENUS) for (const ownerId of [1, 2]) for (const usedBefo
     assert.equal('deck' in final.you, false)
     assert.equal('hand' in final.opponent, false)
     assert.equal('deck' in final.opponent, false)
+  })
+}
+
+for (const initialMenu of [null, 'karaage', 'chawanmushi', 'miso']) {
+  test(`後半のサイド購入可否を所持・使用状況から決める: ${initialMenu ?? '未購入'}`, t => {
+    const f = fixture(t)
+    if (initialMenu) f.ok(f.draft(1, { type: 'buy_side_menu', sideMenuId: initialMenu }))
+    for (const id of [1, 2]) f.ok(f.draft(id, { type: 'order', cardId: 'tamago' }))
+    f.finish()
+    for (const id of [1, 2]) {
+      f.play(id)
+      if (id === 1 && initialMenu) f.ok(f.battle(id, { type: 'use_side_menu' }))
+      f.end(id)
+    }
+    const eligible = initialMenu !== 'miso'
+    assert.equal(f.read(1).draft.you.sideMenuEnabled, eligible)
+    assert.deepEqual(f.draft(1, { type: 'buy_side_menu', sideMenuId: 'chawanmushi' }),
+      eligible ? { ok: true } : { ok: false, error: 'draft_side_menu_disabled' })
+    assert.equal(f.read(1).draft.you.budget, eligible ? 1200 : 1500)
+    f.finish()
+    const side = f.read(1).match.you.sideMenu
+    assert.equal(side.id, eligible ? 'chawanmushi' : 'miso')
+    assert.equal(side.status, eligible ? 'ready' : 'active')
+    if (initialMenu && eligible) assert.equal(side.purchaseCount, 2)
   })
 }

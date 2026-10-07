@@ -1,6 +1,6 @@
 import {
   CARD_BY_ID, digestBonus, GUNKAN_BOOST, HAND_LIMIT, makimonoCount,
-  MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED, tekkaApBonus,
+  MAKI_COMP_3, MAKI_COMP_5, OBA_REQUIRED, tekkaApBonus, hasNamahamuAura,
 } from '../../game/battleRules'
 import type { MatchPlayer, SideMenuState } from '../../game/types'
 import type { Card } from '../../types'
@@ -49,11 +49,13 @@ export function battleStatusDetails(st: BattleSideStatus): {
         card.defenseState === 'reserved'
           ? '自分の通常攻撃後：防御待機に変化'
           : '防御待機中：攻撃しない',
-        '相手の召喚効果後・ダメージ前：使用または温存',
-        card.effect === 'reserve_random_half_1'
+        '相手の攻撃時：ガリと一緒に使用または温存を選択',
+        card.effect === 'reserve_random_quarter_0'
+          ? '使用時：ランダム1枚の攻撃を25％軽減（切り捨て）'
+          : card.effect === 'reserve_random_half_1'
           ? '使用時：相手の攻撃可能な1枚をランダムに半減'
           : '使用時：相手の攻撃可能な1枚を選んで半減',
-        '強化後に切り捨て半減／その相手ターン中有効',
+        'その相手ターン中有効',
         '固定ダメージは半減しない',
         '使用時・相手ターン終了時：防御札が消える',
       ].join('\n'),
@@ -62,7 +64,16 @@ export function battleStatusDetails(st: BattleSideStatus): {
       id: `attack-half:${card.fid}`, name: card.name, value: '攻撃半減',
       description: 'すべての強化後：攻撃を切り捨て半減\nこのカードの通常攻撃・海鮮の再攻撃に反映\n固定ダメージは対象外\n当ターン終了時：解除',
     })
+    if (card.attackReductionRate) effects.push({
+      id: `attack-reduction:${card.fid}`, name: card.name, value: `攻撃${Math.round(card.attackReductionRate * 100)}％減`,
+      description: 'チーズの防御：強化後の攻撃から軽減分を切り捨てて引きます。当ターン終了時に解除。',
+    })
   }
+
+  if (hasNamahamuAura(st.field)) effects.push({
+    id: 'aigamo', name: '合鴨の強化', value: '生ハム＋2',
+    description: '合鴨が机にいる間、自分の生ハムの攻撃＋2。合鴨同士は重複しません。',
+  })
 
   for (const [base, amount] of Object.entries(st.attackBuff)) {
     if (amount <= 0) continue
@@ -112,34 +123,27 @@ export function battleStatusDetails(st: BattleSideStatus): {
     value: st.combosFired.includes('akami_mori') ? '達成済' : `${akami}/3種`,
     description: [
       'マグロ・中トロ・大トロを各1回召喚（1試合に1回）',
-      '相手に即時10ダメージ／マグロ系の攻撃＋2（試合中）',
-      '成立後：中トロ召喚時、自分の満腹度を10回復',
-      '成立後：大トロ召喚時、ビントロ1枚を山札のランダムな位置へ',
-      '成立後：大トロ召喚時、自分の満腹度を5回復',
-      '成立後：大トロで次の自分の開始時、回復後AP・上限＋1（1回・重複可能）',
-      '成立後：鉄火巻き1枚ごとに開始時AP回復後＋1',
-      '成立後：ビントロ召喚時、2枚ドロー・お腹－3',
-      '成立後：づけマグロの消化停止が2回',
-      '中トロ・大トロは初めて三種が揃う召喚から追加効果が有効',
+      '追加効果解放！ 詳細は各カードへ',
+      '相手のお腹＋10／マグロ系の攻撃＋2（試合中）',
     ].join('\n'),
   }, {
     id: 'maki_comp_3', name: '巻物コンプ',
     value: st.combosFired.includes('maki_comp_3') ? '達成済' : `${maki}/${MAKI_COMP_3}枚`,
-    description: `机に巻物を同時に${MAKI_COMP_3}枚置くと、以降は自分のターン終了時のドロー +1。同名カード・軍艦も数えます。成立は1試合に1回です。`,
+    description: `机に巻物${MAKI_COMP_3}枚 → 以降、終了時に＋1枚ドロー。軍艦・同名もOK。`,
   }, {
     id: 'maki_comp_5', name: '巻物フルコンプ', value: `${maki}/${MAKI_COMP_5}枚`,
-    description: `机に巻物を同時に${MAKI_COMP_5}枚以上置いている間、軍艦の攻撃 ×${GUNKAN_BOOST}。巻物が減ると解除され、再び揃えば有効になります。`,
+    description: `机に巻物${MAKI_COMP_5}枚以上 → 軍艦の攻撃×${GUNKAN_BOOST}（揃っている間）。`,
   }, {
     id: 'hikari_zanmai', name: '光り物三昧',
     value: st.combosFired.includes('hikari_zanmai') ? '達成済' : `大葉 ${oba}/${OBA_REQUIRED}枚`,
-    description: `大葉トッピングのカードを試合中に合計${OBA_REQUIRED}枚召喚すると、切れ味 +3。同名カードも数え、1試合に1回です。光り物全体の枚数ではありません。`,
+    description: `大葉つきを合計${OBA_REQUIRED}枚召喚 → 切れ味＋3。1試合に1回、同名もOK。`,
   }, {
     id: 'niku_matsuri', name: '肉祭り',
     value: st.nikuMatsuri ? '今ターン発動済' : `${st.sacrificedThisTurn ?? 0}/2体（今ターン）`,
-    description: '同じターンに生ハムを計2体生贄（各ターン1回）。\nカルビ・和牛の生贄数を合算。\n即時5ダメージ（ガリ不可）。\n山札のランダムな位置に0AP生ハム1枚追加。\n自分の全生ハムの攻撃+1（試合中・累積）。\n手札・山札・机・今後の生成分も強化。',
+    description: '同ターンに生ハム2体を生贄 → 5ダメージ・山札に生ハム1枚・全生ハムの攻撃＋1（累積）。各ターン1回。',
   }, {
     id: 'umi_zanmai', name: '海の幸三昧', value: `未使用 いか${pairCount('いか')}・たこ${pairCount('たこ')}`,
-    description: 'いか・たこの召喚時、机の未使用の相方1枚と組み、海鮮の合計攻撃を50%にして切り捨て、通常のえび1枚につき固定+7で再攻撃します。えびはペア条件に数えず、通常攻撃・召喚連鎖には+7しません。使用済みペアは再利用できず、新しいペアなら何度でも発動します。',
+    description: '未使用のいか＋たこ → 海鮮の攻撃50％で再攻撃。通常のえび1枚ごとに＋7。新しいペアなら何度でも。',
   }]
   return { effects, combos }
 }

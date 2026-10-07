@@ -74,6 +74,32 @@ try {
     assert.equal('purchasedIds' in f.read(f.host).draft.you, false)
   })
 
+  await test('大将のおすすめは再送・復帰・対戦移行で同じ3皿を保持し、クライアントの指定を信用しない', () => {
+    const f = fixture()
+    const action = f.action(f.host, { type: 'omakase', price: 0, cards: [CARDS[0]], playerId: 2 })
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
+    const purchased = f.read(f.host).draft
+    assert.equal(purchased.you.budget, 2500)
+    assert.equal(purchased.you.shinkansenLeft, 2)
+    assert.equal(purchased.you.deck.length, 3)
+    assert.equal(purchased.you.deck.reduce((total, card) => total + card.price, 0), 750)
+    assert.equal(f.read(f.guest).draft.you.deck.length, 0)
+    assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
+    assert.deepEqual(f.read(f.host).draft, purchased)
+    assert.deepEqual(f.send(f.host, { type: 'omakase' }), { ok: false, error: 'draft_omakase_used' })
+    f.service.disconnect(f.host)
+    const resumed = f.peer('omakase-resumed')
+    f.service.connect(resumed)
+    const result = f.service.handle(resumed, 'room:resume', f.created.session)
+    assert.equal(result.ok, true)
+    assert.deepEqual(result.snapshot.draft.you.omakaseCards, purchased.you.omakaseCards)
+    assert.deepEqual(f.send(resumed, { type: 'complete' }), { ok: true })
+    assert.deepEqual(f.send(f.guest, { type: 'complete' }), { ok: true })
+    const hand = f.read(resumed).match.you.hand
+    assert.deepEqual(hand.map(({ instanceId: _, ...card }) => card).sort((a, b) => a.id.localeCompare(b.id)),
+      purchased.you.deck.slice().sort((a, b) => a.id.localeCompare(b.id)))
+  })
+
   await test('皿の購入はサーバー価格で確定し、再送・別IDの二重購入・なりすましを拒否する', () => {
     const f = fixture()
     const offer = f.read(f.host).draft.offers[5]

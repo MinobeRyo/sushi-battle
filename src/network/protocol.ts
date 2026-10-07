@@ -2,6 +2,7 @@ import type { MatchPlayer, PendingAttack, PendingReaction, PlayerId } from '../g
 import type { DraftState } from '../features/draft/draftEngine'
 import type { DraftLane, DraftLaneClock, DraftOffer } from '../game/draftOffers'
 import type { SideMenuId } from '../data/sideMenus'
+import type { DeckSummaryEntry } from '../game/deckSummary'
 
 export type PublicDraft = {
   draftId: string
@@ -15,6 +16,7 @@ export type PublicDraft = {
   opponentCompleted: boolean
 }
 export type DraftCommand =
+  | { type: 'omakase' }
   | { type: 'buy'; offerId: string }
   | { type: 'order'; cardId: string }
   | { type: 'buy_side_menu'; sideMenuId: SideMenuId }
@@ -35,7 +37,7 @@ export type PublicMatch = {
   pendingAttack: PendingAttack | null
   pendingReaction: PendingReaction | null
   winnerId: PlayerId | null
-  you: Omit<MatchPlayer, 'deck'> & { deckCount: number }
+  you: Omit<MatchPlayer, 'deck'> & { deckCount: number; deckSummary: DeckSummaryEntry[] }
   opponent: Omit<MatchPlayer, 'hand' | 'deck'> & { handCount: number; deckCount: number }
   log: string[]
   comboEvents: PublicComboEvent[]

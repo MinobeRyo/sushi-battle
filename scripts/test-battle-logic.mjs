@@ -52,9 +52,9 @@ eq('えび 3AP・200円・攻撃5・2ターン持続・対象限定ドロー',
 eq('えびは海鮮再攻撃に参加する', byId('ebi').archetype.includes('kaisen'), true)
 eq('シメサバ kireta_consume_2_draw_2', byId('shime_saba').effect, 'kireta_consume_2_draw_2')
 eq('コハダ kireta_consume_x3', byId('kohada').effect, 'kireta_consume_x3')
-eq('軍艦タグ 10枚', CARDS.filter(c => c.archetype.includes('gunkan')).length, 10)
-eq('軍艦タグが付くのは名前に「軍艦」を含むカードだけ',
-  CARDS.filter(c => c.archetype.includes('gunkan')).every(c => c.name.includes('軍艦')), true)
+eq('軍艦タグ 11枚', CARDS.filter(c => c.archetype.includes('gunkan')).length, 11)
+eq('軍艦タグは軍艦カードとたこわさに付く',
+  CARDS.filter(c => c.archetype.includes('gunkan')).every(c => c.name.includes('軍艦') || c.id === 'takowasa'), true)
 eq('太巻きの subBases', byId('futomaki').subBases, ['マグロ', 'えび'])
 
 console.log('\n[2] 単体の効果')

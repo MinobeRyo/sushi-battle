@@ -128,6 +128,101 @@
 .help-book-pagination { display: flex; align-items: center; gap: 14px; }
 .help-book-pagination > span { min-width: 72px; font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif; font-size: 12px; text-align: center; white-space: nowrap; }
 
+/* 冒頭は購入から勝利までを、寿司・対戦相手・満腹ゲージで示す。 */
+.help-flow { display: flex; flex-direction: column; justify-content: space-evenly; min-height: 0; gap: 12px; padding: 20px 0; overflow-y: auto; }
+.help-flow > * { flex-shrink: 0; }
+.help-flow-step { text-align: center; }
+.help-flow-step h3 { display: flex; align-items: center; justify-content: center; gap: 9px; color: #4d3927; font-size: clamp(14px, 2vw, 23px); }
+.help-flow-step h3 > span { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #913e2b; color: #fff8e9; font-family: serif; }
+.help-flow-step p, .help-flow-tips p { color: #75654c; font-size: clamp(10px, 1.2vw, 14px); line-height: 1.7; }
+.help-flow-illustration { display: flex; align-items: center; justify-content: center; gap: clamp(5px, 1.5vw, 20px); min-height: 130px; padding: 10px 0; }
+.help-flow-ap { display: block; min-width: 54px; padding: 9px 12px; border: 2px solid #bc8134; border-radius: 12px; background: #ffdfa0; color: #80511e; font-size: 12px; }
+.help-flow-ap b { font-size: 32px; line-height: 1.1; }
+.help-flow-arrow, .help-flow-down { color: #b98243; font-size: clamp(22px, 3vw, 36px); text-align: center; }
+.help-flow-card { width: clamp(70px, 10vw, 125px); padding: 8px; border: 2px solid #d5b887; border-radius: 8px; background: #fffaf0; box-shadow: 3px 4px 0 #b9976040; transform: rotate(5deg); }
+.help-flow-card span { display: block; color: #98754c; font-size: 11px; }
+.help-flow-small-sushi { width: 110px; }
+.help-flow-belly { min-width: 85px; color: #86542d; font-size: 12px; }
+.help-flow-belly strong { display: block; color: #a74330; font-size: clamp(14px, 1.8vw, 21px); }
+.help-flow-fullness { position: relative; width: min(220px, 85%); margin: 22px auto 10px; text-align: center; }
+.help-flow-face { position: relative; width: 78px; height: 76px; margin: 0 auto; border: 2px solid #ca965a; border-radius: 45% 45% 48% 48%; background: #ffdbab; }
+.help-flow-face i { position: absolute; top: 29px; left: 18px; width: 12px; height: 5px; border-top: 2px solid #805c3b; border-radius: 50%; }
+.help-flow-face i + i { left: 46px; }
+.help-flow-face b { position: absolute; top: 45px; left: 29px; width: 17px; height: 8px; border-bottom: 2px solid #805c3b; border-radius: 50%; }
+.help-flow-fullness > strong { display: block; margin-top: 4px; color: #b6462f; font-size: clamp(34px, 5vw, 60px); line-height: 1.2; }
+.help-flow-gauge { height: 14px; padding: 3px; border: 1px solid #c89760; border-radius: 10px; background: #e9d8b4; }
+.help-flow-gauge span { display: block; width: 100%; height: 100%; border-radius: 7px; background: #c85336; }
+.help-flow-win { display: inline-block; margin-top: 12px; padding: 4px 16px; border: 2px solid #a54e35; color: #a54e35; font-size: 23px; transform: rotate(-5deg); }
+.help-flow-tips { display: grid; gap: 15px; padding-top: 14px; border-top: 1px solid #c6b48f80; }
+.help-flow-persist { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.help-flow-persist svg { flex-shrink: 0; max-width: 35%; }
+.help-flow-persist span { display: block; }
+.help-flow-tips > p { text-align: center; }
+.help-flow-shopping { padding-top: 10px; }
+.help-flow-shopping > strong { color: #a65326; font-size: clamp(26px, 3vw, 38px); line-height: 1.2; }
+.help-flow-shopping > strong span { margin-left: 4px; font-size: 14px; }
+.help-flow-plates { display: flex; align-items: center; justify-content: center; max-width: 300px; height: 96px; margin: 0 auto; }
+.help-flow-plates svg { min-width: 0; max-width: 100px; max-height: 100%; }
+.help-flow-match { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 16px 0; }
+.help-flow-match > strong { color: #a65326; font-family: serif; font-size: 26px; }
+.help-flow-match span, .help-flow-eat > span { display: block; margin-top: 4px; color: #806348; font-size: 12px; }
+
+@media (max-width: 600px) {
+  .help-flow { gap: 8px; padding: 16px 0; }
+  .help-flow-step h3 { gap: 5px; font-size: 13px; flex-wrap: wrap; }
+  .help-flow-step h3 > span { width: 23px; height: 23px; }
+  .help-flow-illustration { min-height: 105px; gap: 4px; }
+  .help-flow-ap { min-width: 37px; padding: 6px 8px; font-size: 10px; }
+  .help-flow-ap b { font-size: 25px; }
+  .help-flow-card { width: 62px; padding: 5px; }
+  .help-flow-small-sushi { width: 57px; }
+  .help-flow-belly { min-width: 58px; font-size: 10px; }
+  .help-flow-belly strong { font-size: 12px; }
+  .help-flow-face { transform: scale(.85); }
+  .help-flow-persist { flex-direction: column; text-align: center; }
+  .help-flow-persist svg { max-width: 60%; }
+  .help-flow-tips { gap: 10px; }
+  .help-flow-shopping { padding-top: 8px; }
+  .help-flow-shopping > strong { font-size: 26px; }
+  .help-flow-plates { height: 62px; }
+  .help-flow-match { gap: 7px; padding: 12px 0; }
+  .help-flow-match > div { width: 49px; }
+  .help-flow-match .help-flow-face { margin-left: -14px; transform: scale(.62); margin-top: -12px; margin-bottom: -12px; }
+  .help-flow-match > strong { font-size: 18px; }
+  .help-flow-eat { width: 57px; }
+  .help-flow-eat .help-flow-face { margin-left: -10px; transform: scale(.72); margin-top: -6px; margin-bottom: -6px; }
+}
+@media (max-height: 720px) {
+  .help-flow { gap: 6px; padding: 8px 0; }
+  .help-flow-step h3 { font-size: clamp(13px, 1.8vw, 18px); }
+  .help-flow-illustration { min-height: 94px; padding: 5px 0; }
+  .help-flow-card { max-width: 90px; padding: 5px; }
+  .help-flow-small-sushi { max-width: 80px; }
+  .help-flow-ap { padding-top: 6px; padding-bottom: 6px; }
+  .help-flow-ap b { font-size: 26px; }
+  .help-flow-down { font-size: 26px; line-height: 1; }
+  .help-flow-fullness { margin-top: 10px; margin-bottom: 8px; }
+  .help-flow-face { width: 58px; height: 56px; transform: none; }
+  .help-flow-face i { top: 21px; left: 12px; width: 9px; }
+  .help-flow-face i + i { left: 34px; }
+  .help-flow-face b { top: 34px; left: 22px; width: 13px; height: 6px; }
+  .help-flow-fullness > strong { font-size: 40px; }
+  .help-flow-win { margin-top: 8px; padding-top: 2px; padding-bottom: 2px; font-size: 19px; }
+  .help-flow-tips { gap: 8px; padding-top: 8px; }
+  .help-flow-shopping { padding-top: 6px; }
+  .help-flow-shopping > strong { font-size: 28px; }
+  .help-flow-plates { height: 74px; }
+  .help-flow-match { padding-top: 10px; padding-bottom: 10px; }
+}
+@media (max-width: 600px) and (max-height: 720px) {
+  .help-flow-plates { height: 56px; }
+  .help-flow-match .help-flow-face { margin: -4px 0; transform: scale(.78); }
+  .help-flow-eat .help-flow-face { margin: 0; transform: none; }
+}
+@media (max-height: 600px) {
+  .help-flow { justify-content: flex-start; }
+}
+
 @media (max-width: 760px) {
   .help-menu-overlay { padding: max(18px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .help-book-stage.is-open { height: calc(100dvh - 38px); }
@@ -205,4 +300,74 @@
   .help-book-page-bottom { padding-top: 4px; padding-bottom: 4px; }
   .help-book-controls { min-height: 42px; padding-top: 7px; padding-bottom: 2px; }
   .help-book-controls button { min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
+}
+
+/* お品書きとして読める文字サイズを保ち、内容の多い紙面はスクロールする。 */
+.help-book-running-title { font-size: 11px; }
+.help-book-page h2 { font-size: 32px; }
+.help-menu-intro { font-size: 14px; line-height: 1.65; }
+.help-menu-builds, .help-menu-combo-list { grid-template-rows: none; grid-auto-rows: minmax(min-content, auto); align-content: start; overflow-y: auto; }
+.help-menu-build { min-height: min-content; padding: 14px 8px; }
+.help-menu-dish { height: 76px; gap: 18px; }
+.help-menu-art { max-width: 130px; }
+.help-menu-build h3 { font-size: 32px; }
+.help-menu-specialty { margin: 7px 0; font-size: 16px; }
+.help-menu-description, .help-menu-effect { font-size: 15px; line-height: 1.65; }
+.help-menu-note { margin-top: 5px; font-size: 14px; line-height: 1.6; }
+.help-menu-combo { padding: 13px 6px; }
+.help-menu-platter { height: 60px; margin-bottom: 7px; }
+.help-menu-combo h3 { font-size: 28px; }
+.help-menu-combo-heading { gap: 5px 12px; margin-bottom: 7px; }
+.help-menu-timing { font-size: 13px; }
+.help-book-page-bottom { font-size: 11px; }
+.help-book-controls button { min-height: 40px; font-size: 13px; }
+.help-book-pagination > span { font-size: 12px; }
+.help-flow-step p { font-size: 14px; }
+
+@media (max-width: 760px) {
+  /* 半分幅へ縮小せず、一枚ずつ縦に並べて紙面全体を読む。 */
+  .help-book-pages { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .help-book-pages::after { display: none; }
+  .help-book-page { min-height: auto; }
+  .help-book-page + .help-book-page { border-top: 6px double #bb9f70; }
+  .help-book-page-content { display: block; padding: 20px 22px 6px; }
+  .help-book-page-heading { padding-bottom: 14px; }
+  .help-book-running-title { display: block; font-size: 12px; }
+  .help-book-page h2 { margin: 7px 0; font-size: 30px; }
+  .help-menu-intro { font-size: 14px; }
+  .help-menu-builds, .help-menu-combo-list { overflow: visible; }
+  .help-menu-build { padding: 20px 6px; }
+  .help-menu-dish { height: 94px; gap: 22px; }
+  .help-menu-art { max-width: 150px; }
+  .help-menu-build h3 { font-size: 34px; }
+  .help-menu-specialty { font-size: 17px; }
+  .help-menu-description, .help-menu-effect { font-size: 15px; }
+  .help-menu-note, .help-menu-timing { font-size: 14px; }
+  .help-menu-combo { padding: 20px 2px; }
+  .help-menu-combo h3 { width: auto; font-size: 28px; }
+  .help-menu-combo-heading { justify-content: space-between; text-align: left; }
+  .help-menu-platter { height: 76px; margin-bottom: 10px; }
+  .help-book-page-bottom { margin-inline: 22px; padding: 12px 0; font-size: 12px; }
+  .help-book-controls { gap: 5px; min-height: 54px; }
+  .help-book-controls button { padding-inline: 8px; font-size: 12px; }
+  .help-book-pagination { gap: 5px; }
+  .help-book-pagination > span { min-width: 62px; font-size: 11px; }
+  .help-flow { gap: 14px; min-height: 410px; padding: 22px 0; overflow: visible; justify-content: space-evenly; }
+  .help-flow-step h3 { gap: 8px; font-size: 21px; }
+  .help-flow-step h3 > span { width: 28px; height: 28px; }
+  .help-flow-illustration { min-height: 120px; gap: 14px; padding: 10px 0; }
+  .help-flow-card { width: 100px; max-width: 100px; padding: 7px; }
+  .help-flow-card span, .help-flow-match span, .help-flow-eat > span { font-size: 14px; }
+  .help-flow-shopping > strong { font-size: 36px; }
+  .help-flow-plates { height: 96px; }
+  .help-flow-match { gap: 22px; padding: 18px 0; }
+  .help-flow-match > div, .help-flow-eat { width: auto; }
+  .help-flow-match > strong { font-size: 26px; }
+  .help-flow-match .help-flow-face, .help-flow-eat .help-flow-face { width: 78px; height: 76px; margin: 0; transform: none; }
+  .help-flow-face i { top: 29px; left: 18px; width: 12px; }
+  .help-flow-face i + i { left: 46px; }
+  .help-flow-face b { top: 45px; left: 29px; width: 17px; height: 8px; }
+  .help-flow-fullness { margin-top: 12px; }
+  .help-flow-fullness > strong { font-size: 56px; }
+  .help-flow-win { font-size: 24px; }
 }

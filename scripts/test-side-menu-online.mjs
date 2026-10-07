@@ -106,7 +106,7 @@ try {
     assert.equal(after.you.sideMenu, offer.sideMenuId)
     assert.equal(after.you.budget, before.you.budget - SIDE_MENU_BY_ID[offer.sideMenuId].price)
     assert.deepEqual(after.you.deck, before.you.deck)
-    assert.equal(after.you.shinkansenLeft, before.you.shinkansenLeft)
+    assert.equal(after.you.shinkansenLeft, before.you.shinkansenLeft - 1)
     assert.equal(after.you.shinkansenPlate, null)
     assert.equal(after.offers.find(item => item.id === offer.id).sold, true)
     assert.deepEqual(f.service.handle(f.host, 'draft:action', action), { ok: true })
@@ -130,7 +130,7 @@ try {
     assert.deepEqual(f.read(f.host).draft, before)
   })
 
-  test('サイド皿は20枚上限と特急配送に影響せず、残金不足だけを共通ルールで拒否する', () => {
+  test('サイド皿は20枚上限と特急配送に影響せず、注文枠を1回使い、残金不足を拒否する', () => {
     const draft = createOnlineDraft('initial', now, () => 0.5)
     const player = draft.players[1]
     const offer = player.offers.find(offer => offer.sideMenuId)
@@ -377,7 +377,7 @@ try {
     assert.deepEqual(f.use(again), { ok: false, error: 'side_menu_spent' })
   })
 
-  test('追加注文で未購入者の新規購入も買い替えも禁止し、設置中の効果を対戦へ維持する', () => {
+  test('追加注文で未購入者は新規購入でき、設置中の効果は買い替えず維持する', () => {
     const f = fixture()
     f.buy(f.host, 'miso')
     for (const player of [f.host, f.guest]) f.draft(player, { type: 'order', cardId: 'tamago' })
@@ -391,15 +391,17 @@ try {
     const before = f.read(f.host)
     assert.equal(before.draft.mode, 'reorder')
     assert.equal(before.draft.you.sideMenuEnabled, false)
-    for (const player of [f.host, f.guest]) {
-      assert.deepEqual(f.buy(player, 'ramen'), { ok: false, error: 'draft_side_menu_disabled' })
-      assert.equal(f.read(player).draft.you.budget, 1500)
-    }
+    assert.deepEqual(f.buy(f.host, 'ramen'), { ok: false, error: 'draft_side_menu_disabled' })
+    assert.equal(f.read(f.host).draft.you.budget, 1500)
+    assert.equal(f.read(f.guest).draft.you.sideMenuEnabled, true)
+    assert.deepEqual(f.buy(f.guest, 'ramen'), { ok: true })
+    assert.equal(f.read(f.guest).draft.you.budget, 1200)
     f.finish()
     const after = f.read(f.host).match
     assert.deepEqual(after.you.sideMenu, before.match.you.sideMenu)
     assert.equal(after.you.sideMenu.status, 'active')
-    assert.equal(after.opponent.sideMenu, null)
+    assert.equal(after.opponent.sideMenu.id, 'ramen')
+    assert.equal(after.opponent.sideMenu.status, 'ready')
     assertPrivate(after)
   })
 

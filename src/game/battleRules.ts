@@ -96,27 +96,27 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 export const COMBO_META: Record<string, ComboMeta> = {
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
-    desc: '即時+10ダメージ / マグロ系の攻撃+2 / 鉄火巻きAP+1・ビントロ2枚ドローとお腹−3・づけマグロ消化停止2回・中トロお腹−10・大トロでビントロ補充とお腹−5と次ターンAP+1を解禁',
+    desc: '追加効果解放！',
   },
   maki_comp_3: {
     id: 'maki_comp_3', name: '巻物コンプ！！！', emoji: '🌀',
-    desc: '机に巻物3枚 — 以降ドロー+1',
+    desc: '以降、ターン終了時に＋1枚ドロー！',
   },
   maki_comp_5: {
     id: 'maki_comp_5', name: '巻物フルコンプ！！！', emoji: '🍙',
-    desc: '机に巻物5枚 — 維持している間、軍艦の攻撃1.5倍',
+    desc: '巻物5枚の間、軍艦の攻撃×1.5！',
   },
   hikari_zanmai: {
     id: 'hikari_zanmai', name: '光り物三昧！！！', emoji: '✨',
-    desc: '大葉3枚 — 切れ味スタック+3',
+    desc: '切れ味＋3！',
   },
   umi_zanmai: {
     id: 'umi_zanmai', name: '海の幸三昧！！！', emoji: '🌊',
-    desc: '場の海鮮が50%で再攻撃 / えび1枚ごとに追加+7',
+    desc: '海鮮の攻撃50％で再攻撃・えび1枚ごとに＋7！',
   },
   niku_matsuri: {
     id: 'niku_matsuri', name: '肉祭り！！！', emoji: '🥩',
-    desc: '生ハムを累計2体生贄：即時+5ダメージ / 山札のランダムな位置に0AP生ハム1枚 / 生ハムの攻撃を対戦中+1（累積・各ターン1回）',
+    desc: '5ダメージ・生ハムを山札に1枚・全生ハム＋1！',
   },
 }
 
@@ -139,6 +139,11 @@ export function shuffled<T>(arr: T[], random: RandomSource = Math.random): T[] {
 type DmgOpts = {
   nikuMatsuri?: boolean   // 既存表示APIとの互換用。肉祭りに通常攻撃の倍率はない。
   gunkanBoost?: boolean   // 巻物コンプ②: 未指定なら渡された field から判定する
+  namahamuBoost?: boolean // 個別カードの表示・海鮮部分計算にも場全体の合鴨効果を渡す
+}
+
+export function hasNamahamuAura(field: FieldCard[]) {
+  return field.some(card => card.effect === 'aura_namahamu_2' && card.turnsLeft > 0)
 }
 
 export function calcFieldDmg(
@@ -149,12 +154,14 @@ export function calcFieldDmg(
   opts: DmgOpts = {},
 ) {
   const gunkanBoost = opts.gunkanBoost ?? (makimonoCount(field) >= MAKI_COMP_5)
+  const namahamuBoost = opts.namahamuBoost ?? hasNamahamuAura(field)
   return field.reduce((sum, c) => {
     if (c.defenseState === 'ready') return sum
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
     const baseBuff = [c.base, ...(c.subBases ?? [])]
       .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
     const base = c.attack + baseBuff + (c.turnAttackBonus ?? 0)
+      + (namahamuBoost && c.id === NAMAHAM_CARD.id ? 2 : 0)
     const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack : 0
     let effectBonus = 0
     switch (c.effect) {
@@ -169,6 +176,7 @@ export function calcFieldDmg(
       total = Math.floor(total * GUNKAN_BOOST)
     }
     if (c.attackHalved) total = Math.floor(total / 2)
+    if (c.attackReductionRate) total -= Math.floor(total * c.attackReductionRate)
     return sum + total
   }, 0)
 }
@@ -177,6 +185,7 @@ export function calcFieldDmg(
 export function calcKaisenReattackDamage(field: FieldCard[], buff: Record<string, number>, kireta = 0, enemyBelly = 0) {
   return Math.floor(calcFieldDmg(field.filter(card => card.archetype.includes('kaisen')), buff, kireta, enemyBelly, {
     gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
+    namahamuBoost: hasNamahamuAura(field),
   }) * KAISEN_REATTACK)
 }
 
@@ -184,17 +193,32 @@ export function getDefenseCost(card: Card): number {
   return card.effect === 'reserve_random_half_1' ? 1 : card.effect === 'reserve_target_half_2' ? 2 : 0
 }
 
+export function isDefenseCard(card: Card): boolean {
+  return getDefenseCost(card) > 0 || card.effect === 'reserve_random_quarter_0'
+}
+
+export function getDefenseReductionRate(card: Card): number {
+  return card.effect === 'reserve_random_quarter_0' ? 0.25 : isDefenseCard(card) ? 0.5 : 0
+}
+
+export function withDefenseReduction(card: FieldCard, defenseCard: Card): FieldCard {
+  return getDefenseReductionRate(defenseCard) === 0.5
+    ? { ...card, attackHalved: true }
+    : { ...card, attackReductionRate: getDefenseReductionRate(defenseCard) }
+}
+
 export function getDefenseTargets(field: FieldCard[], buff: Record<string, number> = {}, kireta = 0, enemyBelly = 0): FieldCard[] {
   const gunkanBoost = makimonoCount(field) >= MAKI_COMP_5
+  const namahamuBoost = hasNamahamuAura(field)
   return field.filter(card => card.defenseState !== 'ready' && card.turnsLeft > 0
-    && calcFieldDmg([card], buff, kireta, enemyBelly, { gunkanBoost }) > 0)
+    && calcFieldDmg([card], buff, kireta, enemyBelly, { gunkanBoost, namahamuBoost }) > 0)
 }
 
 export function getDefenseReserveError(card: Card, field: FieldCard[], kireta: number, kiretaSpent: boolean, reserveDefense?: unknown): string | undefined {
   if (reserveDefense !== undefined && typeof reserveDefense !== 'boolean') return 'invalid_reserve_defense'
   if (!reserveDefense) return undefined
   const cost = getDefenseCost(card)
-  if (!cost) return 'defense_not_supported'
+  if (!isDefenseCard(card)) return 'defense_not_supported'
   if (field.some(item => item.defenseState === 'reserved' || item.defenseState === 'ready')) return 'defense_already_reserved'
   if ((kiretaSpent ? 0 : kireta) < cost) return 'insufficient_kireta'
   return undefined
@@ -410,7 +434,10 @@ export function applySummon(input: SummonInput): SummonResult {
   })
   const sacrificedThisTurn = (input.sacrificedThisTurn ?? 0) + sacrificeCount
   const summonedCard = toField(card, input.fieldId ?? `${card.id}:${input.summonedIds.length + 1}`)
-  if (input.reserveDefense) summonedCard.defenseState = 'reserved'
+  if (input.reserveDefense || (card.effect === 'reserve_random_quarter_0'
+    && !input.field.some(item => item.defenseState === 'reserved' || item.defenseState === 'ready'))) {
+    summonedCard.defenseState = 'reserved'
+  }
   const sacrificeBonus = sacrificeCount * (getSacrificeBonus(card) + (input.sacrificeAttackBonus ?? 0))
   const attackBonus = (input.turnAttackBonus ?? 0) + sacrificeBonus
   if (attackBonus) summonedCard.turnAttackBonus = attackBonus

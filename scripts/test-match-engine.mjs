@@ -555,7 +555,7 @@ test('通常攻撃を大小にかかわらず半減し、受ける端数を切�
     assert.deepEqual([result.state.players[2].belly, result.state.players[2].gari], [20 + expectedDamage, 1])
     assert.deepEqual(result.events.find(event => event.type === 'damage'), { type: 'damage', playerId: 2, amount: expectedDamage })
     assert.deepEqual(result.events.find(event => event.type === 'defense_resolved'), {
-      type: 'defense_resolved', playerId: 2, usedGari: true, reduction: expectedReduction,
+      type: 'defense_resolved', playerId: 2, usedGari: true, usedDefense: false, reduction: expectedReduction,
     })
   }
 })

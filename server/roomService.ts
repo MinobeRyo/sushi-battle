@@ -1,5 +1,7 @@
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createMatch, otherPlayer, transitionMatch } from '../src/game/matchEngine'
+import { summarizeDeck } from '../src/game/deckSummary'
+import { canReorderSideMenu } from '../src/data/sideMenus'
 import type { MatchState, PlayerId, RandomSource } from '../src/game/types'
 import type { JoinReply, OnlineAction, PublicComboEvent, PublicMatch, Reply, RoomSnapshot } from '../src/network/protocol'
 import type { RoomEvent } from '../src/network/httpProtocol'
@@ -35,7 +37,7 @@ function publicMatch(match: MatchState, playerId: PlayerId, comboEvents: PublicC
   return {
     matchId: match.matchId, revision: match.revision, activePlayerId: match.activePlayerId,
     turn: match.turn, phase: match.phase, pendingAttack: match.pendingAttack, pendingReaction: match.pendingReaction, winnerId: match.winnerId,
-    you: { ...you, deckCount: deck.length },
+    you: { ...you, deckCount: deck.length, deckSummary: summarizeDeck(deck) },
     opponent: { ...opponent, handCount: opponentHand.length, deckCount: opponentDeck.length },
     log: match.log,
     comboEvents,
@@ -64,6 +66,7 @@ function validAction(value: unknown): value is OnlineAction {
     case 'end_turn':
     case 'use_side_menu': return true
     case 'respond_defense': return typeof action.useGari === 'boolean'
+      && (action.useDefense === undefined || typeof action.useDefense === 'boolean') && validTarget
     case 'respond_reaction': return typeof action.useDefense === 'boolean' && validTarget
     case 'play_card':
       return typeof action.cardInstanceId === 'string' && action.cardInstanceId.length > 0 && action.cardInstanceId.length <= 200
@@ -129,6 +132,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         const playerId: PlayerId = room.match.reorderPlayerId
         room.match = transitionMatch(room.match, {
           type: 'complete_reorder', playerId, cards: draft.players[playerId].state.deck,
+          sideMenu: draft.players[playerId].state.sideMenu,
         }, random).state
       }
     }
@@ -147,7 +151,10 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
   const startDraft = (room: Room, mode: OnlineDraft['mode']) => {
     clearInterval(room.draftTimer)
     if (mode === 'initial') { room.match = null; room.comboEvents = [] }
-    room.draft = createOnlineDraft(mode, Date.now(), random)
+    room.draft = createOnlineDraft(mode, Date.now(), random, mode === 'reorder' && room.match ? {
+      1: canReorderSideMenu(room.match.players[1].sideMenu),
+      2: canReorderSideMenu(room.match.players[2].sideMenu),
+    } : undefined)
     room.rematch.clear()
     room.draftTimer = setInterval(() => refreshDraft(room), 250)
     room.draftTimer.unref()
@@ -259,7 +266,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
           return previous.fingerprint === fingerprint ? previous.reply : { ok: false, error: 'action_id_conflict' }
         }
         if (!room.draft) return { ok: false, error: 'draft_not_started' }
-        const reply = applyDraftAction(room.draft, playerId, action, Date.now())
+        const reply = applyDraftAction(room.draft, playerId, action, Date.now(), random)
         if (reply.ok) {
           room.processed.set(key, { fingerprint, reply })
           if (room.processed.size > MAX_PROCESSED_ACTIONS) room.processed.delete(room.processed.keys().next().value!)
@@ -292,7 +299,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         const result = transitionMatch(room.match, action.type === 'play_card'
           ? { type: 'play_card', playerId, cardInstanceId: action.cardInstanceId!, sacrificeCount: action.sacrificeCount, targetFieldId: action.targetFieldId, reserveDefense: action.reserveDefense }
           : action.type === 'respond_defense'
-            ? { type: 'respond_defense', playerId, useGari: action.useGari! }
+            ? { type: 'respond_defense', playerId, useGari: action.useGari!, useDefense: action.useDefense, targetFieldId: action.targetFieldId }
           : action.type === 'respond_reaction'
             ? { type: 'respond_reaction', playerId, useDefense: action.useDefense!, targetFieldId: action.targetFieldId }
           : { type: action.type, playerId }, random)

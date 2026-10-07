@@ -1,3 +1,5 @@
+import type { SideMenuState } from '../game/types'
+
 export type SideMenuId = 'karaage' | 'fries' | 'tempura' | 'ramen' | 'miso' | 'chawanmushi' | 'inbound_don'
 
 export const INBOUND_DON_ATTACK_BONUS = 2
@@ -16,7 +18,7 @@ export type SideMenuDefinition = {
   price: number
 }
 
-// 初期購入の予算から一品だけ選びます。寿司の20枚枠・特急回数は消費しません。
+// 各購入タイムで一品だけ選びます。寿司の20枚枠は使わず、共通の注文枠を1回消費します。
 export const SIDE_MENUS: SideMenuDefinition[] = [
   {
     id: 'karaage', name: '唐揚げ', english: 'KARAAGE', category: '攻めの一皿', price: 300,
@@ -73,4 +75,9 @@ export const SIDE_MENU_BY_ID = Object.fromEntries(SIDE_MENUS.map(menu => [menu.i
 
 export function isSideMenuId(value: unknown): value is SideMenuId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(SIDE_MENU_BY_ID, value)
+}
+
+/** 未購入、または使い切りを使用済みなら後半にもう一品注文できます。 */
+export function canReorderSideMenu(side: SideMenuState | null): boolean {
+  return side === null || (side.status === 'used' && (side.purchaseCount ?? 1) < 2 && (side.id === 'karaage' || side.id === 'chawanmushi'))
 }

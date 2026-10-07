@@ -103,6 +103,12 @@ const MEAT_FESTIVAL_DESCRIPTION = effectLines(
 )
 
 export const EFFECT_FULL: Record<string, string> = {
+  draw_random_maki_1: '召喚時：山札の巻物からランダムに1枚を手札へ（軍艦以外）',
+  generate_low_cost_maki_deck_1: '召喚時：1〜2APの巻物をランダムに1枚、山札へ生成（軍艦以外）',
+  generate_tobiko_hand_decreasing: effectLines('召喚時：とびこ軍艦1枚を手札に複製', '確率は自分の召喚順に75％→50％→25％→0％（コピーも通算）'),
+  umi_generate_ebi_deck_1: '机にいる間：海の幸三昧が発動するたび、えび1枚を山札へ生成',
+  aura_namahamu_2: '机にいる間：自分の生ハムの攻撃＋2（合鴨同士は重複しない）',
+  reserve_random_quarter_0: effectLines('通常攻撃後：無料で防御待機（防御枠が空いている時）', '次の相手の攻撃時：ランダム1枚の攻撃を25％軽減', 'ガリと一緒に選択可。使用後・相手ターン終了時に退場'),
   generate_tobiko_hand_50: '召喚時：50%で通常のとびこ軍艦1枚を手札に追加（手札7枚まで）',
   akami_digest_10: COMBO_EFFECT_PARTS.akami_digest_10.full.map(part => part.text).join('\n'),
   akami_generate_bintoro_deck_1: COMBO_EFFECT_PARTS.akami_generate_bintoro_deck_1.full.map(part => part.text).join('\n'),
@@ -142,7 +148,7 @@ export const EFFECT_FULL: Record<string, string> = {
   reserve_random_half_1: effectLines(
     '召喚時：切れ味1で防御予約（任意・1枚まで）',
     '自分の通常攻撃後：防御待機に変化',
-    '次の相手ターン：召喚効果後・ダメージ前に使用か温存',
+    '次の相手の攻撃時：ガリと一緒に使用か温存を選択',
     '使用時：相手の攻撃可能な1枚をランダムに半減',
     '強化後に切り捨て半減／その相手ターン中有効',
     '固定ダメージは半減しない',
@@ -151,7 +157,7 @@ export const EFFECT_FULL: Record<string, string> = {
   reserve_target_half_2: effectLines(
     '召喚時：切れ味2で防御予約（任意・1枚まで）',
     '自分の通常攻撃後：防御待機に変化',
-    '次の相手ターン：召喚効果後・ダメージ前に使用か温存',
+    '次の相手の攻撃時：ガリと一緒に使用か温存を選択',
     '使用時：相手の攻撃可能な1枚を選んで半減',
     '強化後に切り捨て半減／その相手ターン中有効',
     '固定ダメージは半減しない',
@@ -212,6 +218,12 @@ export const EFFECT_FULL: Record<string, string> = {
 }
 
 export const EFFECT_SHORT: Record<string, string> = {
+  draw_random_maki_1: '山札の巻物1枚を手札へ（軍艦以外）',
+  generate_low_cost_maki_deck_1: '1〜2APの巻物1枚を山札へ（軍艦以外）',
+  generate_tobiko_hand_decreasing: '複製75→50→25→0％（召喚順）',
+  umi_generate_ebi_deck_1: '海の幸三昧で、えび1枚を山札へ',
+  aura_namahamu_2: '場にいる間、生ハム＋2（重複なし）',
+  reserve_random_quarter_0: '攻撃後に防御待機・ランダム1枚を25％軽減',
   generate_tobiko_hand_50: '召喚時50%で手札にとびこ1枚',
   akami_digest_10: COMBO_EFFECT_PARTS.akami_digest_10.short.map(part => part.text).join(''),
   akami_generate_bintoro_deck_1: COMBO_EFFECT_PARTS.akami_generate_bintoro_deck_1.short.map(part => part.text).join(''),
