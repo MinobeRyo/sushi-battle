@@ -353,3 +353,8 @@ npm run build                          # フロントエンド型チェック＋
 npm run lint
 node scripts/package-gms.mjs            # PHP通信向けの公開パッケージを生成
 ```
+
+## 効果音クレジット
+
+- 合わせ技の効果音: [OtoLogic](https://otologic.jp)（CC BY 4.0）
+- そのほかの音源の出典は `public/audio/se-lab/SOURCES.md` を参照
