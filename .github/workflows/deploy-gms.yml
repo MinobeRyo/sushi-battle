@@ -39,6 +39,7 @@ jobs:
           npm test
           node --test scripts/test-auto-merge.mjs
           npm run typecheck:server
+          npm run typecheck:worker
           npm run test:online
           php -l deploy/gms/api.php
           node --import tsx scripts/test-php-bridge.mjs

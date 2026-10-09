@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { CARDS, getCardsByLane } from '../src/data/cards'
 import { isSideMenuId } from '../src/data/sideMenus'
 import { shuffled } from '../src/game/battleRules'
@@ -8,6 +7,7 @@ import type { PlayerId, RandomSource } from '../src/game/types'
 import type { Card } from '../src/types'
 import { completeDraft, createDraftState, orderOmakase, orderShinkansen, pickupShinkansen, purchaseBeltCard, purchaseSideMenu } from '../src/features/draft/draftEngine'
 import type { DraftState } from '../src/features/draft/draftEngine'
+import { randomId } from './webCrypto'
 import type { OnlineDraftAction, OnlineDraftHover, PublicDraft, Reply } from '../src/network/protocol'
 
 type DraftPlayer = {
@@ -29,7 +29,7 @@ export function createOnlineDraft(mode: OnlineDraft['mode'], now: number, random
       build: { pausedMs: 0, pausedAt: null, pauseUntil: null },
     }, hoverSequence: 0,
   })
-  const draft: OnlineDraft = { id: randomUUID(), mode, startedAt: now, initialBudget, players: { 1: player(1), 2: player(2) } }
+  const draft: OnlineDraft = { id: randomId(), mode, startedAt: now, initialBudget, players: { 1: player(1), 2: player(2) } }
   refreshOnlineDraft(draft, now, random)
   return draft
 }
