@@ -198,6 +198,17 @@
     "gain": 0.71567
   },
   {
+    "file": "combo-syakiin.wav",
+    "original": "Onoma-Syakiin02-1(Dry).mp3",
+    "source": "オノマトペ・シャキーン02",
+    "author": "OtoLogic",
+    "url": "https://otologic.jp/free/se/syakiin01.html",
+    "license": "CC-BY-4.0",
+    "trimStart": 0.10102,
+    "trimEnd": 1.7781,
+    "gain": 1.06184
+  },
+  {
     "file": "tablet-touch.wav",
     "source": "このプロジェクト用のオリジナル合成音",
     "generator": "scripts/build-se-foley.py:tablet_candidates",

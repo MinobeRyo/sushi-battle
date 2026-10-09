@@ -61,6 +61,7 @@ export function TitleScreen({ onPlay, onOpenCatalog }: Props) {
           <Suspense fallback={null}><TitleCounterScene /></Suspense>
           <div className="title-counter-front" />
         </div>
+        <p className="title-credit">効果音：<a href="https://otologic.jp" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</p>
       </div>
       <AnimatePresence>
         {showHelp && <StaffHelpModal onClose={() => setShowHelp(false)} />}
