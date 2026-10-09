@@ -8,8 +8,12 @@
     "server:dev": "tsx watch server/index.ts",
     "server": "tsx server/index.ts",
     "typecheck:server": "tsc -p tsconfig.server.json",
-    "test:online": "node --import tsx scripts/test-online-draft.mjs && node --import tsx scripts/test-online-feedback.mjs && node --import tsx scripts/test-online.mjs && node --import tsx scripts/test-http-online.mjs && node scripts/test-room-transport.mjs && node --import tsx scripts/test-side-menu-online.mjs && node --import tsx scripts/test-meat-online.mjs && node --import tsx scripts/test-side-menu-reorder-online.mjs && node --import tsx scripts/test-salmon-online.mjs && node --import tsx scripts/test-akami-online.mjs && node --import tsx scripts/test-tobiko-online.mjs && node --import tsx scripts/test-defense-online.mjs",
+    "test:online": "node --import tsx scripts/test-online-draft.mjs && node --import tsx scripts/test-online-feedback.mjs && node --import tsx scripts/test-online.mjs && node --import tsx scripts/test-http-online.mjs && node scripts/test-room-transport.mjs && node --import tsx scripts/test-fetch-room.mjs && node --import tsx scripts/test-side-menu-online.mjs && node --import tsx scripts/test-meat-online.mjs && node --import tsx scripts/test-side-menu-reorder-online.mjs && node --import tsx scripts/test-salmon-online.mjs && node --import tsx scripts/test-akami-online.mjs && node --import tsx scripts/test-tobiko-online.mjs && node --import tsx scripts/test-defense-online.mjs",
     "build": "tsc -b && vite build",
+    "build:cloudflare": "tsc -b && vite build --mode cloudflare",
+    "typecheck:worker": "tsc -p tsconfig.worker.json",
+    "cf:dev": "npm run build:cloudflare && wrangler dev",
+    "cf:deploy": "npm run build:cloudflare && wrangler deploy",
     "test": "node scripts/test-battle-logic.mjs && node scripts/test-battle-summon-preview.mjs && node scripts/test-match-engine.mjs && node scripts/test-cpu-decks.mjs && node scripts/test-cpu-defense.mjs && node scripts/test-cpu-strategy.mjs && node scripts/test-local-defense.mjs && node scripts/test-draft-logic.mjs && node scripts/test-draft-hit-area.mjs && node scripts/test-battle-status.mjs && node scripts/test-side-menu-effects.mjs && node scripts/test-side-menu-draft.mjs && node scripts/test-meat-effects.mjs && node scripts/test-meat-card-ui.mjs && node scripts/test-salmon-effects.mjs && node scripts/test-akami-support.mjs && node scripts/test-kani-effects.mjs && node scripts/test-ika-refund.mjs && node scripts/test-tobiko-effects.mjs && node scripts/test-defense-cards.mjs && node scripts/test-deck-summary.mjs && node scripts/test-omakase.mjs && node scripts/test-improvements-effects.mjs && node scripts/test-defense-preview.mjs && node scripts/test-defense-prompt.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -27,6 +31,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261009.1",
     "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
@@ -37,6 +42,7 @@
     "tailwindcss": "^4.3.1",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2",
-    "vite": "^8.1.0"
+    "vite": "^8.1.0",
+    "wrangler": "^4.149.0"
   }
 }

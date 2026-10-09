@@ -1,4 +1,3 @@
-import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createMatch, otherPlayer, transitionMatch } from '../src/game/matchEngine'
 import { summarizeDeck } from '../src/game/deckSummary'
 import { canReorderSideMenu } from '../src/data/sideMenus'
@@ -7,6 +6,7 @@ import type { JoinReply, OnlineAction, PublicComboEvent, PublicMatch, Reply, Roo
 import type { RoomEvent } from '../src/network/httpProtocol'
 import { applyDraftAction, applyDraftHover, createOnlineDraft, publicDraft, refreshOnlineDraft, releaseDraftHover, validDraftAction, validDraftHover } from './onlineDraft'
 import type { OnlineDraft } from './onlineDraft'
+import { detachTimer, randomBelow, randomHex, randomId, sameHex } from './webCrypto'
 
 export type RoomPeer = {
   id: string
@@ -81,10 +81,6 @@ function validToken(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 }
 
-function sameToken(left: string, right: string) {
-  return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
-}
-
 export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number; random: RandomSource }) {
   const peers = new Map<string, RoomPeer>()
   const rooms = new Map<string, Room>()
@@ -98,7 +94,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
 
   const closeRoom = (room: Room, reason: string) => {
     if (!rooms.delete(room.code)) return
-    clearInterval(room.draftTimer)
+    if (room.draftTimer !== undefined) clearInterval(room.draftTimer)
     for (const playerId of [1, 2] as const) {
       const seat = room.seats[playerId]
       if (seat?.expiry) clearTimeout(seat.expiry)
@@ -123,7 +119,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     const draft = room.draft
     if (!draft || !draft.players[1].state.completed || !draft.players[2].state.completed) return
     if (draft.mode === 'initial') {
-      room.match = createMatch({ mode: 'two_player', matchId: randomUUID(),
+      room.match = createMatch({ mode: 'two_player', matchId: randomId(),
         deck: draft.players[1].state.deck, p2Deck: draft.players[2].state.deck,
         sideMenu: draft.players[1].state.sideMenu, p2SideMenu: draft.players[2].state.sideMenu }, random)
     } else if (room.match) {
@@ -137,7 +133,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
       }
     }
     room.draft = null
-    clearInterval(room.draftTimer)
+    if (room.draftTimer !== undefined) clearInterval(room.draftTimer)
     delete room.draftTimer
   }
 
@@ -149,7 +145,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
   }
 
   const startDraft = (room: Room, mode: OnlineDraft['mode']) => {
-    clearInterval(room.draftTimer)
+    if (room.draftTimer !== undefined) clearInterval(room.draftTimer)
     if (mode === 'initial') { room.match = null; room.comboEvents = [] }
     room.draft = createOnlineDraft(mode, Date.now(), random, mode === 'reorder' && room.match ? {
       1: canReorderSideMenu(room.match.players[1].sideMenu),
@@ -157,13 +153,13 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     } : undefined)
     room.rematch.clear()
     room.draftTimer = setInterval(() => refreshDraft(room), 250)
-    room.draftTimer.unref()
+    detachTimer(room.draftTimer)
   }
 
   const joinSeat = (peer: RoomPeer, room: Room, playerId: PlayerId): JoinReply => {
     let seat = room.seats[playerId]
     if (!seat) {
-      seat = { token: randomBytes(32).toString('hex'), peerId: null }
+      seat = { token: randomHex(32), peerId: null }
       room.seats[playerId] = seat
     }
     const previousPeerId = seat.peerId
@@ -196,7 +192,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         if (current) return joinSeat(peer, current.room, current.playerId)
         if (rooms.size >= MAX_ROOMS) return { ok: false, error: 'server_full' }
         let code: string
-        do { code = randomInt(0, 1_000_000).toString().padStart(6, '0') } while (rooms.has(code))
+        do { code = randomBelow(1_000_000).toString().padStart(6, '0') } while (rooms.has(code))
         const room: Room = { code, seats: {}, match: null, draft: null, rematch: new Set(), processed: new Map(), comboEvents: [] }
         rooms.set(code, room)
         return joinSeat(peer, room, 1)
@@ -224,7 +220,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
         const room = rooms.get(request.code.trim().toUpperCase())
         if (!room) return { ok: false, error: 'room_not_found' }
         const token = request.token
-        const playerId = ([1, 2] as const).find(id => room.seats[id] && sameToken(room.seats[id]!.token, token))
+        const playerId = ([1, 2] as const).find(id => room.seats[id] && sameHex(room.seats[id]!.token, token))
         if (!playerId) return { ok: false, error: 'invalid_token' }
         const current = currentRoom(peer)
         if (current && (current.room !== room || current.playerId !== playerId)) {
@@ -345,7 +341,7 @@ export function createRoomService({ resumeTtlMs, random }: { resumeTtlMs: number
     seat.expiry = setTimeout(() => {
       if (!seat.peerId) closeRoom(room, 'expired')
     }, resumeTtlMs)
-    seat.expiry.unref()
+    detachTimer(seat.expiry)
     sendState(room)
   }
 

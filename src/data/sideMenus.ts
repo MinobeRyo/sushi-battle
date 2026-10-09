@@ -32,14 +32,14 @@ export const SIDE_MENUS: SideMenuDefinition[] = [
     description: 'こんがり黄金色の細切りポテト。次の一手も、もう一本も。',
     effect: '自分のターンに2枚目の寿司を出したとき、1枚ドローする。',
     summary: '2枚目の寿司で1枚ドロー',
-    timing: '0APで設置・永続・各自分ターンに1回', accent: '#a27829',
+    timing: '購入時から自動で設置・永続・各自分ターンに1回', accent: '#a27829',
   },
   {
     id: 'tempura', name: '天ぷら盛り合わせ', english: 'TEMPURA', category: '分け合う一皿', price: 300,
     description: '海老と季節の野菜を、さくっと軽く。相手にも届く、気前のよい盛り合わせ。',
-    effect: '双方が、それぞれのターンで最初に出す「えび系または肉寿司」1枚の攻撃を、そのターンだけ＋3。効果は重複せず、設置前に出した寿司には適用しない。',
+    effect: '双方が、それぞれのターンで最初に出す「えび系または肉寿司」1枚の攻撃を、そのターンだけ＋3。効果は重複しない。',
     summary: '双方の最初のえび・肉寿司の攻撃＋3',
-    timing: '0APで設置・永続・双方に適用', accent: '#777342',
+    timing: '購入時から自動で設置・永続・双方に適用', accent: '#777342',
   },
   {
     id: 'ramen', name: 'ラーメン', english: 'RAMEN', category: 'もう一手の一杯', price: 300,
@@ -53,7 +53,7 @@ export const SIDE_MENUS: SideMenuDefinition[] = [
     description: '磯の香りを、漆のお椀に。じっくり戦うための、ほっとする一杯。',
     effect: '自分の消化量を2増やす。消化停止中は追加分も停止する。',
     summary: '自分の消化＋2',
-    timing: '0APで設置・永続', accent: '#557052',
+    timing: '購入時から自動で設置・永続', accent: '#557052',
   },
   {
     id: 'chawanmushi', name: '茶碗蒸し', english: 'CHAWANMUSHI', category: 'すっきりの一品', price: 300,
@@ -67,7 +67,7 @@ export const SIDE_MENUS: SideMenuDefinition[] = [
     description: 'つややかな肉を敷き詰め、ウニをどっさり。生ハムまで強くなる、ご褒美の肉丼。',
     effect: `自分の生ハムの通常攻撃を＋${INBOUND_DON_ATTACK_BONUS}し、生贄1体につき、その寿司の攻撃をさらに＋${INBOUND_DON_SACRIFICE_BONUS}する。すでに場にいる生ハムと、以降に生成する生ハムが対象。肉祭りの追加ダメージは変わらない。`,
     summary: `生ハムの攻撃＋${INBOUND_DON_ATTACK_BONUS}・生贄1体につきさらに＋${INBOUND_DON_SACRIFICE_BONUS}`,
-    timing: '0APで設置・永続・自分だけに適用', accent: '#b46d27',
+    timing: '購入時から自動で設置・永続・自分だけに適用', accent: '#b46d27',
   },
 ]
 

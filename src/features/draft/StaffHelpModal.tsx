@@ -36,7 +36,7 @@ const HELP_SPREADS = [
     kind: 'sideMenus', sideMenuOffset: index * 6,
     title: 'サイドメニュー', footer: 'もう一品のお品書き',
     running: index === 0 ? ['揚げ物の一品', '麺・汁物・蒸し物'] : ['こだわりの一品', '注文と使い方'],
-    intro: ['注文枠を1回使用。特急・大将と共通3回。', '0APで使用。未購入・使い切り使用後は後半も購入可。'],
+    intro: ['注文枠を1回使用。特急・大将と共通3回。', '永続型は購入時から自動で発動。ほかは自分のターンに0APで使用。'],
   })),
 ]
 
@@ -168,7 +168,7 @@ function CompactHelpModal({ onClose }: { onClose: () => void }) {
         {section === 'builds' && BUILD_GUIDE.slice(page * 2, page * 2 + 2).map(build => <article key={build.label}><h3>{build.label}</h3><div className="compact-help-art"><SushiArt card={getHelpCard(build.cardId)!} size="100%" /></div><strong>{build.specialty}</strong><p>{build.desc}</p></article>)}
         {section === 'combos' && COMBO_GUIDE.slice(page * 2, page * 2 + 2).map(combo => <article key={combo.id}><h3>{COMBO_META[combo.id].name.replace(/！+$/, '')}</h3><div className="compact-help-art">{combo.cards.map(id => <SushiArt key={id} card={getHelpCard(id)!} size="100%" />)}</div><small>{combo.timing}</small><p>{combo.cond}</p><strong>{combo.effect}</strong>{combo.note && <p>{combo.note}</p>}</article>)}
         {section === 'sides' && SIDE_MENUS.slice(page * 2, page * 2 + 2).map(menu => <article key={menu.id}><h3>{menu.name} <small>¥{menu.price}</small></h3><div className="compact-help-art"><SideMenuArt id={menu.id} /></div><strong>{menu.timing}</strong><p>{menu.effect}</p></article>)}
-        {section === 'sides' && page === pages - 1 && <><article><h3>サイドの注文</h3><strong>特急・大将と共通で3回</strong><p>注文枠を1回使って購入します。寿司20枚の枠には含まれません。</p><p>未購入なら後半も購入できます。使い切りは使用後にもう一度、計2回まで。</p></article><article><h3>サイドの使い方</h3><strong>自分の番に0APで使用</strong><p>寿司の机8枠を使わずに設置できます。</p><p>大将のおすすめは750円分が500円に。たまにハズレもあります。</p></article></>}
+        {section === 'sides' && page === pages - 1 && <><article><h3>サイドの注文</h3><strong>特急・大将と共通で3回</strong><p>注文枠を1回使って購入します。寿司20枚の枠には含まれません。</p><p>未購入なら後半も購入できます。使い切りは使用後にもう一度、計2回まで。</p></article><article><h3>サイドの使い方</h3><strong>永続型は購入時から自動で発動</strong><p>使い切りとラーメンは自分の番に0APで使用。寿司の机8枠は使いません。</p><p>大将のおすすめは750円分が500円に。たまにハズレもあります。</p></article></>}
       </div>
       <ScreenPager page={page} pages={pages} onPageChange={setPage} />
     </dialog>
@@ -310,7 +310,7 @@ function BookHelpModal({ onClose }: { onClose: () => void }) {
                               </article>
                               <article className="help-menu-combo">
                                 <h3>自分の手番に</h3>
-                                <p className="help-menu-description">0APで使用・設置。寿司の机8枠を使いません。</p>
+                                <p className="help-menu-description">使い切りとラーメンは0APで使用。永続型は操作不要。机8枠を使いません。</p>
                               </article>
                               <article className="help-menu-combo">
                                 <h3>大将のおすすめ</h3>

@@ -1,0 +1,99 @@
+/* PCの対戦画面：机8枚×2と手札7枚を、スクロールなしで一画面に収める。
+   スマホ横向きの専用レイアウト（BattleLandscape.css）とは条件を重ねない。 */
+@media (min-width: 1101px), (min-width: 821px) and (min-height: 601px) {
+  .battle-layout { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+
+  /* 上段：双方の状態を1行にまとめ、発動中の効果は帯として常に見せる。 */
+  .battle-overview { min-height: 0; max-height: none; padding: 0 10px 6px; }
+  .battle-phase-bar { padding: 3px 2px; font-size: 13px; }
+  .battle-status-grid { gap: 8px; min-height: 0; }
+  .battle-overview .player-status-panel__summary { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 12px; padding: 3px 8px; }
+  .battle-overview .player-status-panel__title-row { flex: 0 1 auto; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+  .battle-overview .player-status-panel__heading { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .battle-overview .player-status-panel__belly { display: flex; flex: 1 1 150px; align-items: center; gap: 8px; min-width: 120px; }
+  .battle-overview .player-status-panel__belly-numbers { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 24px; }
+  .battle-overview .player-status-panel__gauge { flex: 1 1 0; height: 6px; margin-top: 0; }
+  .battle-overview .player-status-panel__metrics { display: flex; flex: 0 0 auto; align-items: baseline; gap: 10px; margin: 0; }
+  .battle-overview .player-status-panel__metrics > div { flex-wrap: nowrap; }
+  .battle-overview .player-status-panel__metrics dd strong { font-size: 17px; }
+  .battle-overview .player-status-panel__card-count dd strong { font-size: 15px; }
+  .battle-overview .player-status-panel__details { display: flex; flex: 0 0 auto; align-items: flex-start; min-height: 25px; max-height: 52px; padding: 3px 6px; overflow: hidden; }
+  .battle-overview .player-status-panel__effects-heading { display: none; }
+  .battle-overview .player-status-panel__empty { margin: 0; font-size: 11px; line-height: 18px; }
+  .battle-overview .player-status-panel__details .player-status-panel__effects { flex-wrap: wrap; gap: 3px; margin: 0; overflow: visible; }
+  .battle-overview .player-status-panel__details .player-status-panel__effects li { gap: 3px; padding: 1px 5px; font-size: 11px; line-height: 16px; }
+  .battle-overview .player-status-panel__details .player-status-panel__effects li strong { font-size: 11px; }
+  .battle-overview .player-status-panel__details .player-status-panel__effects li small { display: none; }
+  .battle-overview .battle-deck-trigger { min-height: 26px; padding: 1px 6px; }
+  .battle-overview .battle-deck-trigger__label { display: none; }
+
+  /* 中段：机は4列×2段、その下にサイドメニューの帯。下段は手札7枚。 */
+  .battle-arena { display: grid; grid-template-rows: minmax(0, 1fr) clamp(132px, 27vh, 218px); gap: 6px; padding: 6px 10px; overflow: hidden; }
+  .battle-tables { gap: 8px; min-height: 0; }
+  .battle-player-area { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 44px; align-items: stretch; gap: 5px; min-height: 0; }
+  .battle-table { display: flex; flex-direction: column; min-height: 0; padding: 4px 0; border-radius: 10px; }
+  .battle-table-heading { flex: 0 0 auto; flex-wrap: nowrap; gap: 4px; padding: 0 8px 3px; }
+  .battle-table-heading h2 { min-width: 0; overflow: hidden; font-size: 14px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+  .battle-table-heading h2 span { display: none; }
+  .battle-table-heading > span { flex-shrink: 0; font-size: 12px; }
+  .battle-field-cards { display: grid; flex: 1 1 0; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 5px; min-height: 0; padding: 3px 6px 5px; overflow: visible; scroll-snap-type: none; }
+  .battle-field-cards > :first-child, .battle-hand > :first-child { margin-left: 0; }
+  .battle-field-cards > :last-child, .battle-hand > :last-child { margin-right: 0; }
+  .battle-empty-field { grid-column: 1 / -1; grid-row: 1 / -1; margin: auto; padding: 8px; font-size: 13px; }
+  .battle-field-card, .battle-hand-card { width: 100%; min-width: 0; height: 100%; min-height: 0; padding: 4px 5px; gap: 1px; border-radius: 8px; box-shadow: 0 2px 4px #63320b0d; }
+  .battle-field-card-art, .battle-hand-card-art { flex: 1 1 0; height: 0; min-height: 0; overflow: hidden; }
+  .battle-field-card-name, .battle-hand-card-name { display: block; flex: 0 0 auto; min-height: 0; margin: 0; overflow: hidden; font-size: 13px; line-height: 17px; text-overflow: ellipsis; white-space: nowrap; }
+  .battle-field-card-stats, .battle-hand-card-stats { flex: 0 0 auto; gap: 4px; min-height: 19px; line-height: 19px; }
+  .battle-field-card-attack { font-size: 14px; }
+  .battle-field-card-turns { font-size: 12px; }
+  /* 効果の文章はカードを押した詳細で読む。盤面では絵・名前・数値を優先する。 */
+  .battle-field-card-effect, .battle-hand-card-effect { display: none; }
+
+  .battle-combo-progress { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; min-width: 0; padding: 3px 6px 0; }
+  .battle-combo-heading { flex: 0 0 auto; order: 2; margin-left: auto; }
+  .battle-combo-progress h3 { display: none; }
+  .battle-combo-progress > div:not(.battle-combo-heading) { flex: 1 1 0; flex-wrap: nowrap !important; gap: 3px !important; margin-top: 0 !important; overflow: hidden !important; justify-content: flex-start !important; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+  .battle-combo-progress > div:not(.battle-combo-heading) > div > div { padding: 0 6px !important; line-height: 1.5 !important; }
+  .battle-status-open { min-height: 24px; padding: 1px 8px; font-size: 11px; white-space: nowrap; }
+
+  .battle-side-slot { flex-direction: row; align-items: center; gap: 10px; width: 100%; height: 100%; padding: 3px 8px; border-width: 1px; border-radius: 8px; text-align: left; }
+  .battle-side-heading { flex-direction: column; align-items: flex-start; gap: 1px; }
+  .battle-side-inspect { flex: 1 1 0; flex-direction: row; justify-content: flex-start; gap: 8px; min-width: 0; height: 100%; }
+  .battle-side-art { flex: 0 0 48px; width: 48px; height: 34px; min-height: 0; max-height: none; }
+  .battle-side-name { flex-shrink: 1; min-width: 0; overflow: hidden; font-size: 13px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+  .battle-side-remaining, .battle-side-used { flex-shrink: 0; white-space: nowrap; }
+  .battle-side-hint { flex-shrink: 0; margin-left: auto; white-space: nowrap; }
+  .battle-side-empty { justify-content: flex-start; }
+  .battle-side-empty br { display: none; }
+  .battle-side-action-area { flex-direction: row-reverse; align-items: center; gap: 8px; }
+  .battle-side-use { width: auto; min-height: 32px; padding: 4px 12px; white-space: nowrap; }
+  .battle-side-action-reason { white-space: nowrap; }
+
+  .battle-hand-section { display: flex; flex-direction: column; min-height: 0; margin-top: 0; padding: 4px 0 0; border-radius: 10px; }
+  .battle-hand { display: grid; flex: 1 1 0; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; min-height: 0; padding: 4px 8px 7px; overflow: visible; scroll-snap-type: none; }
+  .battle-hand-card-cost { padding: 0 5px; font-size: 13px; line-height: 20px; }
+  .battle-hand-card-type { font-size: 11px; }
+
+  .battle-actions { position: static; gap: 8px; padding: 5px 10px; }
+  .battle-actions .battle-hand-jump { display: none; }
+  .battle-actions button { min-height: 40px; }
+  .battle-end-turn { padding: 7px 28px; }
+}
+
+/* 背の低いPC画面やオンラインの通知バーがあるときは、余白と帯を先に詰める。 */
+@media (min-width: 821px) and (min-height: 601px) and (max-height: 700px), (min-width: 1101px) and (max-height: 700px) {
+  .battle-overview { padding-bottom: 4px; }
+  .battle-overview .player-status-panel__belly-numbers strong { font-size: 20px; }
+  .battle-overview .player-status-panel__details { max-height: 48px; padding-block: 2px; }
+  .battle-arena { grid-template-rows: minmax(0, 1fr) clamp(112px, 24vh, 160px); gap: 4px; padding-block: 4px; }
+  .battle-player-area { grid-template-rows: minmax(0, 1fr) 38px; gap: 4px; }
+  .battle-side-art { height: 28px; }
+  .battle-side-use { min-height: 28px; }
+  .battle-field-card { padding: 2px 4px; }
+  .battle-field-card-name, .battle-hand-card-name { font-size: 12px; line-height: 15px; }
+  .battle-field-card-stats, .battle-hand-card-stats { min-height: 16px; line-height: 16px; }
+  .battle-actions { padding-block: 4px; }
+  .battle-actions button { min-height: 34px; }
+  .battle-end-turn { padding-block: 4px; }
+}

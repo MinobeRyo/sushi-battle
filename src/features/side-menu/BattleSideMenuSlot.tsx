@@ -26,11 +26,11 @@ export function BattleSideMenuSlot({ label, menu, canAct = false, ap = 0, maxAP 
   const status = !menu ? '' : menu.status === 'used' ? '使用済み'
     : menu.status === 'expired' ? '効果終了'
       : menu.status === 'ready' ? '未使用'
-        : '発動中'
+        : isRamen ? '発動中' : '設置中'
   const finished = menu?.status === 'used' || menu?.status === 'expired'
   const passive = menu?.status === 'active' && !isRamen
   const blockedReason = finished ? 'この一皿は使用終了です'
-    : passive ? '設置した効果が続いています'
+    : passive ? '購入時から設置され、効果が続いています'
       : !canAct ? '自分のターンに使用できます'
         : isRamen && menu?.usedThisTurn ? 'このターンは使用済みです'
           : isRamen && ap >= maxAP ? 'APが満タンです' : undefined

@@ -134,24 +134,18 @@ test('オンラインで生ハムを2体生成・消費し、肉祭りはガリ�
 test('インバウン丼を購入・設置して復帰しても生贄強化を保持し、再送で重複しない', t => {
   const f = fixture(t, 'inbound_don')
   f.prepareWagyu()
-  const before = f.read(f.host).match
-  const install = f.send(f.host, { type: 'use_side_menu' })
+  // 永続型は購入時から設置済み。使用操作を送らなくても効果が始まっている。
   const installed = f.read(f.host).match
-  assert.equal(installed.you.ap, before.you.ap)
   assert.equal(installed.you.sideMenu.status, 'active')
   assert.equal(installed.you.sideMenu.turnsLeft, null)
   assert.equal(installed.you.attackBuff['生ハム'], 2)
   assert.equal(installed.opponent.attackBuff['生ハム'] ?? 0, 0)
-  assert.deepEqual(f.service.handle(f.host, 'match:action', install), { ok: true })
-  assert.deepEqual(f.read(f.host).match, installed)
   assert.deepEqual(f.service.handle(f.host, 'match:action', f.action(f.host, { type: 'use_side_menu' })),
     { ok: false, error: 'side_menu_already_active' })
   f.service.disconnect(f.host)
   const resumed = f.peer('inbound-resumed')
   f.service.connect(resumed)
   assert.equal(f.service.handle(resumed, 'room:resume', f.created.session).ok, true)
-  assert.deepEqual(f.read(resumed).match, installed)
-  assert.deepEqual(f.service.handle(resumed, 'match:action', install), { ok: true })
   assert.deepEqual(f.read(resumed).match, installed)
   const wagyu = installed.you.hand.find(card => card.id === 'wagyu')
   const sacrifice = f.send(resumed, { type: 'play_card', cardInstanceId: wagyu.instanceId, sacrificeCount: 2 })
@@ -171,7 +165,6 @@ test('インバウン丼を購入・設置して復帰しても生贄強化を�
 
 test('オンラインでも設置後の生成生ハムは通常攻撃3となり、ガリで切り上げ半減する', t => {
   const f = fixture(t, 'inbound_don')
-  f.send(f.host, { type: 'use_side_menu' })
   f.play('gyutan')
   const generated = f.read(f.host).match
   assert.equal(generated.you.field.filter(card => card.id === NAMAHAM_CARD.id).length, 1)

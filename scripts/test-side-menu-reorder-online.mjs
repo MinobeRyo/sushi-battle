@@ -49,7 +49,10 @@ function fixture(t) {
   return { read, draft, battle, ok, finish, end, play }
 }
 
+// 永続型は購入時から設置済み。使用操作は受け付けず、追加注文でも設置状態を保つ。
+const PERSISTENT = ['fries', 'tempura', 'miso', 'inbound_don']
 for (const menu of SIDE_MENUS) for (const ownerId of [1, 2]) for (const usedBefore of [false, true]) {
+  const persistent = PERSISTENT.includes(menu.id)
   test(`P${ownerId} ${menu.name} ${usedBefore ? '初回使用済み' : '未使用'}を追加注文後も保持する`, t => {
     const f = fixture(t)
     f.ok(f.draft(ownerId, { type: 'buy_side_menu', sideMenuId: menu.id }))
@@ -58,10 +61,11 @@ for (const menu of SIDE_MENUS) for (const ownerId of [1, 2]) for (const usedBefo
     // 両者の手札を尽くして、実際のターン進行から追加注文に入る。
     for (const id of [1, 2]) {
       f.play(id)
-      if (id === ownerId && usedBefore) f.ok(f.battle(id, { type: 'use_side_menu' }))
+      if (id === ownerId && usedBefore && !persistent) f.ok(f.battle(id, { type: 'use_side_menu' }))
       f.end(id)
     }
     const before = f.read(ownerId)
+    if (persistent) assert.equal(before.match.you.sideMenu.status, 'active')
     assert.equal(before.match.phase, 'reorder')
     assert.equal(before.draft.mode, 'reorder')
     assert.equal(before.draft.you.sideMenuEnabled, usedBefore && ['karaage', 'chawanmushi'].includes(menu.id))
@@ -83,9 +87,9 @@ for (const menu of SIDE_MENUS) for (const ownerId of [1, 2]) for (const usedBefo
     assert.equal(current.match.phase, 'playing')
     assert.deepEqual(toOnlineBattleView(current.match, 'player').pSideMenu, current.match.you.sideMenu)
     const response = f.battle(ownerId, { type: 'use_side_menu' })
-    const expected = !usedBefore || menu.id === 'ramen' ? { ok: true }
-      : ['karaage', 'chawanmushi'].includes(menu.id) ? { ok: false, error: 'side_menu_spent' }
-        : { ok: false, error: 'side_menu_already_active' }
+    const expected = persistent ? { ok: false, error: 'side_menu_already_active' }
+      : !usedBefore || menu.id === 'ramen' ? { ok: true }
+        : { ok: false, error: 'side_menu_spent' }
     assert.deepEqual(response, expected)
     const final = f.read(ownerId).match
     if (!response.ok) assert.deepEqual(final, current.match, '使用済み・設置済みを再操作しても状態を変えない')
@@ -108,7 +112,7 @@ for (const initialMenu of [null, 'karaage', 'chawanmushi', 'miso']) {
     f.finish()
     for (const id of [1, 2]) {
       f.play(id)
-      if (id === 1 && initialMenu) f.ok(f.battle(id, { type: 'use_side_menu' }))
+      if (id === 1 && initialMenu && initialMenu !== 'miso') f.ok(f.battle(id, { type: 'use_side_menu' }))
       f.end(id)
     }
     const eligible = initialMenu !== 'miso'
