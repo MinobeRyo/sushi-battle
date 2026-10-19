@@ -1,6 +1,7 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
-import type { CpuBattleMode } from '../../data/cpuDecks'
+import type { CpuBattleMode, CpuDeckId } from '../../data/cpuDecks'
+import type { PlayerId } from '../../game/types'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
@@ -34,36 +35,46 @@ export function BattleScreen({
   p2Deck,
   sideMenu,
   p2SideMenu,
-  mode = 'cpu',
   cpuBattleMode = 'random',
+  cpuDeckId,
+  initialBelly,
+  refillOnEmpty,
   onBack,
+  onFinish,
 }: {
   deck: Card[]
   p2Deck?: Card[]
   sideMenu?: SideMenuId | null
   p2SideMenu?: SideMenuId | null
-  mode?: 'cpu' | 'two_player'
   cpuBattleMode?: CpuBattleMode
+  cpuDeckId?: CpuDeckId
+  initialBelly?: Partial<Record<PlayerId, number>>
+  refillOnEmpty?: boolean
   onBack?: () => void
+  /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
+  onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, onSummon: () => playGameSound('cardPlay') })
-  return <BattleBoard game={game} mode={mode} onBack={onBack} />
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon: () => playGameSound('cardPlay') })
+  return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
+
+export type BattleFinish = { won: boolean; belly: number }
 
 export type BattleController = ReturnType<typeof useBattleGame>
 
 type BattleBoardProps = {
   game: BattleController
-  mode: 'cpu' | 'two_player' | 'online'
+  mode: 'cpu' | 'online'
   onBack?: () => void
   canRestart?: boolean
   restartLabel?: string
+  onFinish?: (result: BattleFinish) => void
 }
 
-export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回' }: BattleBoardProps) {
+export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回', onFinish }: BattleBoardProps) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart,
+    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handleReorderComplete, restart,
   } = game
   const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
   const isCompact = useCompactLandscape()
@@ -87,7 +98,6 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     : s.phase === 'reacting' ? '光り物の防御を選んでください'
     : s.phase === 'defending' ? '防御を選んでください'
     : s.phase === 'animating' ? '攻撃中…'
-    : s.phase === 'pass' ? 'プレイヤー交代'
     : s.phase === 'reorder' ? '追加注文中…'
     : s.phase === 'syncing' ? '通信待ち…'
     : s.pendingReaction && !isReactionDefender ? '相手が光り物の防御を選択中…'
@@ -169,7 +179,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   return (
     <div className="battle-viewport" onPointerDownCapture={prepareGameAudio} onKeyDownCapture={prepareGameAudio}>
     <div className="battle-board" style={{ background: C.bgMain, color: C.txtPri }}>
-      <div className="battle-layout" ref={layoutRef} inert={s.phase === 'pass'}>
+      <div className="battle-layout" ref={layoutRef}>
         <header className="battle-overview">
           <div className="battle-phase-bar">
             <span className="battle-turn-number">ターン {s.turn}</span>
@@ -361,51 +371,6 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           onLeave={mode === 'online' ? onBack : undefined} />
       )}
 
-      {/* ══ パス画面（二人対戦） ══ */}
-      <AnimatePresence>
-        {s.phase === 'pass' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'absolute', inset: 0, zIndex: 50,
-              background: '#1c130c',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 20,
-            }}
-          >
-            <motion.div
-              initial={{ scale: 0.8, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              style={{ textAlign: 'center' }}
-            >
-              <p style={{ fontSize: 'clamp(48px, 8vw, 80px)', marginBottom: 16 }}>🍣</p>
-              <p style={{ fontSize: 'clamp(20px, 3.5vw, 32px)', fontWeight: 900, color: '#fde68a', marginBottom: 8 }}>
-                P{s.passToPlayerId} {s.pendingAttack || s.pendingReaction ? 'の防御です' : 'の番です'}
-              </p>
-              <p style={{ fontSize: R.fmd, color: '#a8a29e', marginBottom: 32, lineHeight: 1.7 }}>
-                デバイスを P{s.passToPlayerId} に渡してください
-              </p>
-              <motion.button
-                onClick={handlePassReady}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                style={{
-                  padding: 'clamp(12px, 2vh, 20px) clamp(32px, 5vw, 64px)',
-                  background: C.btnEnd, border: `2px solid ${C.btnEndBorder}`,
-                  borderRadius: 999, fontSize: R.fmd, fontWeight: 800,
-                  color: '#fff', cursor: 'pointer',
-                  boxShadow: `0 0 28px ${C.btnEndGlow}`,
-                }}
-              >
-                準備完了 →
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ══ 追加注文タイム ══ */}
       {s.phase === 'reorder' && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: '#1c0c04', display: 'flex', flexDirection: 'column' }}>
@@ -445,6 +410,12 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               <p style={{ fontSize: 'clamp(24px, 4.5vw, 56px)', fontWeight: 700, color: '#fff', marginBottom: 8 }}>{winnerLabel}</p>
               <p style={{ fontSize: R.fmd, color: '#a89070', marginBottom: 32 }}>{s.turn} ターンで決着</p>
               <div className="battle-result-actions" style={{ display: 'flex', gap: 'clamp(12px, 2vw, 24px)', justifyContent: 'center' }}>
+                {onFinish ? (
+                  <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                    onClick={() => onFinish({ won: s.winner === 'player', belly: s.pBelly })}
+                    style={{ padding: 'clamp(12px, 1.5vh, 20px) clamp(28px, 4vw, 56px)', borderRadius: 999, fontSize: R.fmd, fontWeight: 800, background: C.btnEnd, color: '#fff', border: `1.5px solid ${C.btnEndBorder}`, cursor: 'pointer', boxShadow: `0 0 24px ${C.btnEndGlow}` }}
+                  >{s.winner === 'player' ? '次へ進む' : 'はしごの結果へ'}</motion.button>
+                ) : <>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   onClick={restart}
                   disabled={!canRestart}
@@ -455,6 +426,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
                     style={{ padding: 'clamp(12px, 1.5vh, 20px) clamp(28px, 4vw, 56px)', borderRadius: 999, fontSize: R.fmd, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#ccc', border: '1.5px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}
                   >{mode === 'online' ? '部屋を退出' : 'タイトルへ'}</motion.button>
                 )}
+                </>}
               </div>
             </motion.div>
           </motion.div>

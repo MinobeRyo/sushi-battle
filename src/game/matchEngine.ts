@@ -2,7 +2,7 @@ import { shouldChallengeUseGari } from './cpuDefense'
 import { CHALLENGE_SMART_RATE, getChallengeAction } from './cpuStrategy'
 import type { Card } from '../types'
 import { CARDS, NAMAHAM_CARD } from '../data/cards'
-import { chooseCpuDeck, getCpuDeck, getCpuReorderDeck, type CpuBattleMode } from '../data/cpuDecks'
+import { chooseCpuDeck, getCpuDeck, getCpuDeckDefinition, getCpuReorderDeck, type CpuBattleMode, type CpuDeckId } from '../data/cpuDecks'
 import { canReorderSideMenu, INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
@@ -14,6 +14,12 @@ export type MatchOptions = {
   cpuBattleMode?: CpuBattleMode
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode; matchId?: string
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
+  /** 指定したCPUデッキと戦う（寿司はしご用）。省略時は cpuBattleMode から選ぶ。 */
+  cpuDeckId?: CpuDeckId
+  /** 開始時のお腹（寿司はしごの持ち越し用）。 */
+  initialBelly?: Partial<Record<PlayerId, number>>
+  /** true なら山札切れで追加注文せず、使った寿司を戻して引き直す（おかわり）。 */
+  refillOnEmpty?: boolean
 }
 
 /** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
@@ -51,7 +57,8 @@ function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSour
 }
 
 export function createMatch(options: MatchOptions, random: RandomSource = Math.random): MatchState {
-  const cpuDeck = options.mode === 'cpu' ? chooseCpuDeck(options.cpuBattleMode ?? 'random', random) : null
+  const cpuDeck = options.mode !== 'cpu' ? null
+    : options.cpuDeckId ? getCpuDeckDefinition(options.cpuDeckId) : chooseCpuDeck(options.cpuBattleMode ?? 'random', random)
   const state: MatchState = {
     matchId: options.matchId ?? 'local', mode: options.mode, cpuDeckId: cpuDeck?.id ?? null,
     players: { 1: newPlayer(1, options.sideMenu), 2: newPlayer(2, options.p2SideMenu) }, activePlayerId: 1,
@@ -60,9 +67,16 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
     log: [cpuDeck ? `バトル開始！ ${cpuDeck.id === 'challenge' ? '挑戦CPU' : 'CPU'}：${cpuDeck.name}` : 'バトル開始！'],
   }
   const fallback = CARDS.filter(card => card.lane === 'general').slice(0, 10)
-  deal(state, 1, options.deck.length ? options.deck : fallback, random)
-  deal(state, 2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
-    : options.p2Deck?.length ? options.p2Deck : fallback, random)
+  const p1Cards = options.deck.length ? options.deck : fallback
+  const p2Cards = cpuDeck ? getCpuDeck(cpuDeck.id, random)
+    : options.p2Deck?.length ? options.p2Deck : fallback
+  deal(state, 1, p1Cards, random)
+  deal(state, 2, p2Cards, random)
+  if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
+  for (const id of [1, 2] as const) {
+    const belly = options.initialBelly?.[id]
+    if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(MAX_BELLY - 1, Math.floor(belly)))
+  }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
     const id = SIDE_MENUS[Math.min(SIDE_MENUS.length - 1, Math.floor(random() * SIDE_MENUS.length))].id
@@ -82,6 +96,34 @@ function label(state: MatchState, id: PlayerId) {
 function draw(player: MatchPlayer, count: number) {
   const take = Math.min(count, Math.max(0, HAND_LIMIT - player.hand.length))
   player.hand.push(...player.deck.splice(0, take))
+}
+
+/** おかわり：山札が空なら、手札と机に残っている分を除いた元のデッキを山札に戻してシャッフルする。 */
+function refillDeck(state: MatchState, id: PlayerId, random: RandomSource): boolean {
+  const player = state.players[id]
+  const source = state.refill?.[id]
+  if (!source || player.deck.length > 0) return false
+  const remaining = [...source]
+  for (const card of [...player.hand, ...player.field]) {
+    const index = remaining.findIndex(item => item.id === card.id)
+    if (index >= 0) remaining.splice(index, 1)
+  }
+  if (remaining.length === 0) return false
+  const instances: CardInstance[] = remaining.map(card => ({
+    ...structuredClone(card), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+  }))
+  player.deck = shuffled(instances, random)
+  addLog(state, `🍵 ${label(state, id)}: おかわり！ 使った寿司${instances.length}枚を山札に戻した`)
+  return true
+}
+
+/** おかわりありの試合では、引く途中で山札が尽きたら戻してから続けて引く。 */
+function drawWithRefill(state: MatchState, id: PlayerId, count: number, random: RandomSource) {
+  const player = state.players[id]
+  const before = player.hand.length
+  draw(player, count)
+  const drawn = player.hand.length - before
+  if (drawn < count && player.hand.length < HAND_LIMIT && refillDeck(state, id, random)) draw(player, count - drawn)
 }
 
 function drawPersistIkaTako(player: MatchPlayer, random: RandomSource): string {
@@ -293,7 +335,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
       result.logs.push('手札・山札の赤身カード1枚のAPコストを1軽減（下限0）')
     } else result.logs.push('APコストを軽減できる赤身カードなし')
   }
-  draw(player, result.drawNow)
+  drawWithRefill(state, id, result.drawNow, random)
   if (result.drawPersistIkaTako) result.logs.unshift(drawPersistIkaTako(player, random))
   if (card.effect === 'draw_random_akami_1') result.logs.unshift(drawAkami(player, random))
   if (card.effect === 'draw_random_maki_1') result.logs.unshift(drawMaki(player, random))
@@ -334,7 +376,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     }
   }
   if (activeSideMenu(player, 'fries') && player.sushiPlayedThisTurn === 2) {
-    draw(player, 1)
+    drawWithRefill(state, id, 1, random)
     addLog(state, `${label(state, id)}: ポテトで1枚ドロー`)
   }
   if (tempuraBonus) addLog(state, `${label(state, id)}: 天ぷら盛り合わせで${card.name}の今ターン攻撃 +3`)
@@ -378,7 +420,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   }).filter(card => card.turnsLeft > 0)
   // 次に戻る本人の防御は、相手の終了攻撃まで温存していてもここで失効する。
   state.players[nextId].field = state.players[nextId].field.filter(card => card.defenseState !== 'ready')
-  draw(player, 1 + player.drawBonus)
+  drawWithRefill(state, id, 1 + player.drawBonus, random)
   if (player.kiretaSpent) {
     player.kiretaStack = 0
     addLog(state, '✂ 切れ味スタックを使い切った（0にリセット）')
@@ -432,6 +474,11 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   events.push({ type: 'turn_started', playerId: nextId })
   addLog(state, `── ターン ${state.turn}（${label(state, nextId)}）──`)
 
+  if (state.refill) {
+    // おかわりの試合では追加注文せず、手札も山札も尽きた手番の頭で5枚引き直す。
+    if (next.hand.length === 0 && next.deck.length === 0 && refillDeck(state, nextId, random)) draw(next, 5)
+    return
+  }
   const allOut = Object.values(state.players).every(p => p.hand.length === 0 && p.deck.length === 0)
   // CPU戦では両者の手番が済んだ境界で補充する（既存の進行を維持）。
   if (allOut && (state.mode === 'two_player' || nextId === 1)) {

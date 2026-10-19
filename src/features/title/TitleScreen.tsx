@@ -53,7 +53,7 @@ export function TitleScreen({ onPlay, onOpenCatalog }: Props) {
               <span className="title-board-dot" aria-hidden="true" />
             </button>
           </nav>
-          <p className="title-mode-note">ひとり・ふたり・オンライン対戦</p>
+          <p className="title-mode-note">CPU対戦・寿司はしご・オンライン対戦</p>
         </div>
 
         <div className="title-counter" aria-hidden="true">

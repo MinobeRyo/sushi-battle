@@ -1,6 +1,6 @@
 import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
-import type { CpuBattleMode } from '../../data/cpuDecks'
+import type { CpuBattleMode, CpuDeckId } from '../../data/cpuDecks'
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { createMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
@@ -10,15 +10,19 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, onSummon }: {
+export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon }: {
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode
   cpuBattleMode?: CpuBattleMode
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
+  cpuDeckId?: CpuDeckId
+  initialBelly?: Partial<Record<PlayerId, number>>
+  refillOnEmpty?: boolean
   onSummon?: () => void
 }) {
+  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty }
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
-  if (matchRef.current === null) matchRef.current = createMatch({ deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, matchId: 'local-0' })
+  if (matchRef.current === null) matchRef.current = createMatch({ ...matchOptions, matchId: 'local-0' })
   const view = useRef<{ viewer: PlayerId; phase: ViewPhase; busy: boolean; passToPlayerId: PlayerId | null }>({
     viewer: 1, phase: 'player', busy: false, passToPlayerId: null,
   })
@@ -227,7 +231,7 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
   const restart = () => {
     clearTimers()
     matchNumber.current += 1
-    matchRef.current = createMatch({ deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, matchId: `local-${matchNumber.current}` })
+    matchRef.current = createMatch({ ...matchOptions, matchId: `local-${matchNumber.current}` })
     view.current = { viewer: 1, phase: 'player', busy: false, passToPlayerId: null }
     setShowLog(false)
     clearCombos()
