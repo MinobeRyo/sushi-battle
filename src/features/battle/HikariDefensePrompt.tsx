@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FieldCard, PendingReaction } from '../../game/types'
-import { calcFieldDmg, calcKaisenReattackDamage, getDefenseCost, getDefenseReductionRate, getDefenseTargets, hasNamahamuAura, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
+import { calcFieldDmg, calcKaisenReattackDamage, getDefenseReductionRate, getDefenseTargets, isTargetedDefense, namahamuAuraBonus, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { ScreenPager } from '../../components/ScreenPager'
 import './DefensePrompt.css'
@@ -27,13 +27,13 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
   const targets = getDefenseTargets(enemyField, attackBuff, kiretaStack, enemyBelly)
   const targetPages = Math.max(1, Math.ceil(targets.length / 4))
   const currentTargetPage = Math.min(targetPage, targetPages - 1)
-  const needsTarget = !!defenseCard && getDefenseCost(defenseCard) === 2
+  const needsTarget = !!defenseCard && isTargetedDefense(defenseCard)
   const targetFieldId = selection?.defenseCardId === reaction.defenseCardId
     && targets.some(card => card.fid === selection.targetFieldId) ? selection.targetFieldId : undefined
   const canUse = ready && defenseCard?.fid === reaction.defenseCardId && defenseCard.defenseState === 'ready' && targets.length > 0 && (!needsTarget || !!targetFieldId)
   const gunkanBoost = makimonoCount(enemyField) >= MAKI_COMP_5
-  const namahamuBoost = hasNamahamuAura(enemyField)
-  const attack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { gunkanBoost, namahamuBoost })
+  const namahamuBoost = namahamuAuraBonus(enemyField)
+  const attack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { gunkanBoost, namahamuBoost, fieldCount: enemyField.length })
   const reduced = (card: FieldCard) => defenseCard ? withDefenseReduction(card, defenseCard) : card
   const received = (field: FieldCard[]) => reaction.fixedDamage
     + (reaction.kaisenReattack ? calcKaisenReattackDamage(field, attackBuff, kiretaStack, enemyBelly) : 0)

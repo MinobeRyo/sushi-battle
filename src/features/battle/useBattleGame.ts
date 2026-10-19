@@ -2,7 +2,7 @@ import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode, CpuDeckId } from '../../data/cpuDecks'
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { createMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
+import { createMatch, type MatchOptions, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
 import { COMBO_META } from './battleEngine'
 import type { FloatNum, Inspect, ViewPhase } from './types'
@@ -10,16 +10,17 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon }: {
+export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, onSummon }: {
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode
   cpuBattleMode?: CpuBattleMode
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
   cpuDeckId?: CpuDeckId
   initialBelly?: Partial<Record<PlayerId, number>>
   refillOnEmpty?: boolean
+  runMods?: MatchOptions['runMods']
   onSummon?: () => void
 }) {
-  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty }
+  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods }
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
   if (matchRef.current === null) matchRef.current = createMatch({ ...matchOptions, matchId: 'local-0' })

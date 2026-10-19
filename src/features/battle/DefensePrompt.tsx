@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { calcFieldDmg, calcGariReduction, getDefenseReductionRate, hasNamahamuAura, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
+import { calcFieldDmg, calcGariReduction, getDefenseReductionRate, namahamuAuraBonus, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
 import { defensePreview } from './defensePreview'
 import { SushiArt } from '../../components/SushiArt'
 import type { FieldCard, PendingAttack } from '../../game/types'
@@ -36,7 +36,7 @@ export function DefensePrompt({ attack, belly, gari, defenseCard, enemyField = [
   const range = (low: number, high: number) => low === high ? String(low) : `${low}〜${high}`
   const minBelly = Math.min(MAX_BELLY, belly + preview.min)
   const maxBelly = Math.min(MAX_BELLY, belly + preview.max)
-  const fieldDamageOptions = { gunkanBoost: makimonoCount(enemyField) >= MAKI_COMP_5, namahamuBoost: hasNamahamuAura(enemyField) }
+  const fieldDamageOptions = { gunkanBoost: makimonoCount(enemyField) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(enemyField), fieldCount: enemyField.length }
   const targetAttack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, belly, fieldDamageOptions)
   const consumption = [useGari && canGari ? `ガリ −1（残${gari - 1}）` : 'ガリ温存',
     useDefense && defenseCard ? `${defenseCard.name} 退場` : null].filter(Boolean).join('・')

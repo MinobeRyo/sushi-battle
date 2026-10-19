@@ -3,7 +3,7 @@ import type { BattleView } from './types'
 import { INBOUND_DON_SACRIFICE_BONUS } from '../../data/sideMenus'
 import {
   applySummon, calcFieldDmg, FIELD_MAX, getDefenseReserveError, getDefenseTargets,
-  getDestroyTargetError, getSacrificeError, hasNamahamuAura, isDefenseCard,
+  getDestroyTargetError, getSacrificeError, namahamuAuraBonus, isDefenseCard,
   MAKI_COMP_5, makimonoCount, MAX_BELLY,
 } from './battleEngine'
 
@@ -85,7 +85,7 @@ export function previewBattleSummon(view: BattleView, card: Card, options: Battl
     fieldAttackAfter: calcFieldDmg(result.field, result.attackBuff, result.kireta, enemyBellyAfter),
     cardAttack: calcFieldDmg([summoned], result.attackBuff, result.kireta, enemyBellyAfter, {
       gunkanBoost: makimonoCount(result.field) >= MAKI_COMP_5,
-      namahamuBoost: hasNamahamuAura(result.field),
+      namahamuBoost: namahamuAuraBonus(result.field), fieldCount: result.field.length,
     }),
     awaitsDefense,
   }

@@ -26,6 +26,21 @@ export type Card = {
   effect: string | null
   archetype: Archetype[]
   lane: Lane
+  /** 寿司はしごの「炙り」版。効果の数値は battleRules / matchEngine が見て強める。通常対戦では付かない。 */
+  aburi?: true
+  /** 寿司はしごの器・常連さんの得意技による、この1枚への強化。通常対戦では付かない。 */
+  boost?: CardBoost
+}
+
+export type CardBoost = {
+  kiretaMult?: number      // 名工の出刃：切れ味による攻撃強化の倍率
+  gunkanMult?: number      // 軍艦の型枠：巻物フルコンプ中の軍艦の倍率
+  norikan?: true           // 海苔缶：机に巻物がいれば、巻物コンプの数え方 +2
+  chainExtra?: number      // たこ壺：いか・たこの連鎖への上乗せ
+  fullReattack?: true      // 大漁旗：海の幸三昧の再攻撃を100%で行う
+  noDecay?: true           // 網元の網：持続が減らない
+  sarazumi?: true          // 常連さん「皿積み」：机の寿司1枚につき攻撃 +1
+  shichirin?: true         // 七輪で攻撃 +4 済み（二重に足さないため）
 }
 
 export type ComboTrigger = 'cumulative' | 'simultaneous'

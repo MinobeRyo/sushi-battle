@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Card } from '../../types'
-import { CARDS } from '../../data/cards'
 import { BattleScreen, type BattleFinish } from '../battle/BattleScreen'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
   BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
-  chooseReward, createRun, enterNode, findNode, finishBattle, reachableNodeIds, runDeckCards, takeRest,
-  type RunArchetype, type RunNode, type RunState,
+  aburiAtRest, aburiDeckId, canAburiDeckId, chooseBonus, chooseReward, createRun, enterNode, findNode, finishBattle,
+  reachableNodeIds, runCard, runDeckCards, runMatchMods, takeRest,
+  type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
 } from '../../game/run'
+import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL } from '../../data/runRelics'
+import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
-
-const cardById = new Map(CARDS.map(card => [card.id, card]))
 
 export function RunScreen({ onExit }: { onExit: () => void }) {
   const [saved, setSaved] = useState<RunState | null>(() => loadRun())
@@ -40,6 +40,8 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       deck={runDeckCards(run)}
       cpuDeckId={node.enemy.cpuDeckId}
       initialBelly={{ 1: run.belly, 2: node.enemy.initialBelly }}
+      sideMenu={run.sideMenu}
+      runMods={runMatchMods(run, node.enemy)}
       refillOnEmpty
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} />
   }
@@ -49,8 +51,10 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
       <div className="run-body">
         {run.status === 'map' && <RunMap run={run} onEnter={id => setRun(enterNode(run, id))} />}
-        {run.status === 'reward' && run.reward && <RunReward run={run} onChoose={id => setRun(chooseReward(run, id))} />}
-        {run.status === 'rest' && <RunRest run={run} onRest={() => setRun(takeRest(run))} />}
+        {run.status === 'reward' && run.reward && <RunReward run={run} onChoose={id => setRun(chooseReward(run, id))}
+          onBonus={choice => setRun(chooseBonus(run, choice))} />}
+        {run.status === 'rest' && <RunRest run={run} onRest={() => setRun(takeRest(run))}
+          onAburi={index => setRun(aburiAtRest(run, index))} />}
         {(run.status === 'won' || run.status === 'lost') && <RunResult run={run} onExit={onExit}
           onRetry={() => setRun(null)} />}
       </div>
@@ -105,6 +109,8 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>地図で次の店を選び、下から上へ進みます。最後は大将との勝負です。</li>
             <li>お腹は試合をまたいで持ち越します。勝つと半分に消化し、100になったら終わりです。</li>
             <li>勝つたびに寿司を3枚から1枚もらえます。山札が尽きたら「おかわり」で使った寿司が戻ります。</li>
+            <li>「常」の常連さんは得意技を持つ強敵です。勝つと器（ずっと効く道具）かサイドメニューももらえます。</li>
+            <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>
           </ul>
         </section>
         <button type="button" className="run-text-button" onClick={onExit}>← お品書きへ戻る</button>
@@ -131,12 +137,24 @@ function RunHeader({ run, onOpenDeck }: { run: RunState; onOpenDeck: () => void 
       <button type="button" className="run-stat run-stat--deck" onClick={onOpenDeck} aria-label={`デッキ${run.deck.length}枚を見る`}>
         <span>デッキ</span><strong>{run.deck.length}枚</strong>
       </button>
+      {(run.relics.length > 0 || run.sideMenu) && <ul className="run-relics" aria-label="持っている器とサイドメニュー">
+        {run.relics.map(id => {
+          const relic = RELIC_BY_ID[id]
+          return <li key={id} className="run-relic" data-grade={relic.grade} title={relic.text}>
+            <b>器</b>{relic.name}<span className="run-relic-text">：{relic.text}</span>
+          </li>
+        })}
+        {run.sideMenu && <li className="run-relic run-relic--side" title={SIDE_MENU_BY_ID[run.sideMenu].effect}>
+          <b>一品</b>{SIDE_MENU_BY_ID[run.sideMenu].name}<span className="run-relic-text">：{SIDE_MENU_BY_ID[run.sideMenu].summary}</span>
+        </li>}
+      </ul>}
     </header>
   )
 }
 
 const NODE_LABEL: Record<RunNode['kind'], { mark: string; name: string }> = {
   battle: { mark: '食', name: '大食い客' },
+  regular: { mark: '常', name: '常連さん' },
   rest: { mark: '茶', name: 'お茶' },
   boss: { mark: '将', name: '大将' },
 }
@@ -178,7 +196,8 @@ function RunMap({ run, onEnter }: { run: RunState; onEnter: (id: string) => void
               className={`run-node run-node--${node.kind}`} data-state={state}
               style={{ left: `${nodeX(node) / MAP_W * 100}%`, top: `${nodeY(node) / MAP_H * 100}%` }}
               disabled={!canEnter} onClick={() => onEnter(node.id)}
-              aria-label={`${node.kind === 'boss' ? '' : `${node.row + 1}軒目 `}${node.enemy?.label ?? label.name}${state === 'visited' || state === 'current' ? '（通過済み）' : canEnter ? '（入れる）' : ''}`}>
+              title={node.enemy?.skill ? `得意技「${REGULAR_SKILL_BY_ID[node.enemy.skill].name}」：${REGULAR_SKILL_BY_ID[node.enemy.skill].text}` : undefined}
+              aria-label={`${node.kind === 'boss' ? '' : `${node.row + 1}軒目 `}${node.enemy?.label ?? label.name}${node.enemy?.skill ? `（得意技：${REGULAR_SKILL_BY_ID[node.enemy.skill].name}）` : ''}${state === 'visited' || state === 'current' ? '（通過済み）' : canEnter ? '（入れる）' : ''}`}>
               <span aria-hidden="true">{label.mark}</span>
             </button>
           )
@@ -191,43 +210,147 @@ function RunMap({ run, onEnter }: { run: RunState; onEnter: (id: string) => void
   )
 }
 
+function CardSummary({ card }: { card: Card }) {
+  return <>
+    <div className="run-reward-art"><SushiArt card={card} size="100%" /></div>
+    <h3>{card.name}{card.aburi && <span className="aburi-badge">炙り</span>}</h3>
+    <p className="run-reward-stats">
+      <span>AP {card.cost}</span><span>攻撃 {card.attack}</span>
+      <span>{card.type === 'persist' ? `持続${card.fullness}` : '瞬間'}</span>
+    </p>
+    <p className="run-reward-effect">{card.effect || card.aburi ? <CardEffectText card={card} variant="short" /> : '特殊効果なし'}</p>
+  </>
+}
+
 function RewardCard({ card, onTake }: { card: Card; onTake: () => void }) {
   return (
-    <article className="run-reward-card">
-      <div className="run-reward-art"><SushiArt card={card} size="100%" /></div>
-      <h3>{card.name}</h3>
-      <p className="run-reward-stats">
-        <span>AP {card.cost}</span><span>攻撃 {card.attack}</span>
-        <span>{card.type === 'persist' ? `持続${card.fullness}` : '瞬間'}</span>
-      </p>
-      <p className="run-reward-effect">{card.effect ? <CardEffectText card={card} variant="short" /> : '特殊効果なし'}</p>
+    <article className="run-reward-card" data-aburi={card.aburi ? 'true' : undefined}>
+      <CardSummary card={card} />
       <button type="button" className="run-primary" onClick={onTake}>この寿司をもらう</button>
     </article>
   )
 }
 
-function RunReward({ run, onChoose }: { run: RunState; onChoose: (cardId: string | null) => void }) {
+function RunReward({ run, onChoose, onBonus }: {
+  run: RunState
+  onChoose: (cardId: string | null) => void
+  onBonus: (choice: RunBonusChoice) => void
+}) {
   const reward = run.reward!
+  if (reward.cardDone) {
+    return (
+      <section className="run-panel run-reward" aria-labelledby="run-bonus-heading">
+        <h2 id="run-bonus-heading">常連さんからのおみやげ</h2>
+        <p className="run-note">器（ずっと効く道具）を1つ、またはサイドメニューを1品選びます。サイドメニューは毎試合持ち込め、今の一品と入れ替わります。</p>
+        <h3 className="run-subheading">器</h3>
+        <div className="run-reward-list">
+          {(reward.relicIds ?? []).map(id => {
+            const relic = RELIC_BY_ID[id]
+            return (
+              <article key={id} className="run-reward-card run-bonus-card" data-grade={relic.grade}>
+                <p className="run-bonus-grade">{RELIC_GRADE_LABEL[relic.grade]}・{RUN_ARCHETYPES.find(item => item.id === relic.archetype)?.name ?? '汎用'}</p>
+                <h3>{relic.name}</h3>
+                <p className="run-reward-effect">{relic.text}</p>
+                <button type="button" className="run-primary" onClick={() => onBonus({ relic: id })}>この器をもらう</button>
+              </article>
+            )
+          })}
+        </div>
+        <h3 className="run-subheading">サイドメニュー</h3>
+        <div className="run-reward-list">
+          {(reward.sideMenuIds ?? []).map(id => {
+            const menu = SIDE_MENU_BY_ID[id]
+            return (
+              <article key={id} className="run-reward-card run-bonus-card">
+                <p className="run-bonus-grade">{menu.category}{run.sideMenu === id && '・持っている'}</p>
+                <h3>{menu.name}</h3>
+                <p className="run-reward-effect">{menu.effect}</p>
+                <button type="button" className="run-secondary" onClick={() => onBonus({ sideMenu: id })}>
+                  {run.sideMenu && run.sideMenu !== id ? `${SIDE_MENU_BY_ID[run.sideMenu].name}と入れ替える` : 'この一品をもらう'}
+                </button>
+              </article>
+            )
+          })}
+        </div>
+        <button type="button" className="run-text-button" onClick={() => onBonus(null)}>何ももらわずに次へ</button>
+      </section>
+    )
+  }
+  const hasBonus = Boolean(reward.relicIds?.length || reward.sideMenuIds?.length)
   return (
     <section className="run-panel run-reward" aria-labelledby="run-reward-heading">
       <h2 id="run-reward-heading">勝利！ 報酬を選ぶ</h2>
-      <p className="run-note">持ち金 ＋¥{reward.gold.toLocaleString()}。お腹は半分に消化して {run.belly} になりました。寿司を1枚選んでデッキに加えます。</p>
+      <p className="run-note">持ち金 ＋¥{reward.gold.toLocaleString()}。お腹は半分に消化して {run.belly} になりました。寿司を1枚選んでデッキに加えます。{hasBonus && 'このあと器かサイドメニューも選べます。'}</p>
       <div className="run-reward-list">
-        {reward.cardIds.map(id => cardById.get(id)).filter((card): card is Card => !!card)
-          .map(card => <RewardCard key={card.id} card={card} onTake={() => onChoose(card.id)} />)}
+        {reward.cardIds.map(id => ({ id, card: runCard(id) })).filter((item): item is { id: string; card: Card } => !!item.card)
+          .map(({ id, card }) => <RewardCard key={id} card={card} onTake={() => onChoose(id)} />)}
       </div>
       <button type="button" className="run-secondary" onClick={() => onChoose(null)}>もらわない（持ち金 ＋¥{SKIP_REWARD_GOLD}）</button>
     </section>
   )
 }
 
-function RunRest({ run, onRest }: { run: RunState; onRest: () => void }) {
+function RunRest({ run, onRest, onAburi }: { run: RunState; onRest: () => void; onAburi: (deckIndex: number) => void }) {
+  const [choosing, setChoosing] = useState(false)
+  const [selected, setSelected] = useState<number | null>(null)
+  // 同じ寿司は1つにまとめ、最初に見つかった1枚を炙る。
+  const options = useMemo(() => {
+    const seen = new Set<string>()
+    return run.deck.flatMap((id, index) => {
+      if (seen.has(id) || !canAburiDeckId(id)) return []
+      seen.add(id)
+      const card = runCard(id)
+      const aburi = runCard(aburiDeckId(id))
+      return card && aburi ? [{ index, card, aburi, count: run.deck.filter(item => item === id).length }] : []
+    }).sort((a, b) => a.card.cost - b.card.cost || a.card.name.localeCompare(b.card.name, 'ja'))
+  }, [run.deck])
+  const picked = options.find(option => option.index === selected)
+  if (!choosing) {
+    return (
+      <section className="run-panel run-rest" aria-labelledby="run-rest-heading">
+        <p className="run-rest-mark" aria-hidden="true">茶</p>
+        <h2 id="run-rest-heading">お茶でひと休み</h2>
+        <p className="run-note">どちらか1つを選べます。</p>
+        <div className="run-rest-options">
+          <button type="button" className="run-rest-option" onClick={onRest}>
+            <strong>熱いあがりを飲む</strong>
+            <span>お腹 −{REST_DIGEST}（{run.belly} → {Math.max(0, run.belly - REST_DIGEST)}）</span>
+          </button>
+          <button type="button" className="run-rest-option run-rest-option--aburi" onClick={() => setChoosing(true)} disabled={options.length === 0}>
+            <strong>寿司を1枚炙ってもらう</strong>
+            <span>{options.length === 0 ? '炙れる寿司がありません' : '数値も効果も大きく強くなる（1枚1回まで）'}</span>
+          </button>
+        </div>
+      </section>
+    )
+  }
   return (
-    <section className="run-panel run-rest" aria-labelledby="run-rest-heading">
-      <p className="run-rest-mark" aria-hidden="true">茶</p>
-      <h2 id="run-rest-heading">お茶でひと休み</h2>
-      <p className="run-note">熱いあがりで、お腹を {REST_DIGEST} 減らします（{run.belly} → {Math.max(0, run.belly - REST_DIGEST)}）。</p>
-      <button type="button" className="run-primary" onClick={onRest}>お茶を飲んで次へ</button>
+    <section className="run-panel run-aburi" aria-labelledby="run-aburi-heading">
+      <h2 id="run-aburi-heading">どの寿司を炙る？</h2>
+      <p className="run-note">選んだ1枚が炙り版になります。同じ寿司が何枚かあるときは、そのうち1枚だけです。</p>
+      <ul className="run-aburi-list" role="radiogroup" aria-label="炙る寿司">
+        {options.map(option => (
+          <li key={option.index}>
+            <button type="button" role="radio" aria-checked={selected === option.index} className="run-aburi-option"
+              onClick={() => setSelected(option.index)}>
+              <span className="run-deck-art"><SushiArt card={option.card} size={44} /></span>
+              <span className="run-aburi-name">{option.card.name}{option.count > 1 && <b> ×{option.count}</b>}</span>
+              <span className="run-deck-meta">攻 {option.card.attack} → <b>{option.aburi.attack}</b></span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {picked && <div className="run-aburi-preview" aria-live="polite">
+        <article className="run-reward-card"><CardSummary card={picked.card} /></article>
+        <span className="run-aburi-arrow" aria-hidden="true">→</span>
+        <article className="run-reward-card" data-aburi="true"><CardSummary card={picked.aburi} /></article>
+      </div>}
+      <div className="run-result-actions">
+        <button type="button" className="run-primary" disabled={!picked} onClick={() => picked && onAburi(picked.index)}>
+          {picked ? `${picked.card.name}を炙る` : '寿司を選んでください'}
+        </button>
+        <button type="button" className="run-secondary" onClick={() => { setChoosing(false); setSelected(null) }}>戻る</button>
+      </div>
     </section>
   )
 }
@@ -251,9 +374,10 @@ function DeckDialog({ cards, onClose }: { cards: Card[]; onClose: () => void }) 
   const groups = useMemo(() => {
     const map = new Map<string, { card: Card; count: number }>()
     for (const card of cards) {
-      const entry = map.get(card.id)
+      const key = card.aburi ? aburiDeckId(card.id) : card.id
+      const entry = map.get(key)
       if (entry) entry.count += 1
-      else map.set(card.id, { card, count: 1 })
+      else map.set(key, { card, count: 1 })
     }
     return [...map.values()].sort((a, b) => a.card.cost - b.card.cost || a.card.name.localeCompare(b.card.name, 'ja'))
   }, [cards])
@@ -271,9 +395,9 @@ function DeckDialog({ cards, onClose }: { cards: Card[]; onClose: () => void }) 
         </header>
         <ul className="run-deck-list">
           {groups.map(({ card, count }) => (
-            <li key={card.id}>
+            <li key={card.aburi ? aburiDeckId(card.id) : card.id} data-aburi={card.aburi ? 'true' : undefined}>
               <span className="run-deck-art"><SushiArt card={card} size={44} /></span>
-              <span className="run-deck-name">{card.name}{count > 1 && <b> ×{count}</b>}</span>
+              <span className="run-deck-name">{card.name}{card.aburi && <span className="aburi-badge">炙り</span>}{count > 1 && <b> ×{count}</b>}</span>
               <span className="run-deck-meta">AP {card.cost}・攻 {card.attack}</span>
             </li>
           ))}

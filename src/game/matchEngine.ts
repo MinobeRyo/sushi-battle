@@ -6,7 +6,9 @@ import { chooseCpuDeck, getCpuDeck, getCpuDeckDefinition, getCpuReorderDeck, typ
 import { canReorderSideMenu, INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, hasNamahamuAura, isDefenseCard, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, withDefenseReduction } from './battleRules'
+import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
+import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -20,6 +22,8 @@ export type MatchOptions = {
   initialBelly?: Partial<Record<PlayerId, number>>
   /** true なら山札切れで追加注文せず、使った寿司を戻して引き直す（おかわり）。 */
   refillOnEmpty?: boolean
+  /** 寿司はしごの器（自分）・常連さんの得意技（CPU）。通常対戦・オンラインでは渡さない。 */
+  runMods?: Partial<Record<PlayerId, PlayerMods>>
 }
 
 /** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
@@ -47,13 +51,13 @@ function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
   return player
 }
 
-function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSource) {
+function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSource, handSize = 5) {
   const instances: CardInstance[] = cards.map(card => ({
     ...structuredClone(card), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
   }))
   const deck = shuffled(instances, random)
-  state.players[id].hand = deck.slice(0, 5)
-  state.players[id].deck = deck.slice(5)
+  state.players[id].hand = deck.slice(0, handSize)
+  state.players[id].deck = deck.slice(handSize)
 }
 
 export function createMatch(options: MatchOptions, random: RandomSource = Math.random): MatchState {
@@ -67,15 +71,18 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
     log: [cpuDeck ? `バトル開始！ ${cpuDeck.id === 'challenge' ? '挑戦CPU' : 'CPU'}：${cpuDeck.name}` : 'バトル開始！'],
   }
   const fallback = CARDS.filter(card => card.lane === 'general').slice(0, 10)
-  const p1Cards = options.deck.length ? options.deck : fallback
-  const p2Cards = cpuDeck ? getCpuDeck(cpuDeck.id, random)
-    : options.p2Deck?.length ? options.p2Deck : fallback
-  deal(state, 1, p1Cards, random)
-  deal(state, 2, p2Cards, random)
+  const mods = options.runMods ?? {}
+  const withMods = (id: PlayerId, cards: Card[]) => mods[id] ? cards.map(card => applyCardMods(card, mods[id])) : cards
+  const p1Cards = withMods(1, options.deck.length ? options.deck : fallback)
+  const p2Cards = withMods(2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
+    : options.p2Deck?.length ? options.p2Deck : fallback)
+  deal(state, 1, p1Cards, random, hasSkill(mods[1], 'joren_tokken') ? HAND_LIMIT : 5)
+  deal(state, 2, p2Cards, random, hasSkill(mods[2], 'joren_tokken') ? HAND_LIMIT : 5)
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
   for (const id of [1, 2] as const) {
     const belly = options.initialBelly?.[id]
     if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(MAX_BELLY - 1, Math.floor(belly)))
+    applyPlayerMods(state, id, mods[id])
   }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
@@ -83,6 +90,18 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
     placeSideMenu(state.players[2], id)
   }
   return state
+}
+
+/** 試合開始時に効く器・得意技。 */
+function applyPlayerMods(state: MatchState, id: PlayerId, mods: PlayerMods | undefined) {
+  if (!mods) return
+  const player = state.players[id]
+  player.mods = structuredClone(mods)
+  if (hasRelic(mods, 'nairei_yunomi')) player.gari += 1
+  if (hasSkill(mods, 'gari_yama')) player.gari += 3
+  if (hasRelic(mods, 'toishi')) player.kiretaStack += 3
+  if (hasRelic(mods, 'teppan')) player.teppanLeft = 3
+  if (mods.skill) addLog(state, `🍶 ${label(state, id)}は常連さん！ 得意技「${REGULAR_SKILL_BY_ID[mods.skill].name}」：${REGULAR_SKILL_BY_ID[mods.skill].text}`)
 }
 
 function addLog(state: MatchState, message: string) {
@@ -105,7 +124,7 @@ function refillDeck(state: MatchState, id: PlayerId, random: RandomSource): bool
   if (!source || player.deck.length > 0) return false
   const remaining = [...source]
   for (const card of [...player.hand, ...player.field]) {
-    const index = remaining.findIndex(item => item.id === card.id)
+    const index = remaining.findIndex(item => item.id === card.id && Boolean(item.aburi) === Boolean(card.aburi))
     if (index >= 0) remaining.splice(index, 1)
   }
   if (remaining.length === 0) return false
@@ -114,6 +133,13 @@ function refillDeck(state: MatchState, id: PlayerId, random: RandomSource): bool
   }))
   player.deck = shuffled(instances, random)
   addLog(state, `🍵 ${label(state, id)}: おかわり！ 使った寿司${instances.length}枚を山札に戻した`)
+  if (hasRelic(player.mods, 'takekawa')) {
+    // 竹皮の包み：おかわりのたびに2枚引き、AP+2（このターンの上限も合わせて上げる）。
+    draw(player, 2)
+    player.ap += 2
+    player.maxAP += 2
+    addLog(state, `🎋 ${label(state, id)}: 竹皮の包みで2枚引き、AP +2`)
+  }
   return true
 }
 
@@ -137,6 +163,10 @@ function drawPersistIkaTako(player: MatchPlayer, random: RandomSource): string {
   return '山札から持続型の「いか」「たこ」をランダムに1枚引いた'
 }
 
+function repeatDraw(times: number, drawOne: () => string): string {
+  return Array.from({ length: times }, drawOne).join(' / ')
+}
+
 function drawAkami(player: MatchPlayer, random: RandomSource): string {
   if (player.hand.length >= HAND_LIMIT) return '手札上限のため、赤身カードのドローなし'
   const candidates = player.deck.flatMap((card, index) => card.archetype.includes('akami') ? [index] : [])
@@ -155,16 +185,18 @@ function drawMaki(player: MatchPlayer, random: RandomSource): string {
   return '山札から軍艦以外の巻物をランダムに1枚引いた'
 }
 
-export function tobikoCopyChance(summonedIds: readonly string[]): number {
-  return Math.max(0, 1 - summonedIds.filter(id => id === 'tobiko_gunkan').length * 0.25)
+export function tobikoCopyChance(summonedIds: readonly string[], aburi = false): number {
+  // 炙りは 100→75→50→25% と、1段分高い確率から始まる。
+  return Math.min(1, Math.max(0, 1 - summonedIds.filter(id => id === 'tobiko_gunkan').length * 0.25 + (aburi ? 0.25 : 0)))
 }
 
 /** 効果による山札供給。既存カードの相対順と個体別の強化状態を保つ。 */
 function addCardToDeck(state: MatchState, id: PlayerId, card: Card, count: number, random: RandomSource) {
   const player = state.players[id]
+  const modded = applyCardMods(card, player.mods)
   for (let i = 0; i < count; i++) {
     const instance: CardInstance = {
-      ...structuredClone(card), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
+      ...structuredClone(modded), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
     }
     player.deck.splice(Math.floor(random() * (player.deck.length + 1)), 0, instance)
   }
@@ -293,6 +325,8 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   // 設置前に出した対象も「このターン最初の一枚」として数えます。
   if (tempuraTarget) player.tempuraTriggeredThisTurn = true
   player.sushiPlayedThisTurn += 1
+  const kiretaBefore = player.kiretaSpent ? 0 : player.kiretaStack
+  const namahamuBefore = countNamahamu(player.field)
   const result = applySummon({
     card, fieldId: card.instanceId, belly: player.belly, kireta: player.kiretaStack,
     field: player.field, summonedIds: player.summonedIds, summonedArch: player.summonedArch,
@@ -303,6 +337,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     sacrificeAttackBonus: activeSideMenu(player, 'inbound_don') ? INBOUND_DON_SACRIFICE_BONUS : 0,
     kiretaSpent: player.kiretaSpent, enemyBelly: enemy.belly,
     turnAttackBonus: tempuraBonus,
+    mods: player.mods,
   })
   Object.assign(player, {
     belly: result.belly, kiretaStack: result.kireta, field: result.field,
@@ -324,40 +359,50 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     const targetIndex = enemy.field.findIndex(target => target.fid === targetFieldId)
     const [destroyed] = enemy.field.splice(targetIndex, 1)
     result.logs.push(`${card.name}で相手の${destroyed.name}を破壊`)
+    // 炙りサーモンは、残った持続型から攻撃の高い1枚も破壊する。
+    const second = card.aburi ? getDestroyTargets(card, enemy.field).sort((a, b) => b.attack - a.attack)[0] : undefined
+    if (second) {
+      enemy.field = enemy.field.filter(item => item.fid !== second.fid)
+      result.logs.push(`${card.name}で相手の${second.name}も破壊`)
+    }
   } else if (card.effect === 'destroy_enemy_persist_1') {
     result.logs.push('相手の机に持続型カードがないため、破壊対象なし')
   }
+  const times = card.aburi ? 2 : 1
   if (card.effect === 'reduce_random_akami_cost_1') {
-    const candidates = [...player.hand, ...player.deck].filter(target => target.archetype.includes('akami') && target.cost > 0)
-    if (candidates.length > 0) {
-      candidates[Math.floor(random() * candidates.length)].cost -= 1
-      // 公開ログには非公開の手札・山札のカード名、個体IDや場所を出さない。
-      result.logs.push('手札・山札の赤身カード1枚のAPコストを1軽減（下限0）')
-    } else result.logs.push('APコストを軽減できる赤身カードなし')
+    for (let i = 0; i < times; i++) {
+      const candidates = [...player.hand, ...player.deck].filter(target => target.archetype.includes('akami') && target.cost > 0)
+      if (candidates.length > 0) {
+        candidates[Math.floor(random() * candidates.length)].cost -= 1
+        // 公開ログには非公開の手札・山札のカード名、個体IDや場所を出さない。
+        result.logs.push('手札・山札の赤身カード1枚のAPコストを1軽減（下限0）')
+      } else result.logs.push('APコストを軽減できる赤身カードなし')
+    }
   }
   drawWithRefill(state, id, result.drawNow, random)
   if (result.drawPersistIkaTako) result.logs.unshift(drawPersistIkaTako(player, random))
-  if (card.effect === 'draw_random_akami_1') result.logs.unshift(drawAkami(player, random))
-  if (card.effect === 'draw_random_maki_1') result.logs.unshift(drawMaki(player, random))
+  if (card.effect === 'draw_random_akami_1') result.logs.unshift(repeatDraw(times, () => drawAkami(player, random)))
+  if (card.effect === 'draw_random_maki_1') result.logs.unshift(repeatDraw(times, () => drawMaki(player, random)))
   if (card.effect === 'generate_low_cost_maki_deck_1') {
     const candidates = CARDS.filter(item => item.cost >= 1 && item.cost <= 2
       && item.archetype.includes('makimono') && !item.archetype.includes('gunkan'))
-    if (candidates.length > 0) {
+    for (let i = 0; i < times && candidates.length > 0; i++) {
       addCardToDeck(state, id, candidates[Math.floor(random() * candidates.length)], 1, random)
       result.logs.push('いくら軍艦：1〜2APの巻物1枚を山札に混ぜた')
     }
   }
+  applySummonRelics(state, id, card, result, sacrificeCount, kiretaBefore, namahamuBefore, random)
   if (result.generateNamahamuDeck > 0) {
     addCardToDeck(state, id, NAMAHAM_CARD, result.generateNamahamuDeck, random)
     result.logs.push(`生ハム${result.generateNamahamuDeck}枚を山札のランダムな位置に追加 / 生ハムの攻撃は対戦中＋${player.attackBuff[NAMAHAM_CARD.base]}`)
   }
   if (result.generateBintoroDeck > 0) {
     addCardToDeck(state, id, CARDS.find(card => card.id === 'bintoro')!, result.generateBintoroDeck, random)
-    result.logs.push('赤身三種盛り：ビントロ1枚を山札のランダムな位置に追加')
+    result.logs.push(`赤身三種盛り：ビントロ${result.generateBintoroDeck}枚を山札のランダムな位置に追加`)
   }
   if (card.effect === 'generate_tobiko_hand_decreasing' || card.effect === 'generate_tobiko_hand_50') {
     // 確定した召喚で一度だけ抽選し、手札個体や場の一時効果は複製しない。
-    const chance = tobikoCopyChance(player.summonedIds)
+    const chance = tobikoCopyChance(player.summonedIds, card.aburi)
     if (chance > 0 && random() < chance) {
       if (player.hand.length < HAND_LIMIT) {
         player.hand.push({
@@ -369,7 +414,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     } else result.logs.push('とびこ軍艦：追加なし')
   }
   if (result.fired.some(combo => combo.id === 'umi_zanmai')) {
-    const botanCount = player.field.filter(item => item.effect === 'umi_generate_ebi_deck_1').length
+    const botanCount = player.field.reduce((sum, item) => sum + (item.effect === 'umi_generate_ebi_deck_1' ? (item.aburi ? 2 : 1) : 0), 0)
     if (botanCount > 0) {
       addCardToDeck(state, id, CARDS.find(item => item.id === 'ebi')!, botanCount, random)
       result.logs.push(`ボタンエビ：えび${botanCount}枚を山札に混ぜた`)
@@ -393,6 +438,51 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   startAttack(state, attack, events, random)
 }
 
+/** 召喚時に効く器（寿司はしご専用）。player.mods が無ければ何もしない。 */
+function applySummonRelics(state: MatchState, id: PlayerId, card: Card, result: ReturnType<typeof applySummon>,
+  sacrificeCount: number, kiretaBefore: number, namahamuBefore: number, random: RandomSource) {
+  const player = state.players[id]
+  const mods = player.mods
+  if (!mods) return
+  // 本鮪の柵箱：赤身を出したら、このターンは手札の赤身のAPを1下げる（ターン終了で戻す）。
+  if (hasRelic(mods, 'saku_bako') && card.archetype.includes('akami')) {
+    let count = 0
+    for (const item of player.hand) {
+      if (!item.archetype.includes('akami') || item.sakuDiscount || item.cost <= 0) continue
+      item.cost -= 1
+      item.sakuDiscount = 1
+      count += 1
+    }
+    if (count > 0) result.logs.push(`🐟 本鮪の柵箱：手札の赤身${count}枚のAPをこのターン −1`)
+  }
+  // 秘伝のタレ：生贄にした生ハムを山札に戻す。
+  if (hasRelic(mods, 'hiden_tare') && sacrificeCount > 0) {
+    addCardToDeck(state, id, NAMAHAM_CARD, sacrificeCount, random)
+    result.logs.push(`🍶 秘伝のタレ：生贄の生ハム${sacrificeCount}枚が山札に戻った`)
+  }
+  // 研ぎ桶：コハダで使った切れ味の半分を、ターン終了後に戻す。
+  if (hasRelic(mods, 'togi_oke') && card.effect === 'kireta_consume_x3' && result.kiretaSpent && kiretaBefore > 0) {
+    player.kiretaRefund = (player.kiretaRefund ?? 0) + Math.floor(kiretaBefore / 2)
+  }
+  // 鉄板：机に生ハムを生成したら、もう1体（1試合3回まで）。
+  const generated = countNamahamu(player.field) - namahamuBefore + sacrificeCount
+  if (generated > 0) teppanExtra(state, id, 'field', result.logs)
+  if (result.generateNamahamuDeck > 0 && teppanExtra(state, id, 'deck', result.logs)) result.generateNamahamuDeck += 1
+}
+
+/** 鉄板の追加生成。机なら即座に1体、山札なら呼び出し側で枚数を足す。 */
+function teppanExtra(state: MatchState, id: PlayerId, where: 'field' | 'deck', logs: string[]): boolean {
+  const player = state.players[id]
+  if (!hasRelic(player.mods, 'teppan') || (player.teppanLeft ?? 0) <= 0) return false
+  if (where === 'field') {
+    if (player.field.length >= FIELD_MAX) return false
+    player.field.push(toField(applyCardMods(NAMAHAM_CARD, player.mods), `${id}:teppan:${state.nextInstanceId++}`))
+  }
+  player.teppanLeft = (player.teppanLeft ?? 0) - 1
+  logs.push(`🔥 鉄板：生ハムをもう1体（残り${player.teppanLeft}回）`)
+  return true
+}
+
 function finishTurn(state: MatchState, events: MatchEvent[], random: RandomSource) {
   const id = state.activePlayerId
   const player = state.players[id]
@@ -408,23 +498,34 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   const player = state.players[id]
   const nextId = otherPlayer(id)
   // 通常攻撃・防御と勝敗判定の後、寿命と終了時ドローより先に補充する。
-  const hamCount = player.field.filter(card =>
-    card.effect === 'belly_boost_persist_50_namahamu_deck_1' && card.turnsLeft > 0).length
+  let hamCount = player.field.reduce((sum, card) =>
+    sum + (card.effect === 'belly_boost_persist_50_namahamu_deck_1' && card.turnsLeft > 0 ? (card.aburi ? 2 : 1) : 0), 0)
+  const teppanLogs: string[] = []
+  if (hamCount > 0 && teppanExtra(state, id, 'deck', teppanLogs)) hamCount += 1
   addCardToDeck(state, id, NAMAHAM_CARD, hamCount, random)
   if (hamCount > 0) addLog(state, `${label(state, id)}の焼肉寿司: 生ハム${hamCount}枚を山札に混ぜた（終了時ドロー前）`)
+  for (const message of teppanLogs) addLog(state, `${label(state, id)}: ${message}`)
   player.field = player.field.map(card => {
     const { turnAttackBonus: _, attackHalved: __, attackReductionRate: ___, ...persistentCard } = card
     return card.defenseState === 'reserved'
       ? { ...persistentCard, defenseState: 'ready' as const, turnsLeft: 1 }
-      : { ...persistentCard, turnsLeft: card.turnsLeft - 1 }
+      // 網元の網：いか・たこの持続は減らない。
+      : { ...persistentCard, turnsLeft: card.boost?.noDecay ? card.turnsLeft : card.turnsLeft - 1 }
   }).filter(card => card.turnsLeft > 0)
+  for (const card of player.hand) {
+    if (!card.sakuDiscount) continue
+    card.cost += card.sakuDiscount
+    delete card.sakuDiscount
+  }
   // 次に戻る本人の防御は、相手の終了攻撃まで温存していてもここで失効する。
   state.players[nextId].field = state.players[nextId].field.filter(card => card.defenseState !== 'ready')
   drawWithRefill(state, id, 1 + player.drawBonus, random)
   if (player.kiretaSpent) {
-    player.kiretaStack = 0
-    addLog(state, '✂ 切れ味スタックを使い切った（0にリセット）')
+    const refund = player.kiretaRefund ?? 0
+    player.kiretaStack = refund
+    addLog(state, refund > 0 ? `✂ 切れ味を使い切った（研ぎ桶で${refund}戻った）` : '✂ 切れ味スタックを使い切った（0にリセット）')
   }
+  if (player.kiretaRefund !== undefined) player.kiretaRefund = 0
   player.kiretaSpent = false
   player.nikuMatsuri = false
   player.sacrificedThisTurn = 0
@@ -449,7 +550,8 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   if (next.sideMenu) next.sideMenu.usedThisTurn = false
   next.skippedDigestionThisTurn = 0
   const round = state.mode === 'cpu' ? oldTurn : Math.ceil(oldTurn / 2)
-  const digestion = digestionAmount(round) + digestBonus(next.field) + (activeSideMenu(next, 'miso') ? 2 : 0)
+  const digestion = (digestionAmount(round) + digestBonus(next.field) + (activeSideMenu(next, 'miso') ? 2 : 0))
+    * (hasSkill(next.mods, 'sokonashi') ? 2 : 1)
   if (next.digestStopTurns > 0) {
     next.skippedDigestionThisTurn = Math.min(next.belly, digestion)
     next.digestStopTurns -= 1
@@ -460,7 +562,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   const baseAP = state.mode === 'two_player'
     ? INIT_AP + Math.floor((state.turn - 1) / 2)
     : INIT_AP + state.turn - (nextId === 1 ? 1 : 0)
-  next.maxAP = Math.min(baseAP, 10) + next.apNextBonus
+  next.maxAP = Math.min(baseAP, 10) + next.apNextBonus + (hasSkill(next.mods, 'hayagui') ? 1 : 0)
   next.ap = next.maxAP
   const tekkaBonus = tekkaApBonus(next.field, next.combosFired)
   if (tekkaBonus > 0) {
@@ -521,7 +623,7 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
       next.players[attack.attackerId].field = next.players[attack.attackerId].field.map(card =>
         card.fid === target.fid ? withDefenseReduction(card, defense) : card)
       next.players[attack.defenderId].field = next.players[attack.defenderId].field.filter(card => card.fid !== defense.fid)
-      addLog(next, `${label(next, action.playerId)}: ${defense.name}で${target.name}の攻撃をこのターン${defense.effect === 'reserve_random_quarter_0' ? '25%軽減' : '半減'}`)
+      addLog(next, `${label(next, action.playerId)}: ${defense.name}で${target.name}の攻撃をこのターン${getDefenseReductionRate(defense) === 0.5 ? '半減' : `${getDefenseReductionRate(defense) * 100}%軽減`}`)
     }
     // 防御を使った場合だけ場から再計算し、ガリはその後の通常攻撃を半減する。
     const defendedAmount = action.useDefense ? attackAmount(next, attack) : attack.amount
@@ -612,7 +714,7 @@ export function getCpuDefenseAction(state: MatchState, random: RandomSource = Ma
   const attacker = state.players[attack.attackerId]
   const defense = cpu.field.find(card => card.fid === attack.defenseCardId && card.defenseState === 'ready')
   const targets = getAttackDefenseTargets(state, attack)
-  const opts = { gunkanBoost: makimonoCount(attacker.field) >= MAKI_COMP_5, namahamuBoost: hasNamahamuAura(attacker.field) }
+  const opts = { gunkanBoost: makimonoCount(attacker.field) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(attacker.field), fieldCount: attacker.field.length }
   const target = [...targets].sort((a, b) => calcFieldDmg([b], attacker.attackBuff, attacker.kiretaStack, cpu.belly, opts)
     - calcFieldDmg([a], attacker.attackBuff, attacker.kiretaStack, cpu.belly, opts))[0]
   const useDefense = Boolean(defense && target)
@@ -699,7 +801,7 @@ export function getCpuActions(state: MatchState, random: RandomSource = Math.ran
         || (cpu.field.some(card => card.effect === 'umi_generate_ebi_deck_1')
           && [playedCard!.base, ...(playedCard!.subBases ?? [])].some(base => base === 'いか' || base === 'たこ'))
         || (playedEffect === 'akami_generate_bintoro_deck_1'
-          && hasAkamiMoriOnSummon(playedCard!.id, cpu.summonedIds, cpu.combosFired))
+          && hasAkamiMoriOnSummon(playedCard!.id, cpu.summonedIds, cpu.combosFired, hasRelic(cpu.mods, 'wasabi_tsubo') ? 2 : 3))
         || (!cpu.nikuMatsuri && (action.sacrificeCount ?? 0) > 0
           && (cpu.sacrificedThisTurn ?? 0) + (action.sacrificeCount ?? 0) >= 2))) {
       actions.push(action)

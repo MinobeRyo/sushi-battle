@@ -1,3 +1,4 @@
+import { aburiDescription } from '../../data/aburi'
 import type { Archetype, Card } from '../../types'
 import { NAMAHAM_CARD } from '../../data/cards'
 
@@ -272,6 +273,8 @@ const NAMAHAM_DESCRIPTION = effectLines(
 
 export function getCardEffectDescription(card: Card, variant: 'short' | 'full' = 'full'): string {
   if (card.id === NAMAHAM_CARD.id) return variant === 'short' ? '0AP・生成専用・生贄にできる' : NAMAHAM_DESCRIPTION
+  const aburi = aburiDescription(card, variant)
+  if (aburi) return aburi
   if (!card.effect) return '特殊効果なし'
   return (variant === 'short' ? EFFECT_SHORT : EFFECT_FULL)[card.effect]
     ?? (variant === 'short' ? '特殊効果あり・詳細を確認' : '効果の説明は準備中です')

@@ -1,11 +1,12 @@
 import type { Card } from '../types'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CpuDeckId } from '../data/cpuDecks'
+import type { PlayerMods } from './runMods'
 
 export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
 export type RandomSource = () => number
-export type CardInstance = Card & { instanceId: string }
+export type CardInstance = Card & { instanceId: string; /** 本鮪の柵箱でこのターンだけ下げたAP */ sakuDiscount?: number }
 export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number; defenseState?: 'reserved' | 'ready'; attackHalved?: boolean; attackReductionRate?: number }
 
 export type SideMenuState = {
@@ -42,6 +43,12 @@ export type MatchPlayer = {
   sushiPlayedThisTurn: number
   tempuraTriggeredThisTurn: boolean
   skippedDigestionThisTurn: number
+  /** 寿司はしごの器・得意技。通常対戦・オンラインでは持たない。 */
+  mods?: PlayerMods
+  /** 鉄板の器：この試合で残っている追加生成の回数。 */
+  teppanLeft?: number
+  /** 研ぎ桶の器：ターン終了後に戻る切れ味。 */
+  kiretaRefund?: number
 }
 
 export type PendingAttack = {

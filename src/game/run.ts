@@ -1,22 +1,38 @@
 import type { Archetype, Card } from '../types'
-import type { RandomSource } from './types'
+import type { PlayerId, RandomSource } from './types'
 import { CARDS } from '../data/cards'
+import { canAburi, toAburi } from '../data/aburi'
 import { CPU_DECKS, type CpuDeckId } from '../data/cpuDecks'
+import { isSideMenuId, SIDE_MENUS, type SideMenuId } from '../data/sideMenus'
+import { isRelicId, REGULAR_SKILLS, RELICS, type RegularSkillId, type RelicGrade, type RelicId } from '../data/runRelics'
+import type { PlayerMods } from './runMods'
 
 // 寿司はしご（ローグライク）のラン進行。画面・保存先に依存しない純粋な処理だけを置く。
 
 export type RunArchetype = Exclude<Archetype, 'general' | 'gunkan'>
-export type RunNodeKind = 'battle' | 'rest' | 'boss'
-export type RunEnemy = { cpuDeckId: CpuDeckId; initialBelly: number; label: string }
+export type RunNodeKind = 'battle' | 'regular' | 'rest' | 'boss'
+export type RunEnemy = { cpuDeckId: CpuDeckId; initialBelly: number; label: string; skill?: RegularSkillId }
 export type RunNode = { id: string; row: number; col: number; kind: RunNodeKind; next: string[]; enemy?: RunEnemy }
 export type RunStatus = 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
-export type RunReward = { gold: number; cardIds: string[] }
+/** 常連さんに勝つと、寿司に加えて器3つかサイドメニュー3品から1つを選べる。 */
+export type RunReward = {
+  gold: number
+  cardIds: string[]
+  cardDone?: boolean
+  relicIds?: RelicId[]
+  sideMenuIds?: SideMenuId[]
+  bonusDone?: boolean
+}
 
 export type RunState = {
   version: typeof RUN_VERSION
   archetype: RunArchetype
-  /** デッキはカードIDで持つ。保存を小さくし、カード定義の更新にも追従させる。 */
+  /** デッキはカードIDで持つ。保存を小さくし、カード定義の更新にも追従させる。炙りは「id#aburi」。 */
   deck: string[]
+  /** 集めた器。何個でも持てる。 */
+  relics: RelicId[]
+  /** 持ち越すサイドメニュー1枠。毎試合、買ったばかりの状態で持ち込む。 */
+  sideMenu: SideMenuId | null
   belly: number
   gold: number
   nodes: RunNode[]
@@ -27,12 +43,13 @@ export type RunState = {
   battlesWon: number
 }
 
-export const RUN_VERSION = 1
+export const RUN_VERSION = 2
 export const RUN_ROWS = 8 // 通常マスの段数。この上に大将が1マス
 export const RUN_COLS = 3
 export const REST_DIGEST = 30
 export const SKIP_REWARD_GOLD = 50
 export const MAX_RUN_BELLY = 100
+export const ABURI_SUFFIX = '#aburi'
 
 export const RUN_ARCHETYPES: ReadonlyArray<{ id: RunArchetype; name: string; detail: string }> = [
   { id: 'akami', name: '赤身', detail: '重いが高火力。三種盛りで爆発' },
@@ -57,25 +74,50 @@ export const ARCHETYPE_STARTERS: Readonly<Record<RunArchetype, readonly string[]
 
 const cardById = new Map(CARDS.map(card => [card.id, card]))
 
+export const isAburiId = (deckId: string) => deckId.endsWith(ABURI_SUFFIX)
+export const baseCardId = (deckId: string) => isAburiId(deckId) ? deckId.slice(0, -ABURI_SUFFIX.length) : deckId
+export const aburiDeckId = (cardId: string) => `${baseCardId(cardId)}${ABURI_SUFFIX}`
+
+/** ランのデッキIDからカードを作る。炙りフラグ付きなら炙り版にする。 */
+export function runCard(deckId: string): Card | undefined {
+  const card = cardById.get(baseCardId(deckId))
+  return card && isAburiId(deckId) ? toAburi(card) : card
+}
+
 export function runDeckCards(run: Pick<RunState, 'deck'>): Card[] {
   return run.deck.flatMap(id => {
-    const card = cardById.get(id)
+    const card = runCard(id)
     return card ? [card] : []
   })
 }
 
-const pick = <T,>(items: readonly T[], random: RandomSource): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))]
-
-/** 段ごとの敵。序盤は相手のお腹を高めにして短期決着にする。 */
-export function enemyForRow(row: number, kind: 'battle' | 'boss', random: RandomSource): RunEnemy {
-  if (kind === 'boss') return { cpuDeckId: 'challenge', initialBelly: 0, label: '大将' }
-  if (row <= 2) return { cpuDeckId: 'weak', initialBelly: [30, 25, 20][row], label: '大食い客' }
-  const deck = pick(CPU_DECKS, random)
-  return { cpuDeckId: deck.id, initialBelly: row <= 5 ? 10 : 0, label: `大食い客 · ${deck.name}` }
+/** お茶マスで炙れるか。1枚につき1回まで、生ハムは炙れない。 */
+export function canAburiDeckId(deckId: string): boolean {
+  const card = cardById.get(baseCardId(deckId))
+  return !isAburiId(deckId) && !!card && canAburi(card)
 }
 
-/** 第1段で出るマスの重み。ハプニング・常連さん・買い物は後の段で足す。 */
-const NODE_WEIGHTS: ReadonlyArray<readonly [Exclude<RunNodeKind, 'boss'>, number]> = [['battle', 75], ['rest', 25]]
+const pick = <T,>(items: readonly T[], random: RandomSource): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))]
+
+/** 段ごとの敵。序盤は相手のお腹を高めにして短期決着にする。常連さんは同じ段の大食い客より1段強いデッキ＋得意技。 */
+export function enemyForRow(row: number, kind: 'battle' | 'regular' | 'boss', random: RandomSource): RunEnemy {
+  if (kind === 'boss') return { cpuDeckId: 'challenge', initialBelly: 0, label: '大将' }
+  const initialBelly = row <= 2 ? [30, 25, 20][row] : row <= 5 ? 10 : 0
+  if (kind === 'regular') {
+    const skill = pick(REGULAR_SKILLS, random)
+    if (row <= 2) {
+      const deck = pick(CPU_DECKS, random)
+      return { cpuDeckId: deck.id, initialBelly, label: `常連さん · ${deck.name}`, skill: skill.id }
+    }
+    return { cpuDeckId: 'challenge', initialBelly, label: '常連さん · 肉寿司＋巻物', skill: skill.id }
+  }
+  if (row <= 2) return { cpuDeckId: 'weak', initialBelly, label: '大食い客' }
+  const deck = pick(CPU_DECKS, random)
+  return { cpuDeckId: deck.id, initialBelly, label: `大食い客 · ${deck.name}` }
+}
+
+/** 第2段で出るマスの重み。ハプニング・買い物（企画書の20・8）は第3段で足すまで対戦とお茶に寄せる。 */
+const NODE_WEIGHTS: ReadonlyArray<readonly [Exclude<RunNodeKind, 'boss'>, number]> = [['battle', 65], ['regular', 15], ['rest', 20]]
 
 function rollKind(random: RandomSource): Exclude<RunNodeKind, 'boss'> {
   const total = NODE_WEIGHTS.reduce((sum, [, weight]) => sum + weight, 0)
@@ -97,7 +139,7 @@ export function generateRunMap(random: RandomSource = Math.random): RunNode[] {
     for (let col = 0; col < RUN_COLS; col++) {
       const kind = row === 0 ? 'battle' : rollKind(random)
       nodes.push({ id: nodeId(row, col), row, col, kind, next: [],
-        ...(kind === 'battle' ? { enemy: enemyForRow(row, 'battle', random) } : {}) })
+        ...(kind === 'battle' || kind === 'regular' ? { enemy: enemyForRow(row, kind, random) } : {}) })
     }
   }
   const at = (row: number, col: number) => nodes[row * RUN_COLS + col]
@@ -118,6 +160,7 @@ export function createRun(archetype: RunArchetype, random: RandomSource = Math.r
   return {
     version: RUN_VERSION, archetype,
     deck: [...STARTER_DECK, ...ARCHETYPE_STARTERS[archetype]],
+    relics: [], sideMenu: null,
     belly: 0, gold: 0, nodes: generateRunMap(random),
     currentNodeId: null, visited: [], status: 'map', reward: null, battlesWon: 0,
   }
@@ -143,8 +186,11 @@ export function enterNode(run: RunState, id: string): RunState {
 
 const isArchetypeCard = (card: Card, archetype: RunArchetype) => card.archetype.includes(archetype)
 
-/** 報酬の3枚：選んだ系統・汎用・ランダムを1枚ずつ。同じ寿司は並べない。 */
-export function rollRewardCards(archetype: RunArchetype, random: RandomSource = Math.random): string[] {
+/**
+ * 報酬の3枚：選んだ系統・汎用・ランダムを1枚ずつ。同じ寿司は並べない。
+ * withAburi なら（常連さんの報酬）、どれか1枚を炙り済みにする。
+ */
+export function rollRewardCards(archetype: RunArchetype, random: RandomSource = Math.random, withAburi = false): string[] {
   const picked: string[] = []
   const take = (pool: Card[]) => {
     const candidates = pool.filter(card => !picked.includes(card.id))
@@ -153,6 +199,48 @@ export function rollRewardCards(archetype: RunArchetype, random: RandomSource = 
   take(CARDS.filter(card => isArchetypeCard(card, archetype)))
   take(CARDS.filter(card => card.lane === 'general'))
   take([...CARDS])
+  if (withAburi) {
+    const slots = picked.flatMap((id, index) => canAburiDeckId(id) ? [index] : [])
+    if (slots.length > 0) {
+      const slot = pick(slots, random)
+      picked[slot] = aburiDeckId(picked[slot])
+    }
+  }
+  return picked
+}
+
+/** 器の格の出やすさ（仮）：並60%・上30%・特上10%。 */
+const RELIC_GRADE_WEIGHTS: ReadonlyArray<readonly [RelicGrade, number]> = [['nami', 60], ['jo', 30], ['tokujo', 10]]
+
+function rollGrade(random: RandomSource): RelicGrade {
+  let roll = random() * 100
+  for (const [grade, weight] of RELIC_GRADE_WEIGHTS) {
+    if (roll < weight) return grade
+    roll -= weight
+  }
+  return 'nami'
+}
+
+/** 器の3択。1つは選んだ系統の器。持っている器と同じものは出さない。足りなければ出せる分だけ。 */
+export function rollRelicChoices(run: Pick<RunState, 'archetype' | 'relics'>, random: RandomSource = Math.random): RelicId[] {
+  const picked: RelicId[] = []
+  const take = (pool: typeof RELICS) => {
+    const open = pool.filter(relic => !run.relics.includes(relic.id) && !picked.includes(relic.id))
+    if (open.length === 0) return
+    const grade = rollGrade(random)
+    const graded = open.filter(relic => relic.grade === grade)
+    picked.push(pick(graded.length > 0 ? graded : open, random).id)
+  }
+  take(RELICS.filter(relic => relic.archetype === run.archetype))
+  take(RELICS)
+  take(RELICS)
+  return picked
+}
+
+export function rollSideMenuChoices(random: RandomSource = Math.random): SideMenuId[] {
+  const pool = SIDE_MENUS.map(menu => menu.id)
+  const picked: SideMenuId[] = []
+  while (picked.length < 3 && pool.length > 0) picked.push(...pool.splice(Math.floor(random() * pool.length), 1))
   return picked
 }
 
@@ -164,32 +252,88 @@ export function finishBattle(run: RunState, won: boolean, endBelly: number, rand
   const belly = Math.floor(Math.max(0, endBelly) / 2)
   const battlesWon = run.battlesWon + 1
   if (node?.kind === 'boss') return { ...run, belly, battlesWon, status: 'won' }
+  if (node?.kind === 'regular') {
+    const gold = 450 + Math.floor(random() * 11) * 10
+    return { ...run, belly, battlesWon, gold: run.gold + gold, status: 'reward', reward: {
+      gold, cardIds: rollRewardCards(run.archetype, random, true),
+      relicIds: rollRelicChoices(run, random), sideMenuIds: rollSideMenuChoices(random),
+    } }
+  }
   const gold = 250 + Math.floor(random() * 11) * 10
   return { ...run, belly, battlesWon, gold: run.gold + gold, status: 'reward',
     reward: { gold, cardIds: rollRewardCards(run.archetype, random) } }
 }
 
-export function chooseReward(run: RunState, cardId: string | null): RunState {
-  if (run.status !== 'reward' || !run.reward) throw new Error('報酬を選べる状態ではありません')
-  if (cardId !== null && !run.reward.cardIds.includes(cardId)) throw new Error(`報酬にない寿司です: ${cardId}`)
-  return cardId === null
-    ? { ...run, gold: run.gold + SKIP_REWARD_GOLD, status: 'map', reward: null }
-    : { ...run, deck: [...run.deck, cardId], status: 'map', reward: null }
+const hasBonus = (reward: RunReward) => Boolean(reward.relicIds?.length || reward.sideMenuIds?.length)
+
+/** 寿司と（常連さんなら）器・サイドメニューの両方を選び終えたら地図へ戻る。 */
+function settleReward(run: RunState, reward: RunReward): RunState {
+  return reward.cardDone && (reward.bonusDone || !hasBonus(reward))
+    ? { ...run, status: 'map', reward: null } : { ...run, reward }
 }
 
+export function chooseReward(run: RunState, cardId: string | null): RunState {
+  if (run.status !== 'reward' || !run.reward || run.reward.cardDone) throw new Error('報酬を選べる状態ではありません')
+  if (cardId !== null && !run.reward.cardIds.includes(cardId)) throw new Error(`報酬にない寿司です: ${cardId}`)
+  const next = cardId === null
+    ? { ...run, gold: run.gold + SKIP_REWARD_GOLD }
+    : { ...run, deck: [...run.deck, cardId] }
+  return settleReward(next, { ...run.reward, cardDone: true })
+}
+
+export type RunBonusChoice = { relic: RelicId } | { sideMenu: SideMenuId } | null
+
+/** 常連さんの報酬：器1つか、サイドメニュー1品（持ち越し枠を入れ替える）。null で見送る。 */
+export function chooseBonus(run: RunState, choice: RunBonusChoice): RunState {
+  const reward = run.reward
+  if (run.status !== 'reward' || !reward || !hasBonus(reward) || reward.bonusDone) throw new Error('器を選べる状態ではありません')
+  let next = run
+  if (choice && 'relic' in choice) {
+    if (!reward.relicIds?.includes(choice.relic)) throw new Error(`報酬にない器です: ${choice.relic}`)
+    next = { ...run, relics: [...run.relics, choice.relic] }
+  } else if (choice) {
+    if (!reward.sideMenuIds?.includes(choice.sideMenu)) throw new Error(`報酬にないサイドメニューです: ${choice.sideMenu}`)
+    next = { ...run, sideMenu: choice.sideMenu }
+  }
+  return settleReward(next, { ...reward, bonusDone: true })
+}
+
+/** お茶マス：お腹を30減らす。 */
 export function takeRest(run: RunState): RunState {
   if (run.status !== 'rest') throw new Error('お茶のマスではありません')
   return { ...run, belly: Math.max(0, run.belly - REST_DIGEST), status: 'map' }
 }
 
-/** 保存データを検証する。壊れた・古いデータは null。 */
+/** お茶マス：デッキの1枚を炙る（お腹は減らない）。 */
+export function aburiAtRest(run: RunState, deckIndex: number): RunState {
+  if (run.status !== 'rest') throw new Error('お茶のマスではありません')
+  const deckId = run.deck[deckIndex]
+  if (deckId === undefined || !canAburiDeckId(deckId)) throw new Error(`炙れない寿司です: ${deckId}`)
+  const deck = [...run.deck]
+  deck[deckIndex] = aburiDeckId(deckId)
+  return { ...run, deck, status: 'map' }
+}
+
+/** 試合に持ち込む補正：自分は器、常連さんは得意技。 */
+export function runMatchMods(run: Pick<RunState, 'relics'>, enemy: RunEnemy | undefined): Partial<Record<PlayerId, PlayerMods>> {
+  return {
+    ...(run.relics.length > 0 ? { 1: { relics: [...run.relics] } } : {}),
+    ...(enemy?.skill ? { 2: { skill: enemy.skill } } : {}),
+  }
+}
+
+/** 保存データを検証する。壊れたデータは null。第1段（version 1）の保存は器なしとして読み込む。 */
 export function parseRun(raw: string | null): RunState | null {
   if (!raw) return null
   try {
-    const data = JSON.parse(raw) as RunState
+    const parsed = JSON.parse(raw) as Omit<RunState, 'version' | 'relics' | 'sideMenu'> & { version: number; relics?: unknown; sideMenu?: unknown }
+    if (parsed?.version === 1) Object.assign(parsed, { version: RUN_VERSION, relics: [], sideMenu: null })
+    const data = parsed as RunState
     if (data?.version !== RUN_VERSION || !Array.isArray(data.deck) || !Array.isArray(data.nodes)) return null
     if (!RUN_ARCHETYPES.some(item => item.id === data.archetype)) return null
     if (!['map', 'battle', 'reward', 'rest', 'won', 'lost'].includes(data.status)) return null
+    if (!Array.isArray(data.relics) || !data.relics.every(isRelicId)) return null
+    if (data.sideMenu !== null && !isSideMenuId(data.sideMenu)) return null
     return data
   } catch {
     return null

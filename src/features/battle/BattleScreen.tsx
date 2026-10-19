@@ -2,13 +2,14 @@ import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode, CpuDeckId } from '../../data/cpuDecks'
 import type { PlayerId } from '../../game/types'
+import type { MatchOptions } from '../../game/matchEngine'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { calcFieldDmg, toField, countNamahamu, getSacrificeLimit, getSacrificeBonus, getDefenseCost, getDestroyTargets, MAKI_COMP_5, makimonoCount, hasNamahamuAura, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
+import { calcFieldDmg, toField, countNamahamu, getSacrificeLimit, getSacrificeBonus, isReservableDefense, getDestroyTargets, MAKI_COMP_5, makimonoCount, namahamuAuraBonus, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -39,6 +40,7 @@ export function BattleScreen({
   cpuDeckId,
   initialBelly,
   refillOnEmpty,
+  runMods,
   onBack,
   onFinish,
 }: {
@@ -50,11 +52,13 @@ export function BattleScreen({
   cpuDeckId?: CpuDeckId
   initialBelly?: Partial<Record<PlayerId, number>>
   refillOnEmpty?: boolean
+  /** 寿司はしごの器・常連さんの得意技。 */
+  runMods?: MatchOptions['runMods']
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 
@@ -155,11 +159,11 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   const selectedOwnerIsOpponent = currentInspect?.owner === 'opponent'
   const handAttack = (card: Card) => calcFieldDmg([toField(card)], s.pAttackBuff, s.pKiretaStack, s.cBelly, {
     gunkanBoost: makimonoCount(s.pField) >= MAKI_COMP_5,
-    namahamuBoost: hasNamahamuAura(s.pField),
+    namahamuBoost: namahamuAuraBonus(s.pField), fieldCount: s.pField.length + 1,
   })
   const selectedAttack = selectedCard ? currentInspect?.actualAttack ?? handAttack(selectedCard) : 0
   // 生贄・対象指定・防御予約は、従来の詳細シートで選んでから確定する。
-  const needsPlayOptions = !!selectedCard && (getDefenseCost(selectedCard) > 0
+  const needsPlayOptions = !!selectedCard && (isReservableDefense(selectedCard)
     || (selectedCard.effect === 'destroy_enemy_persist_1' && getDestroyTargets(selectedCard, s.cField).length > 0)
     || (getSacrificeLimit(selectedCard) > 0 && countNamahamu(s.pField) > 0))
 
@@ -240,7 +244,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               {s.pHand.length === 0
                 ? <p className="battle-empty-field">手札がありません</p>
                 : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
-                  namahamuBoost={hasNamahamuAura(s.pField)} compact={isCompact} actualAttack={handAttack(card)}
+                  namahamuBoost={namahamuAuraBonus(s.pField) > 0} compact={isCompact} actualAttack={handAttack(card)}
                   blockedLabel={!isPlayerTurn ? '待機' : s.pAP < card.cost ? 'AP不足' : '満席'}
                   canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
                   isSelected={inspect?.card === card}
@@ -324,7 +328,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             enemyFieldCards={s.cField}
             enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, s.pBelly, {
               gunkanBoost: makimonoCount(s.cField) >= MAKI_COMP_5,
-              namahamuBoost: hasNamahamuAura(s.cField),
+              namahamuBoost: namahamuAuraBonus(s.cField), fieldCount: s.cField.length,
             })}
             sacrificeAttackBonus={s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0}
             attackBuff={currentInspect.owner === 'opponent' ? s.cAttackBuff : s.pAttackBuff}
