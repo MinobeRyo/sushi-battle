@@ -495,4 +495,18 @@ test('保存：第1段（満腹ライン版 version 2）の保存は器なしで
   assert.equal(run.parseRun(JSON.stringify({ ...v2, relics: ['bogus'] })), null)
 })
 
+test('図鑑の器：企画書8章の31種を並べ、実装済みの18種はすべて runRelics.ts の器', () => {
+  const { RELIC_CATALOG, relicStatusCounts } = loadTs('src/features/catalog/relicCatalogData.ts')
+  assert.equal(RELIC_CATALOG.length, 31)
+  assert.equal(new Set(RELIC_CATALOG.map(entry => entry.id)).size, 31)
+  assert.equal(RELIC_CATALOG.filter(entry => entry.kind === 'aimori').length, 6)
+  assert.equal(RELIC_CATALOG.filter(entry => entry.kind === 'taisho').length, 7)
+  for (const relic of RELICS) assert.ok(RELIC_CATALOG.some(entry => entry.id === relic.id && entry.status !== 'todo'), relic.name)
+  for (const entry of RELIC_CATALOG.filter(item => item.status === 'todo')) assert.ok(!RELICS.some(relic => relic.id === entry.id))
+  for (const entry of RELIC_CATALOG.filter(item => item.status !== 'done')) assert.ok(entry.note, `${entry.name}に足りないものの説明がありません`)
+  const counts = relicStatusCounts()
+  assert.equal(counts.done + counts.partial, RELICS.length)
+  assert.equal(counts.todo, 13)
+})
+
 console.log(`\n${passed}件のテストに合格しました`)
