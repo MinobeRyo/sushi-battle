@@ -75,3 +75,11 @@
 - [Hot Water in Mug #2](https://bigsoundbank.com/eau-chaude-dans-mug-2-s3312.html): 90℃のお湯をマグへ注ぐ録音。お茶や湯のみの録音とは表示していません。
 - [Glass, Placed on Table](https://bigsoundbank.com/verre-pose-sur-table-s1204.html): 木のテーブルでグラスを置く・持ち上げる録音。
 - ライセンス: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+
+## 合わせ技のシャキーン（combo-syakiin）
+
+- 作者: OtoLogic
+- 素材: [オノマトペ・シャキーン02](https://otologic.jp/free/se/syakiin01.html)（`Onoma-Syakiin02-1(Dry).mp3`）
+- ライセンス: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)。**クレジット表記「OtoLogic」が必要です。**
+- 加工: 他の録音素材と同じ整音（無音調整・帯域整理・音量調整・フェード）。合わせ技のカットイン表示時に `src/audio/gameSounds.ts` の `combo` として再生します。
+- 再生成時は配布ZIPを `.cache/se-foley/otologic-syakiin/` に展開します。

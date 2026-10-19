@@ -1,4 +1,4 @@
-"""試聴室のCC0原音の整音とオリジナル効果音の合成を行います。
+"""試聴室の原音（CC0・一部CC BY 4.0）の整音とオリジナル効果音の合成を行います。
 
 必要な原音は public/audio/se-lab/SOURCES.md を参照してください。
 Python標準ライブラリとffmpegを使い、ネットワーク通信は行いません。
@@ -41,6 +41,13 @@ SOURCES = {
         'title': 'Casino Audio',
         'url': 'https://kenney.nl/assets/casino-audio',
     },
+    'otologic': {
+        'folder': ROOT / '.cache/se-foley/otologic-syakiin/Onoma-Syakiin02',
+        'author': 'OtoLogic',
+        'title': 'オノマトペ・シャキーン02',
+        'url': 'https://otologic.jp/free/se/syakiin01.html',
+        'license': 'CC-BY-4.0',
+    },
 }
 
 # 表示名はゲーム中の用途。録音元で使われた器具の断定ではありません。
@@ -63,6 +70,7 @@ SOUNDS = [
     ('card-place', 'そっとカードを置く', 'パタッ', '軽くカードを置く、控えめな着地音。', 'battle', 'カードを置く', 'cards', 'card-place-4.ogg'),
     ('card-return', 'カードを戻す', 'ザッ', '束にカードを押し戻す、少し粗い紙の音。', 'battle', '手札に戻す', 'cards', 'card-shove-1.ogg'),
     ('card-shuffle', '手札シャッフル', 'シャララ', '束を混ぜる連続音。配り直しやデッキ操作に。', 'battle', '手札を混ぜる', 'cards', 'card-shuffle.ogg'),
+    ('combo-syakiin', '合わせ技のシャキーン', 'シャキーン', '決めポーズの金属音。合わせ技のカットインに。', 'battle', '合わせ技が決まる', 'otologic', 'Onoma-Syakiin02-1(Dry).mp3'),
 ]
 COLORS = {'table': '#9e7154', 'service': '#b98d3e', 'cards': '#638a7d', 'battle': '#9b6269', 'tablet': '#7695a6', 'pop': '#cf8e68', 'dish': '#8b9b63'}
 
@@ -293,7 +301,7 @@ def main():
         provenance.append({
             'file': f'{sound_id}.wav', 'original': filename,
             'source': SOURCES[source]['title'], 'author': SOURCES[source]['author'],
-            'url': SOURCES[source]['url'], 'license': 'CC0-1.0',
+            'url': SOURCES[source]['url'], 'license': SOURCES[source].get('license', 'CC0-1.0'),
             'trimStart': round(start, 5), 'trimEnd': round(end, 5), 'gain': round(gain, 5),
         })
         print(f'{sound_id}: {len(samples) / RATE:.3f}s, peak={max(abs(value) for value in samples):.3f}')

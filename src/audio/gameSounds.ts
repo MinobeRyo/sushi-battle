@@ -5,6 +5,7 @@ export const GAME_SOUNDS = {
   tabletTouch: { id: 'pop-soft', volume: 0.45 },
   dishPickup: { id: 'dish-pokon', volume: 0.45 },
   cardPlay: { id: 'card-play', volume: 0.2 },
+  combo: { id: 'combo-syakiin', volume: 0.45 },
 } as const
 
 export type GameSoundName = keyof typeof GAME_SOUNDS
