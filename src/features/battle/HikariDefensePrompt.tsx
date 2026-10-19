@@ -6,13 +6,14 @@ import { ScreenPager } from '../../components/ScreenPager'
 import './DefensePrompt.css'
 import './HikariDefensePrompt.css'
 
-export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackBuff, kiretaStack, enemyBelly, ready, onRespond, onLeave }: {
+export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackBuff, kiretaStack, enemyBelly, enemyMaxBelly = MAX_BELLY, ready, onRespond, onLeave }: {
   reaction: PendingReaction
   defenseCard?: FieldCard
   enemyField: FieldCard[]
   attackBuff: Record<string, number>
   kiretaStack: number
   enemyBelly: number
+  enemyMaxBelly?: number
   ready: boolean
   onRespond: (useDefense: boolean, targetFieldId?: string) => void
   onLeave?: () => void
@@ -44,7 +45,7 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
   const minDamage = Math.min(...possibleDamage), maxDamage = Math.max(...possibleDamage)
   const range = (low: number, high: number) => low === high ? String(low) : `${low}〜${high}`
   const damageLabel = needsTarget && !targetFieldId ? '対象を選択' : `+${range(minDamage, maxDamage)}`
-  const bellyAfter = range(Math.min(MAX_BELLY, enemyBelly + minDamage), Math.min(MAX_BELLY, enemyBelly + maxDamage))
+  const bellyAfter = range(Math.min(enemyMaxBelly, enemyBelly + minDamage), Math.min(enemyMaxBelly, enemyBelly + maxDamage))
   const reductionRate = defenseCard ? getDefenseReductionRate(defenseCard) * 100 : 50
 
   useEffect(() => {
@@ -84,14 +85,14 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
           onClick={canUse ? () => onRespond(true, needsTarget ? targetFieldId : undefined) : undefined}>
           <span className="battle-defense__choice-title">防御を使う</span>
           <strong className="battle-defense__damage">{damageLabel}<small>今回受ける量</small></strong>
-          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{needsTarget && !targetFieldId ? '—' : bellyAfter}</b>{!(needsTarget && !targetFieldId) && enemyBelly + maxDamage >= MAX_BELLY && <em> 満腹で負け</em>}</span>
+          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{needsTarget && !targetFieldId ? '—' : bellyAfter}</b>{!(needsTarget && !targetFieldId) && enemyBelly + maxDamage >= enemyMaxBelly && <em> 満腹で負け</em>}</span>
           <small>防御1枚退場 · AP・切れ味消費なし</small>
         </button>
         <button type="button" className="battle-defense__keep" disabled={!ready}
           onClick={ready ? () => onRespond(false) : undefined}>
           <span className="battle-defense__choice-title">見送る</span>
           <strong className="battle-defense__damage">+{unchangedDamage}<small>今回受ける量</small></strong>
-          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{Math.min(MAX_BELLY, enemyBelly + unchangedDamage)}</b>{enemyBelly + unchangedDamage >= MAX_BELLY && <em> 満腹で負け</em>}</span>
+          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{Math.min(enemyMaxBelly, enemyBelly + unchangedDamage)}</b>{enemyBelly + unchangedDamage >= enemyMaxBelly && <em> 満腹で負け</em>}</span>
           <small>温存 · 相手ターン終了で退場</small>
         </button>
       </div>

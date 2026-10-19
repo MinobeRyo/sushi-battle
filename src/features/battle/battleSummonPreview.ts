@@ -73,7 +73,7 @@ export function previewBattleSummon(view: BattleView, card: Card, options: Battl
     && getDefenseTargets(result.field, result.attackBuff, result.kireta, view.cBelly)
       .some(item => item.archetype.includes('kaisen'))
   // 固定ダメージで腹の閾値を越えると、場の条件付き攻撃も即座に変化する。
-  const enemyBellyAfter = awaitsDefense ? view.cBelly : Math.min(MAX_BELLY, view.cBelly + Math.max(0, result.extraDmg))
+  const enemyBellyAfter = awaitsDefense ? view.cBelly : Math.min(view.cMaxBelly ?? MAX_BELLY, view.cBelly + Math.max(0, result.extraDmg))
   const afterCost = view.pAP - currentCard.cost
   const apAfter = afterCost + Math.max(0, Math.min(result.apRefund, view.pMaxAP - afterCost))
   const summoned = result.field.find(item => item.fid === currentCard.instanceId)!

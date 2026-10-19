@@ -42,6 +42,8 @@ export type MatchPlayer = {
   sushiPlayedThisTurn: number
   tempuraTriggeredThisTurn: boolean
   skippedDigestionThisTurn: number
+  /** 満腹ライン。省略時は100（寿司はしごの敵だけ小さくする）。 */
+  maxBelly?: number
 }
 
 export type PendingAttack = {

@@ -1,3 +1,4 @@
+import { bellyCap } from '../../game/battleRules'
 import type { MatchState, PlayerId } from '../../game/types'
 import { getCpuDeckDefinition } from '../../data/cpuDecks'
 import { otherPlayer } from '../../game/matchEngine'
@@ -15,13 +16,13 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     // 手渡し中は相手に手札が見えないよう、表示用データからも外す。
     pHand: phase === 'pass' ? [] : p.hand,
     pDeckSummary: phase === 'pass' ? [] : summarizeDeck(p.deck),
-    pField: p.field, pDeckCount: p.deck.length, pBelly: p.belly, pGari: p.gari,
+    pField: p.field, pDeckCount: p.deck.length, pBelly: p.belly, pMaxBelly: bellyCap(p), pGari: p.gari,
     pAP: p.ap, pMaxAP: p.maxAP, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
     pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
     pKiretaStack: p.kiretaStack, pThisTurnBases: p.thisTurnBases, pThisTurnArch: p.thisTurnArch,
     pDigestStopTurns: p.digestStopTurns, pApNextBonus: p.apNextBonus,
     pNikuMatsuri: p.nikuMatsuri, pSacrificedThisTurn: p.sacrificedThisTurn ?? 0, pKiretaSpent: p.kiretaSpent,
-    cHandCount: c.hand.length, cField: c.field, cDeckCount: c.deck.length, cBelly: c.belly, cGari: c.gari,
+    cHandCount: c.hand.length, cField: c.field, cDeckCount: c.deck.length, cBelly: c.belly, cMaxBelly: bellyCap(c), cGari: c.gari,
     cDeckLabel: match.cpuDeckId === null ? null
       : `${match.cpuDeckId === 'challenge' ? '挑戦 · ' : ''}${getCpuDeckDefinition(match.cpuDeckId).name}`,
     cAP: c.ap, cMaxAP: c.maxAP, cThisTurnArch: c.thisTurnArch,

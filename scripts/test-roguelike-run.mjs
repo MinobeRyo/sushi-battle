@@ -19,6 +19,7 @@ const seeded = seed => () => {
   return seed / 4294967296
 }
 const byId = id => CARDS.find(card => card.id === id)
+const play = (state, id) => ({ type: 'play_card', playerId: 1, cardInstanceId: state.players[1].hand.find(card => card.id === id).instanceId })
 
 test('地図は3本×8段＋大将で、どの段からも次の段へ進める', () => {
   for (let seed = 1; seed <= 50; seed++) {
@@ -48,12 +49,28 @@ test('地図は3本×8段＋大将で、どの段からも次の段へ進める'
   }
 })
 
-test('序盤の敵は最弱CPUで、相手の初期お腹が高い', () => {
-  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', initialBelly: 30, label: '大食い客' })
-  assert.equal(run.enemyForRow(2, 'battle', () => 0).initialBelly, 20)
-  assert.equal(run.enemyForRow(4, 'battle', () => 0).initialBelly, 10)
-  assert.notEqual(run.enemyForRow(6, 'battle', () => 0).cpuDeckId, 'weak')
-  assert.equal(run.enemyForRow(6, 'battle', () => 0).initialBelly, 0)
+test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり大将は100', () => {
+  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', maxBelly: 50, label: '大食い客' })
+  assert.equal(run.enemyForRow(2, 'battle', () => 0).cpuDeckId, 'weak')
+  assert.notEqual(run.enemyForRow(3, 'battle', () => 0).cpuDeckId, 'weak')
+  const caps = Array.from({ length: run.RUN_ROWS }, (_, row) => run.enemyForRow(row, 'battle', () => 0).maxBelly)
+  assert.ok(caps.every((cap, i) => i === 0 || cap >= caps[i - 1]), '満腹ラインは下がらない')
+  assert.equal(run.enemyForRow(run.RUN_ROWS, 'boss', () => 0).maxBelly, 100)
+})
+
+test('満腹ラインに届いた側が負け、お腹はラインを超えない', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('otoro')), cpuDeckId: 'weak',
+    maxBelly: { 2: 20 }, initialBelly: { 2: 60 } }, () => 0.999)
+  assert.equal(state.players[2].maxBelly, 20)
+  assert.equal(state.players[2].belly, 19, '開始お腹はラインの手前で止める')
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
+  state = transitionMatch(state, play(state, 'otoro'), () => 0.5).state
+  state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
+  if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
+  assert.equal(state.phase, 'over')
+  assert.equal(state.winnerId, 1)
+  assert.equal(state.players[2].belly, 20)
+  assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[2].maxBelly, undefined)
 })
 
 test('最初のデッキは汎用10枚＋系統3枚の13枚', () => {
@@ -129,6 +146,7 @@ test('保存は対戦の手前に戻し、壊れたデータは読まない', ()
 test('試合は指定したCPUデッキと開始お腹で始まる', () => {
   const state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'hikari',
     initialBelly: { 1: 42, 2: 30 }, refillOnEmpty: true }, seeded(1))
+  assert.equal(state.players[2].maxBelly, undefined, '指定しなければ満腹ラインは100のまま')
   assert.equal(state.cpuDeckId, 'hikari')
   assert.equal(state.players[1].belly, 42)
   assert.equal(state.players[2].belly, 30)

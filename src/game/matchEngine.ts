@@ -6,7 +6,7 @@ import { chooseCpuDeck, getCpuDeck, getCpuDeckDefinition, getCpuReorderDeck, typ
 import { canReorderSideMenu, INBOUND_DON_ATTACK_BONUS, INBOUND_DON_SACRIFICE_BONUS, isSideMenuId, SIDE_MENUS, SIDE_MENU_BY_ID } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, hasNamahamuAura, isDefenseCard, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, withDefenseReduction } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, hasNamahamuAura, isDefenseCard, bellyCap, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, withDefenseReduction } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -24,6 +24,8 @@ export type MatchOptions = {
   openingHand?: Partial<Record<PlayerId, number>>
   /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
   drawBonus?: Partial<Record<PlayerId, number>>
+  /** 満腹ライン（寿司はしごの敵用）。省略時は100。 */
+  maxBelly?: Partial<Record<PlayerId, number>>
 }
 
 /** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
@@ -78,8 +80,10 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   deal(state, 2, p2Cards, random, Math.min(HAND_LIMIT, options.openingHand?.[2] ?? 5))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
   for (const id of [1, 2] as const) {
+    const cap = options.maxBelly?.[id]
+    if (cap !== undefined && cap !== MAX_BELLY) state.players[id].maxBelly = Math.max(1, Math.floor(cap))
     const belly = options.initialBelly?.[id]
-    if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(MAX_BELLY - 1, Math.floor(belly)))
+    if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(bellyCap(state.players[id]) - 1, Math.floor(belly)))
     state.players[id].drawBonus += Math.max(0, options.drawBonus?.[id] ?? 0)
   }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
@@ -177,13 +181,13 @@ function addCardToDeck(state: MatchState, id: PlayerId, card: Card, count: numbe
 
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
   const dealt = Math.max(0, amount)
-  state.players[id].belly = Math.min(MAX_BELLY, state.players[id].belly + dealt)
+  state.players[id].belly = Math.min(bellyCap(state.players[id]), state.players[id].belly + dealt)
   if (dealt > 0) events.push({ type: 'damage', playerId: id, amount: dealt })
 }
 
 function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: PlayerId) {
   const order: PlayerId[] = simultaneousLoser ? [simultaneousLoser, otherPlayer(simultaneousLoser)] : [1, 2]
-  const loser = order.find(id => state.players[id].belly >= MAX_BELLY)
+  const loser = order.find(id => state.players[id].belly >= bellyCap(state.players[id]))
   if (loser === undefined) return false
   state.winnerId = otherPlayer(loser)
   state.phase = 'over'
@@ -629,8 +633,8 @@ export function getCpuDefenseAction(state: MatchState, random: RandomSource = Ma
   }) : [attack.amount]
   const amount = Math.ceil(anticipated.reduce((sum, value) => sum + value, 0) / anticipated.length)
   const reduction = calcGariReduction(amount)
-  const avoidsDefeat = cpu.belly + amount >= MAX_BELLY
-    && cpu.belly + amount - reduction < MAX_BELLY
+  const avoidsDefeat = cpu.belly + amount >= bellyCap(cpu)
+    && cpu.belly + amount - reduction < bellyCap(cpu)
   return {
     type: 'respond_defense', playerId: 2,
     // 最弱・普通は従来の16点/致死回避。挑戦は80%で消化と残数も評価する。

@@ -2,14 +2,14 @@ import { INBOUND_DON_SACRIFICE_BONUS } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { FieldCard, MatchAction, MatchPlayer } from './types'
 import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, digestBonus,
-  FIELD_MAX, getDestroyTargets, getSacrificeLimit, MAX_BELLY } from './battleRules'
+  bellyCap, FIELD_MAX, getDestroyTargets, getSacrificeLimit } from './battleRules'
 
 export const CHALLENGE_SMART_RATE = 0.8
 
 // 評価関数に相手の手札・山札、自分の山札を公開しない。
 // 未知のドローは枚数だけを評価し、実際に引いた後で次の一手を選ぶ。
 type OpponentBoard = Pick<MatchPlayer,
-  'field' | 'belly' | 'gari' | 'attackBuff' | 'kiretaStack' | 'sideMenu'>
+  'field' | 'belly' | 'gari' | 'attackBuff' | 'kiretaStack' | 'sideMenu' | 'maxBelly'>
 type CpuView = { players: { 1: OpponentBoard; 2: Omit<MatchPlayer, 'deck'> } }
 
 function activeMenu(player: { sideMenu: MatchPlayer['sideMenu'] }, id: SideMenuId) {
@@ -34,8 +34,10 @@ export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAc
   const threat = (field = enemy.field, belly = cpu.belly) =>
     calcFieldDmg(field, enemy.attackBuff, enemy.kiretaStack, belly)
   const currentAttack = attack()
+  const enemyCap = bellyCap(enemy)
+  const cpuCap = bellyCap(cpu)
   // 相手がガリを使っても勝てるなら、そのまま攻撃へ進む。
-  if (enemy.belly + afterGari(currentAttack, enemy.gari) >= MAX_BELLY) return null
+  if (enemy.belly + afterGari(currentAttack, enemy.gari) >= enemyCap) return null
 
   const available = countNamahamu(cpu.field)
   const hasSpace = (card: MatchPlayer['hand'][number]) =>
@@ -44,12 +46,12 @@ export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAc
     const id = cpu.sideMenu.id
     const useMenu = ['fries', 'tempura', 'miso', 'inbound_don'].includes(id)
       || (id === 'chawanmushi' && (cpu.belly >= 45 || cpu.skippedDigestionThisTurn > 0
-        || (cpu.belly > 0 && cpu.belly + afterGari(threat(), cpu.gari) >= MAX_BELLY)))
+        || (cpu.belly > 0 && cpu.belly + afterGari(threat(), cpu.gari) >= cpuCap)))
       || (id === 'karaage' && cpu.belly < 85 && (enemy.belly >= 85
-        || (enemy.belly + 15 + afterGari(attack(cpu.field, enemy.belly + 15), enemy.gari) >= MAX_BELLY
-          && cpu.belly + 15 + afterGari(threat(enemy.field, cpu.belly + 15), cpu.gari) < MAX_BELLY)))
+        || (enemy.belly + 15 + afterGari(attack(cpu.field, enemy.belly + 15), enemy.gari) >= enemyCap
+          && cpu.belly + 15 + afterGari(threat(enemy.field, cpu.belly + 15), cpu.gari) < cpuCap)))
       || (id === 'ramen' && cpu.belly < 95
-        && cpu.belly + 5 + afterGari(threat(enemy.field, cpu.belly + 5), cpu.gari) < MAX_BELLY
+        && cpu.belly + 5 + afterGari(threat(enemy.field, cpu.belly + 5), cpu.gari) < cpuCap
         && cpu.hand.some(card => card.cost > cpu.ap && card.cost <= cpu.ap + 1 && hasSpace(card)))
     if (useMenu) return { type: 'use_side_menu', playerId: 2 }
   }
@@ -84,9 +86,9 @@ export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAc
         const remaining = target ? enemy.field.filter(item => item.fid !== target.fid) : enemy.field
         const beforeRisk = cpu.belly + afterGari(threat(), cpu.gari)
         const afterRisk = result.belly + afterGari(threat(remaining, result.belly), cpu.gari)
-        const lethal = enemyBelly + afterGari(nextAttack, enemy.gari) >= MAX_BELLY
+        const lethal = enemyBelly + afterGari(nextAttack, enemy.gari) >= enemyCap
         const score = (lethal ? 10000 : 0)
-          + (beforeRisk >= MAX_BELLY && afterRisk < MAX_BELLY ? 1000 : 0)
+          + (beforeRisk >= cpuCap && afterRisk < cpuCap ? 1000 : 0)
           + (result.extraDmg + nextAttack - currentAttack
             + 0.5 * (nextFuture - currentFuture)
             + 1.5 * (digestBonus(result.field) - digestBonus(cpu.field))

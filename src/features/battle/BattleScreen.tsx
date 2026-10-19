@@ -41,6 +41,7 @@ export function BattleScreen({
   refillOnEmpty,
   openingHand,
   drawBonus,
+  maxBelly,
   onBack,
   onFinish,
 }: {
@@ -54,11 +55,12 @@ export function BattleScreen({
   refillOnEmpty?: boolean
   openingHand?: Partial<Record<PlayerId, number>>
   drawBonus?: Partial<Record<PlayerId, number>>
+  maxBelly?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, openingHand, drawBonus, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, openingHand, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 
@@ -188,18 +190,18 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <div className="battle-phase-bar">
             <span className="battle-turn-number">ターン {s.turn}</span>
             <strong role="status">{phaseLabel}</strong>
-            <span className="battle-phase-hint">お腹が100で負け</span>
+            <span className="battle-phase-hint">お腹が{s.pMaxBelly ?? 100}で負け</span>
           </div>
           <div className="battle-status-grid">
             <PlayerStatusPanel label={isCompact ? mode === 'cpu' ? '相手 CPU' : opponentLabel : `相手 · ${opponentLabel}`} isOpponent
               gari={s.cGari}
-              belly={s.cBelly} ap={s.cAP} maxAP={s.cMaxAP} fieldDamage={opponentDmg}
+              belly={s.cBelly} maxBelly={s.cMaxBelly} ap={s.cAP} maxAP={s.cMaxAP} fieldDamage={opponentDmg}
               handCount={s.cHandCount} deckCount={s.cDeckCount} {...opponentStatus}
               compactControl={<button type="button" aria-label={`${opponentLabel}の状態とコンボを見る`} onClick={() => setStatusSide('opponent')}>状態・コンボ</button>}
               digestStopTurns={s.cDigestStopTurns} apNextBonus={s.cApNextBonus} />
             <PlayerStatusPanel label={mode === 'cpu' ? 'あなた' : `あなた · ${activeLabel}`}
               gari={s.pGari}
-              belly={s.pBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
+              belly={s.pBelly} maxBelly={s.pMaxBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
               handCount={s.pHand.length} deckCount={s.pDeckCount} {...playerStatus}
               compactControl={<><ComboStatusBar st={playerStatus} inline hideKireta /><button type="button" aria-label={`${activeLabel}の状態とコンボを見る`} onClick={() => setStatusSide('player')}>状態・コンボ</button></>}
               deckControl={['player', 'cpu', 'waiting', 'animating', 'syncing'].includes(s.phase) && !s.pendingAttack && !s.pendingReaction && !comboAnim
@@ -258,7 +260,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
 
         <footer className="battle-actions" ref={actionsRef}>
           <div className="battle-compact-phase battle-compact-only">
-            <span>ターン {s.turn}</span><strong role={isCompact ? 'status' : undefined}>{isPlayerTurn ? 'あなたの番' : phaseLabel}</strong><small>相手のお腹100で勝利</small>
+            <span>ターン {s.turn}</span><strong role={isCompact ? 'status' : undefined}>{isPlayerTurn ? 'あなたの番' : phaseLabel}</strong><small>相手のお腹{s.cMaxBelly ?? 100}で勝利</small>
           </div>
           <section className="battle-selection battle-compact-only" aria-label="選択中のカード" aria-live="polite" data-source={currentInspect?.remainingTurns !== undefined ? 'field' : 'hand'}>
             {currentInspect ? <>
@@ -361,13 +363,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       {s.pendingReaction && isReactionDefender && (s.phase === 'reacting' || s.phase === 'syncing') && (
         <HikariDefensePrompt reaction={s.pendingReaction}
           defenseCard={s.pField.find(card => card.fid === s.pendingReaction!.defenseCardId)}
-          enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly}
+          enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} enemyMaxBelly={s.pMaxBelly}
           ready={s.phase === 'reacting'} onRespond={respondReaction}
           onLeave={mode === 'online' ? onBack : undefined} />
       )}
 
       {s.pendingAttack && isDefender && (s.phase === 'defending' || s.phase === 'syncing') && (
-        <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} gari={s.pGari}
+        <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} maxBelly={s.pMaxBelly} gari={s.pGari}
           key={`${s.turn}:${s.pendingAttack.attackerId}:${s.pendingAttack.source}:${s.pendingAttack.amount}:${s.pendingAttack.defenseCardId ?? ''}`}
           defenseCard={s.pField.find(card => card.fid === s.pendingAttack!.defenseCardId)}
           enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack}

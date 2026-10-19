@@ -7,7 +7,8 @@ import { CPU_DECKS, type CpuDeckId } from '../data/cpuDecks'
 
 export type RunArchetype = Exclude<Archetype, 'general' | 'gunkan'>
 export type RunNodeKind = 'battle' | 'rest' | 'boss'
-export type RunEnemy = { cpuDeckId: CpuDeckId; initialBelly: number; label: string }
+/** maxBelly は敵の満腹ライン。序盤ほど小さく、短い試合で進める。 */
+export type RunEnemy = { cpuDeckId: CpuDeckId; maxBelly: number; label: string }
 export type RunNode = { id: string; row: number; col: number; kind: RunNodeKind; next: string[]; enemy?: RunEnemy }
 export type RunStatus = 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
 export type RunReward = { gold: number; cardIds: string[] }
@@ -27,7 +28,7 @@ export type RunState = {
   battlesWon: number
 }
 
-export const RUN_VERSION = 1
+export const RUN_VERSION = 2
 export const RUN_ROWS = 8 // 通常マスの段数。この上に大将が1マス
 export const RUN_COLS = 3
 export const REST_DIGEST = 30
@@ -69,12 +70,17 @@ export function runDeckCards(run: Pick<RunState, 'deck'>): Card[] {
 
 const pick = <T,>(items: readonly T[], random: RandomSource): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))]
 
-/** 段ごとの敵。序盤は相手のお腹を高めにして短期決着にする。 */
+/** 段ごとの敵の満腹ライン。1軒目50から上げていき、大将だけ100。 */
+export const ENEMY_MAX_BELLY_BY_ROW: readonly number[] = [50, 55, 60, 60, 65, 70, 75, 80]
+export const BOSS_MAX_BELLY = 100
+
+/** 段ごとの敵。序盤は満腹ラインを低くして短期決着にする。 */
 export function enemyForRow(row: number, kind: 'battle' | 'boss', random: RandomSource): RunEnemy {
-  if (kind === 'boss') return { cpuDeckId: 'challenge', initialBelly: 0, label: '大将' }
-  if (row <= 2) return { cpuDeckId: 'weak', initialBelly: [30, 25, 20][row], label: '大食い客' }
+  if (kind === 'boss') return { cpuDeckId: 'challenge', maxBelly: BOSS_MAX_BELLY, label: '大将' }
+  const maxBelly = ENEMY_MAX_BELLY_BY_ROW[Math.min(row, ENEMY_MAX_BELLY_BY_ROW.length - 1)]
+  if (row <= 2) return { cpuDeckId: 'weak', maxBelly, label: '大食い客' }
   const deck = pick(CPU_DECKS, random)
-  return { cpuDeckId: deck.id, initialBelly: row <= 5 ? 10 : 0, label: `大食い客 · ${deck.name}` }
+  return { cpuDeckId: deck.id, maxBelly, label: `大食い客 · ${deck.name}` }
 }
 
 /** 第1段で出るマスの重み。ハプニング・常連さん・買い物は後の段で足す。 */

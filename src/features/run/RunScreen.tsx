@@ -39,7 +39,8 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       key={`${node.id}:${run.visited.length}`}
       deck={runDeckCards(run)}
       cpuDeckId={node.enemy.cpuDeckId}
-      initialBelly={{ 1: run.belly, 2: node.enemy.initialBelly }}
+      initialBelly={{ 1: run.belly }}
+      maxBelly={{ 2: node.enemy.maxBelly }}
       refillOnEmpty
       openingHand={{ 1: RUN_OPENING_HAND }}
       drawBonus={{ 1: RUN_DRAW_PER_TURN - 1 }}
