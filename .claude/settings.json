@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Bash(pkill -f \"vite --port\")",
+      "Skill(run)",
+      "Skill(run:*)"
+    ],
+    "deny": [
+      "Write(/Users/ryom/!(sushi battle)/**)",
+      "Edit(/Users/ryom/!(sushi battle)/**)",
+      "Bash(rm * /Users/ryom/!(sushi battle)/**)",
+      "Bash(rsync * /Users/ryom/!(sushi battle)/**)"
+    ]
+  }
+}
