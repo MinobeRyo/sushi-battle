@@ -80,6 +80,8 @@ test('最初のデッキは汎用10枚＋系統3枚の13枚', () => {
     assert.equal(run.runDeckCards(state).length, 13, `${id}の寿司IDが存在しません`)
     assert.ok(run.ARCHETYPE_STARTERS[id].every(cardId => byId(cardId).archetype.includes(id)))
   }
+  assert.deepEqual([...run.ARCHETYPE_STARTERS.akami].sort(), ['chutoro', 'maguro', 'otoro'], '赤身は三種盛りが揃う')
+  assert.ok(run.ARCHETYPE_STARTERS.niku.includes('yakiniku'), '肉寿司は焼肉寿司から始まる')
 })
 
 test('マスは隣の道にしか進めず、お茶でお腹が30減る', () => {
