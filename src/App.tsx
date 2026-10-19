@@ -1,15 +1,14 @@
 import { lazy, Suspense, useState } from 'react'
-import { motion } from 'framer-motion'
 import { TitleScreen } from './features/title/TitleScreen'
-import { ModeSelectScreen } from './features/title/ModeSelectScreen'
+import { ModeSelectScreen, type BattleMode } from './features/title/ModeSelectScreen'
 import { DraftScreenThree } from './features/draft/DraftScreenThree'
 import { BattleScreen } from './features/battle/BattleScreen'
 import { OnlineScreen } from './features/online/OnlineScreen'
+import { RunScreen } from './features/run/RunScreen'
 import type { Phase, Card } from './types'
 import type { SideMenuId } from './data/sideMenus'
 import type { CpuBattleMode } from './data/cpuDecks'
 
-type GameMode = 'cpu' | 'two_player'
 const MobileDraftDemo = lazy(() => import('./features/demo/MobileDraftDemo'))
 const VerticalDraftDemo = lazy(() => import('./features/demo/VerticalDraftDemo'))
 const ImprovementsDemo = lazy(() => import('./features/demo/ImprovementsDemo'))
@@ -19,64 +18,37 @@ export default function App() {
   const [isMobileDemo] = useState(() => window.location.hash === '#mobile-demo')
   const [isVerticalDemo] = useState(() => window.location.hash === '#vertical-draft-demo')
   const [isImprovementsDemo] = useState(() => window.location.hash === '#improvements-demo')
-  const [phase, setPhase] = useState<Phase | 'online' | 'catalog'>(() => window.location.hash === '#online' ? 'online' : 'title')
-  const [gameMode, setGameMode] = useState<GameMode>('cpu')
+  const [phase, setPhase] = useState<Phase | 'online' | 'catalog' | 'run'>(() => window.location.hash === '#online' ? 'online' : 'title')
   const [cpuBattleMode, setCpuBattleMode] = useState<CpuBattleMode>('random')
-  const [draftPlayer, setDraftPlayer] = useState<1 | 2>(1)
   const [p1Deck, setP1Deck] = useState<Card[]>([])
-  const [p2Deck, setP2Deck] = useState<Card[]>([])
   const [p1SideMenu, setP1SideMenu] = useState<SideMenuId | null>(null)
-  const [p2SideMenu, setP2SideMenu] = useState<SideMenuId | null>(null)
-  const [showHandoff, setShowHandoff] = useState(false)
 
-  const handleModeSelect = (mode: 'weak' | 'cpu' | 'challenge' | '2p' | 'online') => {
+  const handleModeSelect = (mode: BattleMode) => {
     if (mode === 'online') {
       window.history.replaceState(null, '', '#online')
       setPhase('online')
       return
     }
-    const gm: GameMode = mode === '2p' ? 'two_player' : 'cpu'
-    setGameMode(gm)
+    if (mode === 'run') {
+      setPhase('run')
+      return
+    }
     setCpuBattleMode(mode === 'weak' ? 'weak' : mode === 'challenge' ? 'challenge' : 'random')
-    setDraftPlayer(1)
     setP1Deck([])
-    setP2Deck([])
     setP1SideMenu(null)
-    setP2SideMenu(null)
     setPhase('draft')
   }
 
   const handleDraftComplete = (deck: Card[], sideMenu: SideMenuId | null = null) => {
-    if (gameMode === 'cpu') {
-      setP1Deck(deck)
-      setP1SideMenu(sideMenu)
-      setPhase('battle')
-    } else {
-      if (draftPlayer === 1) {
-        setP1Deck(deck)
-        setP1SideMenu(sideMenu)
-        setShowHandoff(true)
-      } else {
-        setP2Deck(deck)
-        setP2SideMenu(sideMenu)
-        setPhase('battle')
-      }
-    }
-  }
-
-  const handleHandoffReady = () => {
-    setShowHandoff(false)
-    setDraftPlayer(2)
+    setP1Deck(deck)
+    setP1SideMenu(sideMenu)
+    setPhase('battle')
   }
 
   const handleBattleBack = () => {
     setPhase('title')
-    setDraftPlayer(1)
     setP1Deck([])
-    setP2Deck([])
     setP1SideMenu(null)
-    setP2SideMenu(null)
-    setShowHandoff(false)
   }
 
   if (isMobileDemo) return <Suspense fallback={<div style={{ padding: 32 }}>デモを準備しています…</div>}><MobileDraftDemo /></Suspense>
@@ -103,64 +75,18 @@ export default function App() {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
         setPhase('mode_select')
       }} />}
-      {phase === 'draft' && !showHandoff && (
-        <DraftScreenThree
-          key={gameMode === 'two_player' ? `p${draftPlayer}` : 'p1'}
-          onComplete={handleDraftComplete}
-          playerNum={gameMode === 'two_player' ? draftPlayer : undefined}
-        />
-      )}
-      {phase === 'draft' && showHandoff && (
-        <HandoffScreen playerNum={2} onReady={handleHandoffReady} />
+      {phase === 'run' && <RunScreen onExit={() => setPhase('mode_select')} />}
+      {phase === 'draft' && (
+        <DraftScreenThree key="p1" onComplete={handleDraftComplete} />
       )}
       {phase === 'battle' && (
         <BattleScreen
           deck={p1Deck}
-          p2Deck={gameMode === 'two_player' ? p2Deck : undefined}
           sideMenu={p1SideMenu}
-          p2SideMenu={gameMode === 'two_player' ? p2SideMenu : undefined}
-          mode={gameMode}
           cpuBattleMode={cpuBattleMode}
           onBack={handleBattleBack}
         />
       )}
-
-    </div>
-  )
-}
-
-// ── ドラフトハンドオフ画面 ──────────────────────────────────────────
-function HandoffScreen({ playerNum, onReady }: { playerNum: number; onReady: () => void }) {
-  return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 100,
-      background: 'linear-gradient(180deg,#1a0800,#3d1a0a)',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      gap: 24, color: '#fff',
-    }}>
-      <span style={{ fontSize: 72 }}>🍣</span>
-      <h2 style={{ fontSize: 28, fontWeight: 800, color: '#fde68a' }}>
-        プレイヤー{playerNum}の準備
-      </h2>
-      <p style={{ fontSize: 16, color: '#d6d3d1', textAlign: 'center', lineHeight: 1.8 }}>
-        プレイヤー1のデッキ構築が完了しました。<br />
-        デバイスをプレイヤー{playerNum}に渡してください。
-      </p>
-      <motion.button
-        onClick={onReady}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
-        style={{
-          marginTop: 16, padding: '16px 48px',
-          background: '#ea580c', border: '2px solid #fb923c',
-          borderRadius: 999, fontSize: 18, fontWeight: 800,
-          color: '#fff', cursor: 'pointer',
-          boxShadow: '0 0 24px rgba(234,88,12,0.5)',
-        }}
-      >
-        準備完了 →
-      </motion.button>
     </div>
   )
 }

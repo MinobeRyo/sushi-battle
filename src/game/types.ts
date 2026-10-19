@@ -78,6 +78,8 @@ export type MatchState = {
   revision: number
   nextInstanceId: number
   log: string[]
+  /** 寿司はしごの「おかわり」用。山札切れで戻す元のデッキ。通常対戦・オンラインでは持たない。 */
+  refill?: Record<PlayerId, Card[]>
 }
 
 export type MatchAction =

@@ -3,7 +3,7 @@ import './ModeSelectScreen.css'
 
 const TitleCounterScene = lazy(() => import('./TitleCounterScene').then(module => ({ default: module.TitleCounterScene })))
 
-type BattleMode = 'weak' | 'cpu' | 'challenge' | '2p' | 'online'
+export type BattleMode = 'weak' | 'cpu' | 'challenge' | 'run' | 'online'
 
 type Props = {
   onSelect: (mode: BattleMode) => void
@@ -14,7 +14,7 @@ const MODES: Array<{ id: BattleMode; number: string; label: string; kind: string
   { id: 'weak', number: '01', label: 'CPU対戦 · 最弱', kind: 'ひとりで遊ぶ', detail: 'これまでの汎用デッキCPU' },
   { id: 'cpu', number: '02', label: 'CPU対戦 · 普通', kind: 'ひとりで遊ぶ', detail: '5つのビルドからランダムに対戦' },
   { id: 'challenge', number: '03', label: 'CPU対戦 · 挑戦', kind: 'ひとりで遊ぶ', detail: '総額4,500円の肉寿司＋巻物CPU' },
-  { id: '2p', number: '04', label: '二人対戦', kind: '同じ端末で遊ぶ', detail: '画面を交代してデッキを構築' },
+  { id: 'run', number: '04', label: '寿司はしご', kind: 'ひとりで遊ぶ', detail: 'デッキを育てて大将に挑むローグライク' },
   { id: 'online', number: '05', label: 'オンライン対戦', kind: '通信で遊ぶ', detail: '部屋を作成、またはコードで参加' },
 ]
 
