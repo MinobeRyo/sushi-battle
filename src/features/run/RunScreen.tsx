@@ -5,11 +5,11 @@ import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
   BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
-  aburiAtRest, aburiDeckId, canAburiDeckId, chooseBonus, chooseReward, createRun, enterNode, findNode, finishBattle,
+  aburiAtRest, aburiDeckId, canAburiDeckId, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
   reachableNodeIds, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
 } from '../../game/run'
-import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL } from '../../data/runRelics'
+import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL, type RelicId } from '../../data/runRelics'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
@@ -53,6 +53,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
     <main className="run-screen">
       <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
       <div className="run-body">
+        {run.status === 'start_relic' && <RunStartRelic run={run} onChoose={id => setRun(chooseStartRelic(run, id))} />}
         {run.status === 'map' && <RunMap run={run} onEnter={id => setRun(enterNode(run, id))} />}
         {run.status === 'reward' && run.reward && <RunReward run={run} onChoose={id => setRun(chooseReward(run, id))}
           onBonus={choice => setRun(chooseBonus(run, choice))} />}
@@ -114,6 +115,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>勝つたびに寿司を3枚から1枚もらえます。山札が尽きたら「おかわり」で使った寿司が戻ります。</li>
             <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引きます。</li>
             <li>「常」の常連さんは得意技を持つ強敵です。勝つと器（ずっと効く道具）かサイドメニューももらえます。</li>
+            <li>はじめに器（ずっと効く道具）を3つから1つもらえます。</li>
             <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>
           </ul>
         </section>
@@ -235,6 +237,31 @@ function RewardCard({ card, onTake }: { card: Card; onTake: () => void }) {
   )
 }
 
+function RelicChoiceCard({ id, onTake }: { id: RelicId; onTake: () => void }) {
+  const relic = RELIC_BY_ID[id]
+  return (
+    <article className="run-reward-card run-bonus-card" data-grade={relic.grade}>
+      <p className="run-bonus-grade">{RELIC_GRADE_LABEL[relic.grade]}・{RUN_ARCHETYPES.find(item => item.id === relic.archetype)?.name ?? '汎用'}</p>
+      <h3>{relic.name}</h3>
+      <p className="run-reward-effect">{relic.text}</p>
+      <button type="button" className="run-primary" onClick={onTake}>この器をもらう</button>
+    </article>
+  )
+}
+
+/** 系統を選んだ直後、地図の前に器を3つから1つ受け取る。 */
+function RunStartRelic({ run, onChoose }: { run: RunState; onChoose: (id: RelicId) => void }) {
+  return (
+    <section className="run-panel run-reward" aria-labelledby="run-start-relic-heading">
+      <h2 id="run-start-relic-heading">はしごの前に、器をひとつ</h2>
+      <p className="run-note">大将からの心づけです。器はラン中ずっと効きます。1つ選んでから最初の店へ向かいます。</p>
+      <div className="run-reward-list">
+        {(run.startRelicIds ?? []).map(id => <RelicChoiceCard key={id} id={id} onTake={() => onChoose(id)} />)}
+      </div>
+    </section>
+  )
+}
+
 function RunReward({ run, onChoose, onBonus }: {
   run: RunState
   onChoose: (cardId: string | null) => void
@@ -248,17 +275,7 @@ function RunReward({ run, onChoose, onBonus }: {
         <p className="run-note">器（ずっと効く道具）を1つ、またはサイドメニューを1品選びます。サイドメニューは毎試合持ち込め、今の一品と入れ替わります。</p>
         <h3 className="run-subheading">器</h3>
         <div className="run-reward-list">
-          {(reward.relicIds ?? []).map(id => {
-            const relic = RELIC_BY_ID[id]
-            return (
-              <article key={id} className="run-reward-card run-bonus-card" data-grade={relic.grade}>
-                <p className="run-bonus-grade">{RELIC_GRADE_LABEL[relic.grade]}・{RUN_ARCHETYPES.find(item => item.id === relic.archetype)?.name ?? '汎用'}</p>
-                <h3>{relic.name}</h3>
-                <p className="run-reward-effect">{relic.text}</p>
-                <button type="button" className="run-primary" onClick={() => onBonus({ relic: id })}>この器をもらう</button>
-              </article>
-            )
-          })}
+          {(reward.relicIds ?? []).map(id => <RelicChoiceCard key={id} id={id} onTake={() => onBonus({ relic: id })} />)}
         </div>
         <h3 className="run-subheading">サイドメニュー</h3>
         <div className="run-reward-list">

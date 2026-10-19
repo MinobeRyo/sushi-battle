@@ -24,6 +24,11 @@ const seeded = seed => () => {
   return seed / 4294967296
 }
 const byId = id => CARDS.find(card => card.id === id)
+/** 開始時の器の3択を済ませて地図から始める（器は持たない状態にそろえる）。 */
+const begin = (archetype, random) => {
+  const { startRelicIds: _, ...state } = run.createRun(archetype, random)
+  return { ...state, status: 'map' }
+}
 const play = (state, id) => ({ type: 'play_card', playerId: 1, cardInstanceId: state.players[1].hand.find(card => card.id === id).instanceId })
 
 test('地図は3本×8段＋大将で、どの段からも次の段へ進める', () => {
@@ -90,7 +95,7 @@ test('最初のデッキは汎用10枚＋系統3枚の13枚', () => {
 })
 
 test('マスは隣の道にしか進めず、お茶でお腹が30減る', () => {
-  let state = run.createRun('akami', seeded(7))
+  let state = begin('akami', seeded(7))
   assert.deepEqual(run.reachableNodeIds(state), ['r0c0', 'r0c1', 'r0c2'])
   assert.throws(() => run.enterNode(state, 'r1c0'))
   state = run.enterNode(state, 'r0c1')
@@ -112,7 +117,7 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
     assert.ok(byId(ids[0]).archetype.includes('hikari'))
     assert.equal(byId(ids[1]).lane, 'general')
   }
-  let state = run.enterNode(run.createRun('niku', seeded(2)), 'r0c0')
+  let state = run.enterNode(begin('niku', seeded(2)), 'r0c0')
   state = run.finishBattle(state, true, 20, seeded(5))
   assert.ok(state.reward.gold >= 250 && state.reward.gold <= 350)
   assert.equal(state.gold, state.reward.gold)
@@ -127,7 +132,7 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
 })
 
 test('負けるとラン終了、大将に勝つとクリア', () => {
-  const state = run.enterNode(run.createRun('kaisen', seeded(9)), 'r0c2')
+  const state = run.enterNode(begin('kaisen', seeded(9)), 'r0c2')
   assert.equal(run.finishBattle(state, false, 100).status, 'lost')
   const atBoss = { ...state, currentNodeId: run.BOSS_NODE_ID, visited: [...state.visited, run.BOSS_NODE_ID] }
   const won = run.finishBattle(atBoss, true, 50)
@@ -136,7 +141,7 @@ test('負けるとラン終了、大将に勝つとクリア', () => {
 })
 
 test('保存は対戦の手前に戻し、壊れたデータは読まない', () => {
-  let state = run.enterNode(run.createRun('makimono', seeded(4)), 'r0c0')
+  let state = run.enterNode(begin('makimono', seeded(4)), 'r0c0')
   state = run.chooseReward(run.finishBattle(state, true, 10, seeded(1)), null)
   const next = state.nodes.find(node => node.id === state.currentNodeId).next[0]
   const inBattle = run.enterNode(state, next)
@@ -450,7 +455,7 @@ test('常連さん：得意技はCPU側だけに効く', () => {
 })
 
 test('常連さんの報酬：寿司3枚（炙り1枚）＋器3つかサイドメニュー3品', () => {
-  let state = run.createRun('hikari', seeded(5))
+  let state = begin('hikari', seeded(5))
   state = run.enterNode(state, 'r0c0')
   const node = state.nodes.find(item => item.id === 'r0c0')
   node.kind = 'regular'
@@ -507,6 +512,39 @@ test('図鑑の器：企画書8章の31種を並べ、実装済みの18種はす
   const counts = relicStatusCounts()
   assert.equal(counts.done + counts.partial, RELICS.length)
   assert.equal(counts.todo, 13)
+})
+
+test('開始時の器：系統を選んだ直後に3つから1つ受け取り、それまで地図に進めない', () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const state = run.createRun('hikari', seeded(seed))
+    assert.equal(state.status, 'start_relic')
+    assert.deepEqual(state.relics, [])
+    assert.equal(state.startRelicIds.length, 3)
+    assert.equal(new Set(state.startRelicIds).size, 3)
+    assert.equal(RELICS.find(relic => relic.id === state.startRelicIds[0]).archetype, 'hikari', '1つは選んだ系統の器')
+    assert.ok(state.startRelicIds.every(id => RELICS.some(relic => relic.id === id)), '通常の器だけ（大将の器は出さない）')
+    assert.deepEqual(run.reachableNodeIds(state), [], '選ぶまで地図に進めない')
+  }
+  const state = run.createRun('niku', seeded(4))
+  assert.throws(() => run.chooseStartRelic(state, 'not_offered'))
+  const chosen = run.chooseStartRelic(state, state.startRelicIds[1])
+  assert.equal(chosen.status, 'map')
+  assert.deepEqual(chosen.relics, [state.startRelicIds[1]])
+  assert.equal(chosen.startRelicIds, undefined)
+  assert.deepEqual(run.reachableNodeIds(chosen), ['r0c0', 'r0c1', 'r0c2'])
+  assert.throws(() => run.chooseStartRelic(chosen, state.startRelicIds[0]), '二度は選べない')
+  // 地図は器の抽選の前に作るので、同じ乱数なら第2段までと同じ地図になる。
+  assert.deepEqual(state.nodes, run.generateRunMap(seeded(4)))
+})
+
+test('開始時の器：選ぶ前に中断しても同じ3択で再開できる', () => {
+  const state = run.createRun('akami', seeded(6))
+  const saved = run.runForSave(state)
+  const loaded = run.parseRun(JSON.stringify(saved))
+  assert.equal(loaded.status, 'start_relic')
+  assert.deepEqual(loaded.startRelicIds, state.startRelicIds)
+  assert.equal(run.parseRun(JSON.stringify({ ...saved, startRelicIds: [] })), null)
+  assert.equal(run.parseRun(JSON.stringify({ ...saved, startRelicIds: ['bogus'] })), null)
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

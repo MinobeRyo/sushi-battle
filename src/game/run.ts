@@ -14,7 +14,8 @@ export type RunNodeKind = 'battle' | 'regular' | 'rest' | 'boss'
 /** maxBelly は敵の満腹ライン。序盤ほど小さく、短い試合で進める。 */
 export type RunEnemy = { cpuDeckId: CpuDeckId; maxBelly: number; label: string; skill?: RegularSkillId }
 export type RunNode = { id: string; row: number; col: number; kind: RunNodeKind; next: string[]; enemy?: RunEnemy }
-export type RunStatus = 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
+/** start_relic：系統を選んだ直後、地図の前に器を3つから1つ選ぶ。 */
+export type RunStatus = 'start_relic' | 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
 /** 常連さんに勝つと、寿司に加えて器3つかサイドメニュー3品から1つを選べる。 */
 export type RunReward = {
   gold: number
@@ -34,6 +35,8 @@ export type RunState = {
   relics: RelicId[]
   /** 持ち越すサイドメニュー1枠。毎試合、買ったばかりの状態で持ち込む。 */
   sideMenu: SideMenuId | null
+  /** 開始時の器の3択。選ぶ前に中断しても同じ3択で再開できるよう保存する。 */
+  startRelicIds?: RelicId[]
   belly: number
   gold: number
   nodes: RunNode[]
@@ -166,14 +169,25 @@ export function generateRunMap(random: RandomSource = Math.random): RunNode[] {
   return nodes
 }
 
+/** ランを始める。最初に器を3つから1つ選ぶ画面（start_relic）から始まる。 */
 export function createRun(archetype: RunArchetype, random: RandomSource = Math.random): RunState {
+  const nodes = generateRunMap(random)
   return {
     version: RUN_VERSION, archetype,
     deck: [...STARTER_DECK, ...ARCHETYPE_STARTERS[archetype]],
     relics: [], sideMenu: null,
-    belly: 0, gold: 0, nodes: generateRunMap(random),
-    currentNodeId: null, visited: [], status: 'map', reward: null, battlesWon: 0,
+    startRelicIds: rollRelicChoices({ archetype, relics: [] }, random),
+    belly: 0, gold: 0, nodes,
+    currentNodeId: null, visited: [], status: 'start_relic', reward: null, battlesWon: 0,
   }
+}
+
+/** 開始時の器を受け取って地図へ進む。 */
+export function chooseStartRelic(run: RunState, relicId: RelicId): RunState {
+  if (run.status !== 'start_relic' || !run.startRelicIds) throw new Error('開始時の器を選べる状態ではありません')
+  if (!run.startRelicIds.includes(relicId)) throw new Error(`選べない器です: ${relicId}`)
+  const { startRelicIds: _, ...rest } = run
+  return { ...rest, relics: [...run.relics, relicId], status: 'map' }
 }
 
 export function findNode(run: RunState, id: string | null): RunNode | undefined {
@@ -341,7 +355,8 @@ export function parseRun(raw: string | null): RunState | null {
     const data = parsed as RunState
     if (data?.version !== RUN_VERSION || !Array.isArray(data.deck) || !Array.isArray(data.nodes)) return null
     if (!RUN_ARCHETYPES.some(item => item.id === data.archetype)) return null
-    if (!['map', 'battle', 'reward', 'rest', 'won', 'lost'].includes(data.status)) return null
+    if (!['start_relic', 'map', 'battle', 'reward', 'rest', 'won', 'lost'].includes(data.status)) return null
+    if (data.status === 'start_relic' && !(Array.isArray(data.startRelicIds) && data.startRelicIds.length > 0 && data.startRelicIds.every(isRelicId))) return null
     if (!Array.isArray(data.relics) || !data.relics.every(isRelicId)) return null
     if (data.sideMenu !== null && !isSideMenuId(data.sideMenu)) return null
     return data
