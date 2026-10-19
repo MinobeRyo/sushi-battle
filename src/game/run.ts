@@ -69,11 +69,13 @@ export const STARTER_DECK: readonly string[] = [
 ]
 
 export const ARCHETYPE_STARTERS: Readonly<Record<RunArchetype, readonly string[]>> = {
-  akami: ['maguro', 'chutoro', 'bintoro'],
+  // 三種盛りを最初から狙えるよう、マグロ・中トロ・大トロを揃える。
+  akami: ['maguro', 'chutoro', 'otoro'],
   makimono: ['kappa_maki', 'natto_maki', 'ikura_gunkan'],
   hikari: ['aji', 'iwashi', 'kohada'],
   kaisen: ['ika', 'tako', 'ebi'],
-  niku: ['gyutan', 'karubi', 'aigamo'],
+  // 牛タン・焼肉寿司で生ハムを増やし、カルビで生贄にする。
+  niku: ['gyutan', 'karubi', 'yakiniku'],
 }
 
 const cardById = new Map(CARDS.map(card => [card.id, card]))
