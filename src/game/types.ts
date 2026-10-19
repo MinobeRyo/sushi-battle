@@ -49,6 +49,8 @@ export type MatchPlayer = {
   teppanLeft?: number
   /** 研ぎ桶の器：ターン終了後に戻る切れ味。 */
   kiretaRefund?: number
+  /** 満腹ライン。省略時は100（寿司はしごの敵だけ小さくする）。 */
+  maxBelly?: number
 }
 
 export type PendingAttack = {

@@ -11,7 +11,8 @@ import type { PlayerMods } from './runMods'
 
 export type RunArchetype = Exclude<Archetype, 'general' | 'gunkan'>
 export type RunNodeKind = 'battle' | 'regular' | 'rest' | 'boss'
-export type RunEnemy = { cpuDeckId: CpuDeckId; initialBelly: number; label: string; skill?: RegularSkillId }
+/** maxBelly は敵の満腹ライン。序盤ほど小さく、短い試合で進める。 */
+export type RunEnemy = { cpuDeckId: CpuDeckId; maxBelly: number; label: string; skill?: RegularSkillId }
 export type RunNode = { id: string; row: number; col: number; kind: RunNodeKind; next: string[]; enemy?: RunEnemy }
 export type RunStatus = 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
 /** 常連さんに勝つと、寿司に加えて器3つかサイドメニュー3品から1つを選べる。 */
@@ -43,7 +44,7 @@ export type RunState = {
   battlesWon: number
 }
 
-export const RUN_VERSION = 2
+export const RUN_VERSION = 3
 export const RUN_ROWS = 8 // 通常マスの段数。この上に大将が1マス
 export const RUN_COLS = 3
 export const REST_DIGEST = 30
@@ -102,21 +103,25 @@ export function canAburiDeckId(deckId: string): boolean {
 
 const pick = <T,>(items: readonly T[], random: RandomSource): T => items[Math.min(items.length - 1, Math.floor(random() * items.length))]
 
-/** 段ごとの敵。序盤は相手のお腹を高めにして短期決着にする。常連さんは同じ段の大食い客より1段強いデッキ＋得意技。 */
+/** 段ごとの敵の満腹ライン。1軒目50から上げていき、大将だけ100。 */
+export const ENEMY_MAX_BELLY_BY_ROW: readonly number[] = [50, 55, 60, 60, 65, 70, 75, 80]
+export const BOSS_MAX_BELLY = 100
+
+/** 段ごとの敵。序盤は満腹ラインを低くして短期決着にする。常連さんは同じ段の大食い客より1段強いデッキ＋得意技。 */
 export function enemyForRow(row: number, kind: 'battle' | 'regular' | 'boss', random: RandomSource): RunEnemy {
-  if (kind === 'boss') return { cpuDeckId: 'challenge', initialBelly: 0, label: '大将' }
-  const initialBelly = row <= 2 ? [30, 25, 20][row] : row <= 5 ? 10 : 0
+  if (kind === 'boss') return { cpuDeckId: 'challenge', maxBelly: BOSS_MAX_BELLY, label: '大将' }
+  const maxBelly = ENEMY_MAX_BELLY_BY_ROW[Math.min(row, ENEMY_MAX_BELLY_BY_ROW.length - 1)]
   if (kind === 'regular') {
     const skill = pick(REGULAR_SKILLS, random)
     if (row <= 2) {
       const deck = pick(CPU_DECKS, random)
-      return { cpuDeckId: deck.id, initialBelly, label: `常連さん · ${deck.name}`, skill: skill.id }
+      return { cpuDeckId: deck.id, maxBelly, label: `常連さん · ${deck.name}`, skill: skill.id }
     }
-    return { cpuDeckId: 'challenge', initialBelly, label: '常連さん · 肉寿司＋巻物', skill: skill.id }
+    return { cpuDeckId: 'challenge', maxBelly, label: '常連さん · 肉寿司＋巻物', skill: skill.id }
   }
-  if (row <= 2) return { cpuDeckId: 'weak', initialBelly, label: '大食い客' }
+  if (row <= 2) return { cpuDeckId: 'weak', maxBelly, label: '大食い客' }
   const deck = pick(CPU_DECKS, random)
-  return { cpuDeckId: deck.id, initialBelly, label: `大食い客 · ${deck.name}` }
+  return { cpuDeckId: deck.id, maxBelly, label: `大食い客 · ${deck.name}` }
 }
 
 /** 第2段で出るマスの重み。ハプニング・買い物（企画書の20・8）は第3段で足すまで対戦とお茶に寄せる。 */
@@ -325,12 +330,12 @@ export function runMatchMods(run: Pick<RunState, 'relics'>, enemy: RunEnemy | un
   }
 }
 
-/** 保存データを検証する。壊れたデータは null。第1段（version 1）の保存は器なしとして読み込む。 */
+/** 保存データを検証する。壊れたデータは null。第1段の満腹ライン版（version 2）は器なしとして読み込む。version 1 は敵の形が違うので読まない。 */
 export function parseRun(raw: string | null): RunState | null {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw) as Omit<RunState, 'version' | 'relics' | 'sideMenu'> & { version: number; relics?: unknown; sideMenu?: unknown }
-    if (parsed?.version === 1) Object.assign(parsed, { version: RUN_VERSION, relics: [], sideMenu: null })
+    if (parsed?.version === 2) Object.assign(parsed, { version: RUN_VERSION, relics: [], sideMenu: null })
     const data = parsed as RunState
     if (data?.version !== RUN_VERSION || !Array.isArray(data.deck) || !Array.isArray(data.nodes)) return null
     if (!RUN_ARCHETYPES.some(item => item.id === data.archetype)) return null

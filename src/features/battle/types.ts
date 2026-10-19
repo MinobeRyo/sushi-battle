@@ -20,6 +20,8 @@ export type BattleView = {
   pHand: CardInstance[]; pField: FieldCard[]; pDeckCount: number
   pDeckSummary: DeckSummaryEntry[]
   pBelly: number; pAP: number; pMaxAP: number; pGari: number
+  /** 満腹ライン。省略時は100（寿司はしごの敵だけ変わる）。 */
+  pMaxBelly?: number; cMaxBelly?: number
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>
   pDrawBonus: number

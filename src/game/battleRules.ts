@@ -5,6 +5,8 @@ import { applyCardMods, hasRelic, type PlayerMods } from './runMods'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 export const MAX_BELLY = 100
+/** その人の満腹ライン。寿司はしごの敵だけ100以外になる。 */
+export const bellyCap = (player: { maxBelly?: number }) => player.maxBelly ?? MAX_BELLY
 
 export const HAND_LIMIT = 7
 

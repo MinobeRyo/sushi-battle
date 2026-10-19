@@ -9,6 +9,7 @@ export type PlayerStatusProps = {
   label: string
   isOpponent?: boolean
   belly: number
+  maxBelly?: number
   gari: number
   ap: number
   maxAP: number
@@ -41,13 +42,13 @@ type ActiveEffect = {
 }
 
 export function PlayerStatusPanel({
-  label, isOpponent = false, belly, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl, compactControl,
+  label, isOpponent = false, belly, maxBelly = MAX_BELLY, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl, compactControl,
   attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn,
   digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
   const headingId = useId()
   const effectsHeadingId = useId()
-  const bellyPercent = Math.max(0, Math.min(100, belly / MAX_BELLY * 100))
+  const bellyPercent = Math.max(0, Math.min(100, belly / maxBelly * 100))
   const bellyLevel = bellyPercent >= 70 ? 'high' : bellyPercent >= 40 ? 'medium' : 'low'
   const effects: ActiveEffect[] = battleStatusDetails({
     summonedIds, combosFired, field, attackBuff, drawBonus,
@@ -75,16 +76,16 @@ export function PlayerStatusPanel({
         <div className="player-status-panel__belly" data-level={bellyLevel}>
           <div className="player-status-panel__belly-numbers">
             <span>お腹</span>
-            <p><strong>{belly}</strong><span> / {MAX_BELLY}</span></p>
+            <p><strong>{belly}</strong><span> / {maxBelly}</span></p>
           </div>
           <div
             className="player-status-panel__gauge"
             role="meter"
             aria-label={`${label}のお腹`}
             aria-valuemin={0}
-            aria-valuemax={MAX_BELLY}
-            aria-valuenow={Math.max(0, Math.min(MAX_BELLY, belly))}
-            aria-valuetext={`${belly} / ${MAX_BELLY}`}
+            aria-valuemax={maxBelly}
+            aria-valuenow={Math.max(0, Math.min(maxBelly, belly))}
+            aria-valuetext={`${belly} / ${maxBelly}`}
           >
             <span style={{ width: `${bellyPercent}%` }} />
           </div>

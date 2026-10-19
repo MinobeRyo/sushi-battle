@@ -24,6 +24,7 @@ const seeded = seed => () => {
   return seed / 4294967296
 }
 const byId = id => CARDS.find(card => card.id === id)
+const play = (state, id) => ({ type: 'play_card', playerId: 1, cardInstanceId: state.players[1].hand.find(card => card.id === id).instanceId })
 
 test('地図は3本×8段＋大将で、どの段からも次の段へ進める', () => {
   for (let seed = 1; seed <= 50; seed++) {
@@ -53,12 +54,28 @@ test('地図は3本×8段＋大将で、どの段からも次の段へ進める'
   }
 })
 
-test('序盤の敵は最弱CPUで、相手の初期お腹が高い', () => {
-  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', initialBelly: 30, label: '大食い客' })
-  assert.equal(run.enemyForRow(2, 'battle', () => 0).initialBelly, 20)
-  assert.equal(run.enemyForRow(4, 'battle', () => 0).initialBelly, 10)
-  assert.notEqual(run.enemyForRow(6, 'battle', () => 0).cpuDeckId, 'weak')
-  assert.equal(run.enemyForRow(6, 'battle', () => 0).initialBelly, 0)
+test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり大将は100', () => {
+  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', maxBelly: 50, label: '大食い客' })
+  assert.equal(run.enemyForRow(2, 'battle', () => 0).cpuDeckId, 'weak')
+  assert.notEqual(run.enemyForRow(3, 'battle', () => 0).cpuDeckId, 'weak')
+  const caps = Array.from({ length: run.RUN_ROWS }, (_, row) => run.enemyForRow(row, 'battle', () => 0).maxBelly)
+  assert.ok(caps.every((cap, i) => i === 0 || cap >= caps[i - 1]), '満腹ラインは下がらない')
+  assert.equal(run.enemyForRow(run.RUN_ROWS, 'boss', () => 0).maxBelly, 100)
+})
+
+test('満腹ラインに届いた側が負け、お腹はラインを超えない', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('otoro')), cpuDeckId: 'weak',
+    maxBelly: { 2: 20 }, initialBelly: { 2: 60 } }, () => 0.999)
+  assert.equal(state.players[2].maxBelly, 20)
+  assert.equal(state.players[2].belly, 19, '開始お腹はラインの手前で止める')
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
+  state = transitionMatch(state, play(state, 'otoro'), () => 0.5).state
+  state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
+  if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
+  assert.equal(state.phase, 'over')
+  assert.equal(state.winnerId, 1)
+  assert.equal(state.players[2].belly, 20)
+  assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[2].maxBelly, undefined)
 })
 
 test('最初のデッキは汎用10枚＋系統3枚の13枚', () => {
@@ -134,6 +151,7 @@ test('保存は対戦の手前に戻し、壊れたデータは読まない', ()
 test('試合は指定したCPUデッキと開始お腹で始まる', () => {
   const state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'hikari',
     initialBelly: { 1: 42, 2: 30 }, refillOnEmpty: true }, seeded(1))
+  assert.equal(state.players[2].maxBelly, undefined, '指定しなければ満腹ラインは100のまま')
   assert.equal(state.cpuDeckId, 'hikari')
   assert.equal(state.players[1].belly, 42)
   assert.equal(state.players[2].belly, 30)
@@ -188,7 +206,7 @@ function setup({ hand = [], field = [], runMods, deck = Array(13).fill(byId('tam
   me.maxAP = ap
   return state
 }
-const play = (state, index = 0, extra = {}) => {
+const playAt = (state, index = 0, extra = {}) => {
   const result = transitionMatch(state, { type: 'play_card', playerId: 1, cardInstanceId: state.players[1].hand[index].instanceId, ...extra }, () => 0.5)
   assert.equal(result.error, undefined)
   return result.state
@@ -231,35 +249,35 @@ test('炙り：主な効果の数値がエンジンに反映される', () => {
   // たまご：自腹−10
   let state = setup({ hand: [aburi('tamago')] })
   state.players[1].belly = 30
-  assert.equal(play(state).players[1].belly, 20)
+  assert.equal(playAt(state).players[1].belly, 20)
   // いなり：次AP+2
-  assert.equal(play(setup({ hand: [aburi('inari')] })).players[1].apNextBonus, 2)
+  assert.equal(playAt(setup({ hand: [aburi('inari')] })).players[1].apNextBonus, 2)
   // 明太子：3枚引く
   state = setup({ hand: [aburi('mentaiko')] })
-  assert.equal(play(state).players[1].hand.length, 3)
+  assert.equal(playAt(state).players[1].hand.length, 3)
   // チーズ：50%軽減、サバは無料・イワシ生姜は切れ味1で予約
   assert.equal(rules.getDefenseReductionRate(aburi('cheese')), 0.5)
   assert.equal(rules.getDefenseReductionRate(byId('cheese')), 0.25)
   assert.equal(rules.getDefenseCost(aburi('saba')), 0)
   assert.equal(rules.getDefenseCost(aburi('iwashi_shoga')), 1)
-  state = play(setup({ hand: [aburi('saba')] }), 0, { reserveDefense: true })
+  state = playAt(setup({ hand: [aburi('saba')] }), 0, { reserveDefense: true })
   assert.equal(state.players[1].field.at(-1).defenseState, 'reserved', '切れ味0でも炙りサバは予約できる')
   // 切れ味+2、コハダ×5
-  assert.equal(play(setup({ hand: [aburi('aji')] })).players[1].kiretaStack, 2)
+  assert.equal(playAt(setup({ hand: [aburi('aji')] })).players[1].kiretaStack, 2)
   state = setup({ hand: [aburi('kohada')] })
   state.players[1].kiretaStack = 4
   const before = state.players[2].belly
-  assert.equal(play(state).players[2].belly - before, 20)
+  assert.equal(playAt(state).players[2].belly - before, 20)
   // いか・たこの連鎖+6、炙りシーフード軍艦でも連鎖
   state = setup({ hand: [byId('seafood_gunkan')], field: [aburi('ika')] })
-  const plainSeafood = play(state).players[2].belly - state.players[2].belly
+  const plainSeafood = playAt(state).players[2].belly - state.players[2].belly
   state = setup({ hand: [aburi('seafood_gunkan')], field: [aburi('ika')] })
-  assert.equal(play(state).players[2].belly - state.players[2].belly, 6, '炙りシーフード軍艦がいかの連鎖+6を起こす')
+  assert.equal(playAt(state).players[2].belly - state.players[2].belly, 6, '炙りシーフード軍艦がいかの連鎖+6を起こす')
   assert.equal(plainSeafood, 0)
   // 肉：和牛は3体まで各+6、牛タンは生ハム2体
   assert.equal(rules.getSacrificeLimit(aburi('wagyu')), 3)
   assert.equal(rules.getSacrificeBonus(aburi('wagyu')), 6)
-  state = play(setup({ hand: [aburi('gyutan')] }))
+  state = playAt(setup({ hand: [aburi('gyutan')] }))
   assert.equal(rules.countNamahamu(state.players[1].field), 2)
   // 天ぷら：相手お腹50以上で+10、焼肉は40以上で+4
   assert.equal(rules.calcFieldDmg([rules.toField(aburi('ebi_ten'))], {}, 0, 50), 23)
@@ -275,7 +293,7 @@ test('炙り：主な効果の数値がエンジンに反映される', () => {
 test('炙り：サーモンは相手の持続型を2枚まで壊す', () => {
   const state = setup({ hand: [aburi('salmon')] })
   state.players[2].field = [byId('natto_maki'), byId('kappa_maki'), byId('ika')].map((card, i) => rules.toField(card, `e:${i}`))
-  const next = play(state, 0, { targetFieldId: 'e:0' })
+  const next = playAt(state, 0, { targetFieldId: 'e:0' })
   assert.deepEqual(next.players[2].field.map(card => card.id), ['kappa_maki'])
 })
 
@@ -317,13 +335,13 @@ test('器：試合開始時（砥石・名入れ湯呑み）と、通常対戦�
 test('器：赤身（わさび壺・一本釣りの竿・本鮪の柵箱）', () => {
   let state = setup({ hand: [byId('chutoro')], runMods: { 1: { relics: ['wasabi_tsubo'] } } })
   state.players[1].summonedIds = ['maguro']
-  state = play(state)
+  state = playAt(state)
   assert.ok(state.players[1].combosFired.includes('akami_mori'), '2種で三種盛りが成立')
   state = setup({ hand: [byId('bintoro')], runMods: { 1: { relics: ['ipponzuri'] } } })
   state.players[1].combosFired = ['akami_mori']
-  assert.equal(play(state).players[2].belly - state.players[2].belly, 10)
+  assert.equal(playAt(state).players[2].belly - state.players[2].belly, 10)
   state = setup({ hand: [byId('bintoro'), byId('maguro'), byId('tamago')], runMods: { 1: { relics: ['saku_bako'] } } })
-  state = play(state)
+  state = playAt(state)
   assert.equal(state.players[1].hand.find(card => card.id === 'maguro').cost, 2)
   assert.equal(state.players[1].hand.find(card => card.id === 'tamago').cost, 1)
   state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
@@ -341,7 +359,7 @@ test('器：海鮮（たこ壺・大漁旗・網元の網）', () => {
   const reattackFlag = rules.calcKaisenReattackDamage([rules.toField(flag), rules.toField(applyCardMods(byId('tako'), { relics: ['tairyo_bata'] }))], {}, 0, 0)
   assert.equal(reattackPlain, 3)
   assert.equal(reattackFlag, 6, '再攻撃が100%')
-  state = play(state)
+  state = playAt(state)
   assert.ok(state.log.some(line => line.includes('連鎖攻撃') && line.includes('+12')), 'たこ壺で連鎖が1枚3+3、2枚で+12')
   if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
   state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
@@ -352,28 +370,28 @@ test('器：海鮮（たこ壺・大漁旗・網元の網）', () => {
 
 test('器：肉寿司（鉄板・秘伝のタレ・焼き網）', () => {
   let state = setup({ hand: [byId('gyutan')], runMods: { 1: { relics: ['teppan'] } } })
-  state = play(state)
+  state = playAt(state)
   assert.equal(rules.countNamahamu(state.players[1].field), 2, '鉄板でもう1体')
   assert.equal(state.players[1].teppanLeft, 2)
   const ham = applyCardMods(NAMAHAM_CARD, { relics: ['hiden_tare', 'yakiami'] })
   state = setup({ hand: [byId('karubi'), byId('karubi')], field: [ham, ham, ham], runMods: { 1: { relics: ['hiden_tare', 'yakiami'] } } })
   const deckBefore = state.players[1].deck.length
-  state = play(state, 0, { sacrificeCount: 1 })
+  state = playAt(state, 0, { sacrificeCount: 1 })
   assert.equal(state.players[1].deck.length, deckBefore + 1, '秘伝のタレで生贄が山札へ')
   if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
-  state = play(state, 0, { sacrificeCount: 1 })
+  state = playAt(state, 0, { sacrificeCount: 1 })
   if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
   assert.ok(state.players[1].nikuMatsuri)
   state.players[1].hand.push({ ...structuredClone(byId('karubi')), instanceId: 't:x' })
   const fires = state.log.filter(line => line.includes('肉祭り')).length
-  state = play(state, state.players[1].hand.length - 1, { sacrificeCount: 1 })
+  state = playAt(state, state.players[1].hand.length - 1, { sacrificeCount: 1 })
   assert.equal(state.log.filter(line => line.includes('肉祭り')).length, fires + 1, '焼き網で同じターンにもう一度')
 })
 
 test('器：光り物の研ぎ桶と、汎用の竹皮の包み', () => {
   let state = setup({ hand: [byId('kohada')], runMods: { 1: { relics: ['togi_oke'] } } })
   state.players[1].kiretaStack = 6
-  state = play(state)
+  state = playAt(state)
   if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
   state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
   if (state.phase === 'defending') state = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }).state
@@ -381,7 +399,7 @@ test('器：光り物の研ぎ桶と、汎用の竹皮の包み', () => {
   state = setup({ hand: [byId('mentaiko')], deck: Array(3).fill(byId('tamago')), runMods: { 1: { relics: ['takekawa'] } } })
   state.players[1].deck = []
   const ap = state.players[1].ap
-  state = play(state)
+  state = playAt(state)
   assert.ok(state.log.some(line => line.includes('竹皮の包み')))
   assert.equal(state.players[1].ap, ap - 3 + 2)
 })
@@ -399,6 +417,7 @@ test('常連さん：地図に出て、得意技と1段強いデッキを持つ'
   }
   assert.ok(regulars > 0)
   assert.equal(run.enemyForRow(5, 'regular', () => 0).cpuDeckId, 'challenge')
+  assert.equal(run.enemyForRow(5, 'regular', () => 0).maxBelly, run.enemyForRow(5, 'battle', () => 0).maxBelly, '満腹ラインは同じ段の大食い客と同じ')
   assert.equal(REGULAR_SKILLS.length, 6)
 })
 
@@ -463,10 +482,12 @@ test('常連さんの報酬：寿司3枚（炙り1枚）＋器3つかサイド�
   }
 })
 
-test('保存：第1段の保存データは器なしとして読み込む', () => {
+test('保存：第1段（満腹ライン版 version 2）の保存は器なしで読み、version 1 は読まない', () => {
   const v2 = run.createRun('niku', seeded(1))
   const { relics: _r, sideMenu: _s, ...rest } = v2
-  const loaded = run.parseRun(JSON.stringify({ ...rest, version: 1 }))
+  assert.equal(run.parseRun(JSON.stringify({ ...rest, version: 1 })), null)
+  const loaded = run.parseRun(JSON.stringify({ ...rest, version: 2 }))
+  assert.equal(loaded.version, run.RUN_VERSION)
   assert.deepEqual(loaded.relics, [])
   assert.equal(loaded.sideMenu, null)
   assert.equal(run.parseRun(JSON.stringify({ ...v2, relics: ['bogus'] })), null)
