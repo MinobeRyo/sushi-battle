@@ -24,6 +24,10 @@ export type MatchOptions = {
   refillOnEmpty?: boolean
   /** 寿司はしごの器（自分）・常連さんの得意技（CPU）。通常対戦・オンラインでは渡さない。 */
   runMods?: Partial<Record<PlayerId, PlayerMods>>
+  /** 最初の手札の枚数（寿司はしご用）。省略時は5枚。 */
+  openingHand?: Partial<Record<PlayerId, number>>
+  /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
+  drawBonus?: Partial<Record<PlayerId, number>>
 }
 
 /** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
@@ -76,12 +80,15 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const p1Cards = withMods(1, options.deck.length ? options.deck : fallback)
   const p2Cards = withMods(2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
     : options.p2Deck?.length ? options.p2Deck : fallback)
-  deal(state, 1, p1Cards, random, hasSkill(mods[1], 'joren_tokken') ? HAND_LIMIT : 5)
-  deal(state, 2, p2Cards, random, hasSkill(mods[2], 'joren_tokken') ? HAND_LIMIT : 5)
+  // 常連特権（得意技）は最初の手札が7枚。
+  const handSize = (id: PlayerId) => hasSkill(mods[id], 'joren_tokken') ? HAND_LIMIT : Math.min(HAND_LIMIT, options.openingHand?.[id] ?? 5)
+  deal(state, 1, p1Cards, random, handSize(1))
+  deal(state, 2, p2Cards, random, handSize(2))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
   for (const id of [1, 2] as const) {
     const belly = options.initialBelly?.[id]
     if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(MAX_BELLY - 1, Math.floor(belly)))
+    state.players[id].drawBonus += Math.max(0, options.drawBonus?.[id] ?? 0)
     applyPlayerMods(state, id, mods[id])
   }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
