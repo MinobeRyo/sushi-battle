@@ -20,6 +20,10 @@ export type MatchOptions = {
   initialBelly?: Partial<Record<PlayerId, number>>
   /** true なら山札切れで追加注文せず、使った寿司を戻して引き直す（おかわり）。 */
   refillOnEmpty?: boolean
+  /** 最初の手札の枚数（寿司はしご用）。省略時は5枚。 */
+  openingHand?: Partial<Record<PlayerId, number>>
+  /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
+  drawBonus?: Partial<Record<PlayerId, number>>
 }
 
 /** 設置するだけで効果が続く一皿。購入した時点から設置済みとして扱う。 */
@@ -47,13 +51,13 @@ function newPlayer(id: PlayerId, sideMenu?: SideMenuId | null): MatchPlayer {
   return player
 }
 
-function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSource) {
+function deal(state: MatchState, id: PlayerId, cards: Card[], random: RandomSource, handSize = 5) {
   const instances: CardInstance[] = cards.map(card => ({
     ...structuredClone(card), instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
   }))
   const deck = shuffled(instances, random)
-  state.players[id].hand = deck.slice(0, 5)
-  state.players[id].deck = deck.slice(5)
+  state.players[id].hand = deck.slice(0, handSize)
+  state.players[id].deck = deck.slice(handSize)
 }
 
 export function createMatch(options: MatchOptions, random: RandomSource = Math.random): MatchState {
@@ -70,12 +74,13 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const p1Cards = options.deck.length ? options.deck : fallback
   const p2Cards = cpuDeck ? getCpuDeck(cpuDeck.id, random)
     : options.p2Deck?.length ? options.p2Deck : fallback
-  deal(state, 1, p1Cards, random)
-  deal(state, 2, p2Cards, random)
+  deal(state, 1, p1Cards, random, Math.min(HAND_LIMIT, options.openingHand?.[1] ?? 5))
+  deal(state, 2, p2Cards, random, Math.min(HAND_LIMIT, options.openingHand?.[2] ?? 5))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
   for (const id of [1, 2] as const) {
     const belly = options.initialBelly?.[id]
     if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(MAX_BELLY - 1, Math.floor(belly)))
+    state.players[id].drawBonus += Math.max(0, options.drawBonus?.[id] ?? 0)
   }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {

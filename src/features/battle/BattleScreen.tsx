@@ -39,6 +39,8 @@ export function BattleScreen({
   cpuDeckId,
   initialBelly,
   refillOnEmpty,
+  openingHand,
+  drawBonus,
   onBack,
   onFinish,
 }: {
@@ -50,11 +52,13 @@ export function BattleScreen({
   cpuDeckId?: CpuDeckId
   initialBelly?: Partial<Record<PlayerId, number>>
   refillOnEmpty?: boolean
+  openingHand?: Partial<Record<PlayerId, number>>
+  drawBonus?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, openingHand, drawBonus, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 

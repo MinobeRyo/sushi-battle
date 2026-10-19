@@ -137,6 +137,19 @@ test('試合は指定したCPUデッキと開始お腹で始まる', () => {
   assert.equal(plain.refill, undefined, '通常のCPU戦はおかわりなし')
 })
 
+test('はしごの試合は最初の手札6枚・毎ターン2枚引く。CPU側は変えない', () => {
+  const deck = Array(13).fill(byId('tamago'))
+  let state = createMatch({ mode: 'cpu', deck, cpuDeckId: 'weak', refillOnEmpty: true,
+    openingHand: { 1: run.RUN_OPENING_HAND }, drawBonus: { 1: run.RUN_DRAW_PER_TURN - 1 } }, () => 0.999)
+  assert.equal(state.players[1].hand.length, 6)
+  assert.equal(state.players[2].hand.length, 5)
+  state = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5).state
+  assert.equal(state.players[1].hand.length, Math.min(6 + 2, HAND_LIMIT), '手札上限までは2枚引く')
+  const plain = createMatch({ mode: 'cpu', deck }, () => 0.999)
+  assert.equal(plain.players[1].hand.length, 5)
+  assert.equal(plain.players[1].drawBonus, 0)
+})
+
 test('おかわり：山札が尽きたら追加注文せず、使った寿司を戻して引き続ける', () => {
   const deck = Array(6).fill(byId('tamago'))
   let state = createMatch({ mode: 'two_player', deck, p2Deck: deck, refillOnEmpty: true }, () => 0.999)
