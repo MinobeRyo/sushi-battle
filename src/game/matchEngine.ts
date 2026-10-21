@@ -26,6 +26,8 @@ export type MatchOptions = {
   runMods?: Partial<Record<PlayerId, PlayerMods>>
   /** 最初の手札の枚数（寿司はしご用）。省略時は5枚。 */
   openingHand?: Partial<Record<PlayerId, number>>
+  /** 最初のAP（寿司はしご用）。以降も同じだけ上乗せして毎ターン+1、上限10。省略時は2。 */
+  startAP?: Partial<Record<PlayerId, number>>
   /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
   drawBonus?: Partial<Record<PlayerId, number>>
   /** 満腹ライン（寿司はしごの敵用）。省略時は100。 */
@@ -94,6 +96,12 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
     if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(bellyCap(state.players[id]) - 1, Math.floor(belly)))
     state.players[id].drawBonus += Math.max(0, options.drawBonus?.[id] ?? 0)
     applyPlayerMods(state, id, mods[id])
+    const startAP = options.startAP?.[id]
+    if (startAP !== undefined && startAP !== INIT_AP) {
+      const player = state.players[id]
+      player.apOffset = Math.max(0, Math.floor(startAP) - INIT_AP)
+      player.ap = player.maxAP = Math.min(10, INIT_AP + player.apOffset)
+    }
   }
   // CPUも初期購入で一品を持ちます。明示的なnull指定では持たせません。
   if (options.mode === 'cpu' && options.p2SideMenu === undefined) {
@@ -573,7 +581,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   const baseAP = state.mode === 'two_player'
     ? INIT_AP + Math.floor((state.turn - 1) / 2)
     : INIT_AP + state.turn - (nextId === 1 ? 1 : 0)
-  next.maxAP = Math.min(baseAP, 10) + next.apNextBonus + (hasSkill(next.mods, 'hayagui') ? 1 : 0)
+  next.maxAP = Math.min(baseAP + (next.apOffset ?? 0), 10) + next.apNextBonus + (hasSkill(next.mods, 'hayagui') ? 1 : 0)
   next.ap = next.maxAP
   const tekkaBonus = tekkaApBonus(next.field, next.combosFired)
   if (tekkaBonus > 0) {

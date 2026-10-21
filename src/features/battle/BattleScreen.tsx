@@ -42,6 +42,7 @@ export function BattleScreen({
   refillOnEmpty,
   runMods,
   openingHand,
+  startAP,
   drawBonus,
   maxBelly,
   onBack,
@@ -58,13 +59,14 @@ export function BattleScreen({
   /** 寿司はしごの器・常連さんの得意技。 */
   runMods?: MatchOptions['runMods']
   openingHand?: Partial<Record<PlayerId, number>>
+  startAP?: Partial<Record<PlayerId, number>>
   drawBonus?: Partial<Record<PlayerId, number>>
   maxBelly?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 

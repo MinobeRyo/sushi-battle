@@ -51,6 +51,8 @@ export type MatchPlayer = {
   kiretaRefund?: number
   /** 満腹ライン。省略時は100（寿司はしごの敵だけ小さくする）。 */
   maxBelly?: number
+  /** 基本APの上乗せ（寿司はしごで自分だけ初期APを増やす）。省略時は0。 */
+  apOffset?: number
 }
 
 export type PendingAttack = {

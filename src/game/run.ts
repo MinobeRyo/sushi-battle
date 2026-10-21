@@ -57,6 +57,8 @@ export const ABURI_SUFFIX = '#aburi'
 // デッキが13枚と少なく安い寿司が多いので、試合では手札を厚くする（通常は5枚・毎ターン1枚）。
 export const RUN_OPENING_HAND = 6
 export const RUN_DRAW_PER_TURN = 2
+// 自分だけ初期APを3にする（以降も毎ターン+1、上限10は同じ）。
+export const RUN_START_AP = 3
 
 export const RUN_ARCHETYPES: ReadonlyArray<{ id: RunArchetype; name: string; detail: string }> = [
   { id: 'akami', name: '赤身', detail: '重いが高火力。三種盛りで爆発' },

@@ -4,7 +4,7 @@ import { BattleScreen, type BattleFinish } from '../battle/BattleScreen'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
-  BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
+  BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
   aburiAtRest, aburiDeckId, canAburiDeckId, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
   reachableNodeIds, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
@@ -45,6 +45,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       runMods={runMatchMods(run, node.enemy)}
       refillOnEmpty
       openingHand={{ 1: RUN_OPENING_HAND }}
+      startAP={{ 1: RUN_START_AP }}
       drawBonus={{ 1: RUN_DRAW_PER_TURN - 1 }}
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} />
   }
@@ -113,7 +114,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>地図で次の店を選び、下から上へ進みます。最後は大将との勝負です。</li>
             <li>お腹は試合をまたいで持ち越します。勝つと半分に消化し、100になったら終わりです。</li>
             <li>勝つたびに寿司を3枚から1枚もらえます。山札が尽きたら「おかわり」で使った寿司が戻ります。</li>
-            <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引きます。</li>
+            <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引き、APは{RUN_START_AP}から始まります。</li>
             <li>「常」の常連さんは得意技を持つ強敵です。勝つと器（ずっと効く道具）かサイドメニューももらえます。</li>
             <li>はじめに器（ずっと効く道具）を3つから1つもらえます。</li>
             <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>

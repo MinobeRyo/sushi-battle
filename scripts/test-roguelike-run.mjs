@@ -167,6 +167,26 @@ test('試合は指定したCPUデッキと開始お腹で始まる', () => {
   assert.equal(plain.refill, undefined, '通常のCPU戦はおかわりなし')
 })
 
+test('はしごの試合は自分だけAP3から始まり、毎ターン+1で上限10', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'weak',
+    startAP: { 1: run.RUN_START_AP } }, () => 0.999)
+  assert.equal(state.players[1].ap, 3)
+  assert.equal(state.players[1].maxAP, 3)
+  assert.equal(state.players[2].maxAP, 2, 'CPU側は変えない')
+  const seen = []
+  for (let i = 0; i < 40 && state.phase !== 'over' && seen.length < 10; i++) {
+    const active = state.activePlayerId
+    if (state.phase === 'defending') {
+      state = transitionMatch(state, { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: false }).state
+      continue
+    }
+    state = transitionMatch(state, { type: 'end_turn', playerId: active }, () => 0.5).state
+    if (state.activePlayerId === 1 && state.phase === 'playing') seen.push(state.players[1].maxAP - state.players[1].apNextBonus)
+  }
+  assert.deepEqual(seen.slice(0, 8), [4, 5, 6, 7, 8, 9, 10, 10])
+  assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[1].ap, 2, '通常のCPU戦は2のまま')
+})
+
 test('はしごの試合は最初の手札6枚・毎ターン2枚引く。CPU側は変えない', () => {
   const deck = Array(13).fill(byId('tamago'))
   let state = createMatch({ mode: 'cpu', deck, cpuDeckId: 'weak', refillOnEmpty: true,
