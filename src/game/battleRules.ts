@@ -106,6 +106,15 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 //   状態継続 : 条件を満たしている間ずっと有効（巻物コンプ②＝軍艦1.5倍）
 // 実際の判定は applySummon と calcFieldDmg にある。ここは演出用のメタ情報だけ。
 export const COMBO_META: Record<string, ComboMeta> = {
+  // 寿司はしごの大将の技。コンボではないが、同じカットインで見せる。
+  taisho_osusume: {
+    id: 'taisho_osusume', name: '本日のおすすめ！！！', emoji: '🔥',
+    desc: '大将が炙った高級寿司を0APで手札に加えた！',
+  },
+  taisho_ocha: {
+    id: 'taisho_ocha', name: '締めのお茶…', emoji: '🍵',
+    desc: '大将がお茶をすすってお腹−30！',
+  },
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
     desc: '追加効果解放！',

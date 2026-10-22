@@ -216,3 +216,25 @@
   .run-relic-text { display: none; }
   .run-body { padding-top: 12px; }
 }
+
+/* 試合前の顔見せ */
+.run-encounter { max-width: 560px; text-align: center; }
+.run-encounter--boss { border-top-color: var(--run-red); }
+.run-encounter-kicker { font-size: 13px; color: var(--run-sub); letter-spacing: .08em; }
+.run-encounter h2 { font-size: 22px; }
+.run-encounter-line { margin: 10px auto 14px; padding: 10px 14px; border-left: 4px solid var(--run-gold); border-radius: 0 8px 8px 0; background: #fbf3e2; font-size: 15px; text-align: left; }
+.run-encounter-traits { display: grid; gap: 6px; margin: 0 auto 16px; padding: 0; list-style: none; text-align: left; font-size: 14px; }
+.run-encounter-traits li { padding: 6px 10px; border: 1px solid var(--run-line); border-radius: 8px; background: #fff; }
+.run-encounter--boss .run-encounter-traits li:not(:last-child) { border-color: #e8b4a6; background: #fbeee6; }
+
+/* ハプニング */
+.run-event { max-width: 560px; text-align: center; }
+.run-event-text { margin-bottom: 14px; font-size: 15px; }
+.run-event-result { margin: 4px 0 16px; padding: 12px 14px; border-radius: 10px; background: #f3ead9; font-weight: 700; }
+
+/* 買い物 */
+.run-shop { max-width: 560px; text-align: center; }
+.run-shop .run-rest-options { margin-bottom: 16px; }
+.run-lane { display: flex; flex-direction: column; height: 100%; background: #1c0c04; }
+.run-lane-banner { flex-shrink: 0; padding: 8px 12px; background: linear-gradient(90deg, #7c2d12, #ea580c, #7c2d12); color: #fff; font-weight: 800; font-size: 14px; text-align: center; }
+.run-lane-body { flex: 1; min-height: 0; }

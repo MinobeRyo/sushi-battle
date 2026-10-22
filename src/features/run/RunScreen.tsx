@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Card } from '../../types'
 import { BattleScreen, type BattleFinish } from '../battle/BattleScreen'
+import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
   BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
-  aburiAtRest, aburiDeckId, canAburiDeckId, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
-  reachableNodeIds, runCard, runDeckCards, runMatchMods, takeRest,
+  MIN_DECK_SIZE, aburiAtRest, aburiDeckId, canAburiDeckId, canRemoveCard, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
+  finishShopLane, leaveShop, reachableNodeIds, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
 } from '../../game/run'
 import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL, type RelicId } from '../../data/runRelics'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
+import { ENEMY_CHARACTER_BY_ID, TAISHO } from '../../data/runEnemies'
+import { RUN_EVENT_BY_ID } from '../../data/runEvents'
+import { eventChoiceBlocked, leaveEvent, resolveEvent } from '../../game/runEvents'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
 
@@ -18,6 +22,9 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   const [saved, setSaved] = useState<RunState | null>(() => loadRun())
   const [run, setRun] = useState<RunState | null>(null)
   const [deckOpen, setDeckOpen] = useState(false)
+  // 試合前の顔見せを済ませたマス（訪れた順番つき）。再開時はもう一度見せる。
+  const [introDone, setIntroDone] = useState<string | null>(null)
+  const [laneOpen, setLaneOpen] = useState(false)
 
   // 進むたびに保存する。決着したランは「続きから」に残さない。
   useEffect(() => {
@@ -35,19 +42,42 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   const node = findNode(run, run.currentNodeId)
 
   if (run.status === 'battle' && node?.enemy) {
+    const battleKey = `${node.id}:${run.visited.length}`
+    if (introDone !== battleKey) {
+      return <main className="run-screen">
+        <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
+        <div className="run-body"><EncounterIntro run={run} node={node} onStart={() => setIntroDone(battleKey)} /></div>
+        {deckOpen && <DeckDialog cards={runDeckCards(run)} onClose={() => setDeckOpen(false)} />}
+      </main>
+    }
+    const gimmick = node.enemy.character ? ENEMY_CHARACTER_BY_ID[node.enemy.character].gimmick : {}
     return <BattleScreen
-      key={`${node.id}:${run.visited.length}`}
+      key={battleKey}
       deck={runDeckCards(run)}
       cpuDeckId={node.enemy.cpuDeckId}
-      initialBelly={{ 1: run.belly }}
+      initialBelly={{ 1: run.belly, ...(gimmick.initialBelly ? { 2: gimmick.initialBelly } : {}) }}
       maxBelly={{ 2: node.enemy.maxBelly }}
       sideMenu={run.sideMenu}
-      runMods={runMatchMods(run, node.enemy)}
+      runMods={runMatchMods(run, node.enemy, node.kind === 'boss')}
       refillOnEmpty
-      openingHand={{ 1: RUN_OPENING_HAND }}
-      startAP={{ 1: RUN_START_AP }}
-      drawBonus={{ 1: RUN_DRAW_PER_TURN - 1 }}
+      openingHand={{ 1: RUN_OPENING_HAND, ...(gimmick.openingHand ? { 2: gimmick.openingHand } : {}) }}
+      startAP={{ 1: RUN_START_AP, ...(gimmick.startAP ? { 2: gimmick.startAP } : {}) }}
+      drawBonus={{ 1: RUN_DRAW_PER_TURN - 1, ...(gimmick.drawBonus ? { 2: gimmick.drawBonus } : {}) }}
+      extraGari={{ 1: run.nextBattleGari ?? 0, 2: gimmick.extraGari ?? 0 }}
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} />
+  }
+
+  if (run.status === 'shop' && laneOpen && !run.shop?.laneDone) {
+    return <div className="run-lane">
+      <p className="run-lane-banner">🍣 回転レーンで買い物中 · 持ち金 ¥{run.gold.toLocaleString()}</p>
+      <div className="run-lane-body">
+        <DraftScreenThree mode="reorder" initialBudget={run.gold} seconds={60} sideMenuEnabled finishLabel="お会計する"
+          onComplete={(cards, sideMenu, budgetLeft) => {
+            setLaneOpen(false)
+            setRun(current => current && finishShopLane(current, cards, sideMenu, budgetLeft ?? current.gold))
+          }} />
+      </div>
+    </div>
   }
 
   return (
@@ -58,6 +88,10 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
         {run.status === 'map' && <RunMap run={run} onEnter={id => setRun(enterNode(run, id))} />}
         {run.status === 'reward' && run.reward && <RunReward run={run} onChoose={id => setRun(chooseReward(run, id))}
           onBonus={choice => setRun(chooseBonus(run, choice))} />}
+        {run.status === 'event' && <RunEvent run={run} onChoose={choice => setRun(resolveEvent(run, choice))}
+          onLeave={() => setRun(leaveEvent(run))} />}
+        {run.status === 'shop' && <RunShop run={run} onOpenLane={() => setLaneOpen(true)}
+          onRemove={index => setRun(removeCardAtShop(run, index))} onLeave={() => setRun(leaveShop(run))} />}
         {run.status === 'rest' && <RunRest run={run} onRest={() => setRun(takeRest(run))}
           onAburi={index => setRun(aburiAtRest(run, index))} />}
         {(run.status === 'won' || run.status === 'lost') && <RunResult run={run} onExit={onExit}
@@ -118,6 +152,8 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>「常」の常連さんは得意技を持つ強敵です。勝つと器（ずっと効く道具）かサイドメニューももらえます。</li>
             <li>はじめに器（ずっと効く道具）を3つから1つもらえます。</li>
             <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>
+            <li>「？」はハプニング、「買」は買い物（回転レーンで寿司を買う・寿司を下げてもらう）です。</li>
+            <li>大食い客は一人ひとり癖があります。最後の大将は専用ルールで待ち構えています。</li>
           </ul>
         </section>
         <button type="button" className="run-text-button" onClick={onExit}>← お品書きへ戻る</button>
@@ -163,6 +199,8 @@ const NODE_LABEL: Record<RunNode['kind'], { mark: string; name: string }> = {
   battle: { mark: '食', name: '大食い客' },
   regular: { mark: '常', name: '常連さん' },
   rest: { mark: '茶', name: 'お茶' },
+  event: { mark: '？', name: 'ハプニング' },
+  shop: { mark: '買', name: '買い物' },
   boss: { mark: '将', name: '大将' },
 }
 
@@ -373,6 +411,126 @@ function RunRest({ run, onRest, onAburi }: { run: RunState; onRest: () => void; 
         </button>
         <button type="button" className="run-secondary" onClick={() => { setChoosing(false); setSelected(null) }}>戻る</button>
       </div>
+    </section>
+  )
+}
+
+/** 試合前の顔見せ。相手の名前・ひと言・癖を見せてから勝負に入る。 */
+function EncounterIntro({ run, node, onStart }: { run: RunState; node: RunNode; onStart: () => void }) {
+  const enemy = node.enemy!
+  const character = enemy.character ? ENEMY_CHARACTER_BY_ID[enemy.character] : null
+  const isBoss = node.kind === 'boss'
+  const skill = enemy.skill ? REGULAR_SKILL_BY_ID[enemy.skill] : null
+  const name = isBoss ? TAISHO.name : character?.name ?? (skill ? '常連さん' : '大食い客')
+  const line = isBoss ? TAISHO.line : character?.line ?? (skill ? 'いつもの席、空いてるかい？' : 'さあ、食べ比べといこうか。')
+  const traits = [
+    ...(isBoss ? TAISHO.rules : []),
+    ...(character ? [character.trait] : []),
+    ...(skill ? [`得意技「${skill.name}」：${skill.text}`] : []),
+    `満腹ライン ${enemy.maxBelly}`,
+    ...(enemy.aburiRate ? [`デッキの${Math.round(enemy.aburiRate * 10)}割が炙り版`] : []),
+  ]
+  return (
+    <section className={`run-panel run-encounter${isBoss ? ' run-encounter--boss' : ''}`} aria-labelledby="run-encounter-heading">
+      <p className="run-rest-mark" aria-hidden="true">{isBoss ? '将' : skill ? '常' : '食'}</p>
+      <p className="run-encounter-kicker">{isBoss ? 'はしごの締め' : `${node.row + 1}軒目`}・{enemy.label.split(' · ')[1] ?? 'おまかせ'}</p>
+      <h2 id="run-encounter-heading">{name}があらわれた！</h2>
+      <blockquote className="run-encounter-line">「{line}」</blockquote>
+      <ul className="run-encounter-traits">{traits.map(text => <li key={text}>{text}</li>)}</ul>
+      {run.nextBattleGari ? <p className="run-note">ガリ食べ放題の効果で、この試合はガリ +{run.nextBattleGari}。</p> : null}
+      <button type="button" className="run-primary" onClick={onStart} autoFocus>勝負！</button>
+    </section>
+  )
+}
+
+function RunEvent({ run, onChoose, onLeave }: { run: RunState; onChoose: (choiceId: string) => void; onLeave: () => void }) {
+  const event = run.event && RUN_EVENT_BY_ID[run.event.id]
+  if (!event || !run.event) return null
+  return (
+    <section className="run-panel run-event" aria-labelledby="run-event-heading">
+      <p className="run-rest-mark" aria-hidden="true">？</p>
+      <h2 id="run-event-heading">{event.title}</h2>
+      <p className="run-event-text">{event.text}</p>
+      {run.event.result === undefined ? (
+        <div className="run-rest-options">
+          {event.choices.map(choice => {
+            const blocked = eventChoiceBlocked(run, choice.id)
+            return (
+              <button type="button" key={choice.id} className="run-rest-option" disabled={!!blocked} onClick={() => onChoose(choice.id)}>
+                <strong>{choice.label}</strong>
+                <span>{blocked ?? choice.detail}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <>
+          <p className="run-event-result" role="status">{run.event.result}</p>
+          <button type="button" className="run-primary" onClick={onLeave} autoFocus>次の店へ</button>
+        </>
+      )}
+    </section>
+  )
+}
+
+function RunShop({ run, onOpenLane, onRemove, onLeave }: {
+  run: RunState
+  onOpenLane: () => void
+  onRemove: (deckIndex: number) => void
+  onLeave: () => void
+}) {
+  const [removing, setRemoving] = useState(false)
+  const cost = removeCost(run)
+  const canRemove = canRemoveCard(run)
+  // 同じ寿司は1つにまとめ、最初に見つかった1枚を抜く。
+  const options = useMemo(() => {
+    const seen = new Set<string>()
+    return run.deck.flatMap((id, index) => {
+      if (seen.has(id)) return []
+      seen.add(id)
+      const card = runCard(id)
+      return card ? [{ index, card, count: run.deck.filter(item => item === id).length }] : []
+    }).sort((a, b) => a.card.cost - b.card.cost || a.card.name.localeCompare(b.card.name, 'ja'))
+  }, [run.deck])
+  if (removing) {
+    return (
+      <section className="run-panel run-aburi" aria-labelledby="run-remove-heading">
+        <h2 id="run-remove-heading">どの寿司を下げてもらう？（¥{cost}）</h2>
+        <p className="run-note">選んだ1枚がデッキから抜けます。弱い寿司を抜くと、強い寿司を引きやすくなります。</p>
+        <ul className="run-aburi-list" aria-label="下げる寿司">
+          {options.map(option => (
+            <li key={option.index}>
+              <button type="button" className="run-aburi-option" disabled={!canRemove}
+                onClick={() => { onRemove(option.index); setRemoving(false) }}>
+                <span className="run-deck-art"><SushiArt card={option.card} size={44} /></span>
+                <span className="run-aburi-name">{option.card.name}{option.card.aburi && <span className="aburi-badge">炙り</span>}{option.count > 1 && <b> ×{option.count}</b>}</span>
+                <span className="run-deck-meta">AP {option.card.cost}・攻 {option.card.attack}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="run-result-actions">
+          <button type="button" className="run-secondary" onClick={() => setRemoving(false)}>戻る</button>
+        </div>
+      </section>
+    )
+  }
+  return (
+    <section className="run-panel run-shop" aria-labelledby="run-shop-heading">
+      <p className="run-rest-mark" aria-hidden="true">買</p>
+      <h2 id="run-shop-heading">回転寿司で腹ごしらえ</h2>
+      <p className="run-note">持ち金 ¥{run.gold.toLocaleString()}。回転レーンは1回、下げてもらうのは持ち金がある限り何回でも使えます。</p>
+      <div className="run-rest-options">
+        <button type="button" className="run-rest-option" onClick={onOpenLane} disabled={run.shop?.laneDone || run.gold <= 0}>
+          <strong>回転レーンで寿司を買う</strong>
+          <span>{run.shop?.laneDone ? 'もう買い物を済ませました' : run.gold <= 0 ? '持ち金がありません' : '持ち金で60秒の買い物。特急・大将のおすすめ・サイドメニューも使えます'}</span>
+        </button>
+        <button type="button" className="run-rest-option" onClick={() => setRemoving(true)} disabled={!canRemove}>
+          <strong>寿司を下げてもらう（¥{cost}）</strong>
+          <span>{run.deck.length <= MIN_DECK_SIZE ? `デッキが${MIN_DECK_SIZE}枚以下なので下げられません` : run.gold < cost ? '持ち金が足りません' : 'デッキから1枚抜く。使うたびに50円値上がり'}</span>
+        </button>
+      </div>
+      <button type="button" className="run-primary" onClick={onLeave}>店を出る</button>
     </section>
   )
 }

@@ -7,6 +7,10 @@ import type { RegularSkillId, RelicId } from '../data/runRelics'
 export type PlayerMods = {
   relics?: readonly RelicId[]
   skill?: RegularSkillId
+  /** 敵デッキのうち炙り版にする割合（0〜1）。後半の大食い客ほど高い。 */
+  aburiRate?: number
+  /** 大将の専用ルール（本日のおすすめ・締めのお茶）。 */
+  taisho?: boolean
 }
 
 export const hasRelic = (mods: PlayerMods | undefined, id: RelicId) => Boolean(mods?.relics?.includes(id))

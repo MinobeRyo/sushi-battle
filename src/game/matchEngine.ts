@@ -8,6 +8,8 @@ import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
 import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
 import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
+import { TAISHO } from '../data/runEnemies'
+import { canAburi, toAburi } from '../data/aburi'
 import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
@@ -28,6 +30,8 @@ export type MatchOptions = {
   openingHand?: Partial<Record<PlayerId, number>>
   /** 最初のAP（寿司はしご用）。以降も同じだけ上乗せして毎ターン+1、上限10。省略時は2。 */
   startAP?: Partial<Record<PlayerId, number>>
+  /** 追加のガリ（寿司はしごの敵用）。 */
+  extraGari?: Partial<Record<PlayerId, number>>
   /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
   drawBonus?: Partial<Record<PlayerId, number>>
   /** 満腹ライン（寿司はしごの敵用）。省略時は100。 */
@@ -80,7 +84,12 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   }
   const fallback = CARDS.filter(card => card.lane === 'general').slice(0, 10)
   const mods = options.runMods ?? {}
-  const withMods = (id: PlayerId, cards: Card[]) => mods[id] ? cards.map(card => applyCardMods(card, mods[id])) : cards
+  // 後半の敵は、デッキの一部が炙り版になる（aburiRate）。
+  const withAburiRate = (id: PlayerId, card: Card) => {
+    const rate = mods[id]?.aburiRate ?? 0
+    return rate > 0 && canAburi(card) && random() < rate ? toAburi(card) : card
+  }
+  const withMods = (id: PlayerId, cards: Card[]) => mods[id] ? cards.map(card => applyCardMods(withAburiRate(id, card), mods[id])) : cards
   const p1Cards = withMods(1, options.deck.length ? options.deck : fallback)
   const p2Cards = withMods(2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
     : options.p2Deck?.length ? options.p2Deck : fallback)
@@ -95,6 +104,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
     const belly = options.initialBelly?.[id]
     if (belly !== undefined) state.players[id].belly = Math.max(0, Math.min(bellyCap(state.players[id]) - 1, Math.floor(belly)))
     state.players[id].drawBonus += Math.max(0, options.drawBonus?.[id] ?? 0)
+    state.players[id].gari += Math.max(0, options.extraGari?.[id] ?? 0)
     applyPlayerMods(state, id, mods[id])
     const startAP = options.startAP?.[id]
     if (startAP !== undefined && startAP !== INIT_AP) {
@@ -120,6 +130,7 @@ function applyPlayerMods(state: MatchState, id: PlayerId, mods: PlayerMods | und
   if (hasSkill(mods, 'gari_yama')) player.gari += 3
   if (hasRelic(mods, 'toishi')) player.kiretaStack += 3
   if (hasRelic(mods, 'teppan')) player.teppanLeft = 3
+  if (mods.taisho) addLog(state, `👨‍🍳 ${TAISHO.name}の専用ルール：${TAISHO.rules.join('／')}`)
   if (mods.skill) addLog(state, `🍶 ${label(state, id)}は常連さん！ 得意技「${REGULAR_SKILL_BY_ID[mods.skill].name}」：${REGULAR_SKILL_BY_ID[mods.skill].text}`)
 }
 
@@ -223,8 +234,30 @@ function addCardToDeck(state: MatchState, id: PlayerId, card: Card, count: numbe
 
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
   const dealt = Math.max(0, amount)
-  state.players[id].belly = Math.min(bellyCap(state.players[id]), state.players[id].belly + dealt)
+  const player = state.players[id]
+  player.belly = Math.min(bellyCap(player), player.belly + dealt)
   if (dealt > 0) events.push({ type: 'damage', playerId: id, amount: dealt })
+  // 大将の締めのお茶：100を超えた最初の1回だけ、満腹で倒れる前ならお腹を減らす。
+  if (player.mods?.taisho && !player.teaUsed && player.belly >= TAISHO.teaThreshold && player.belly < bellyCap(player)) {
+    player.teaUsed = true
+    player.belly = Math.max(0, player.belly - TAISHO.teaDigest)
+    addLog(state, `🍵 ${TAISHO.name}が締めのお茶をすすった：お腹 −${TAISHO.teaDigest}`)
+    events.push({ type: 'combo', playerId: id, comboId: 'taisho_ocha' })
+  }
+}
+
+/** 大将の本日のおすすめ：数ターンごとに、炙った高級寿司を0APで手札に加える（手札上限を超えてもよい）。 */
+const TAISHO_OSUSUME_IDS = ['otoro', 'uni_gunkan', 'wagyu', 'negitoro_gunkan', 'kani_gunkan'] as const
+function taishoOsusume(state: MatchState, id: PlayerId, events: MatchEvent[], random: RandomSource) {
+  const player = state.players[id]
+  if (!player.mods?.taisho || state.turn % TAISHO.osusumeEvery !== 0) return
+  const base = CARDS.find(card => card.id === TAISHO_OSUSUME_IDS[Math.floor(random() * TAISHO_OSUSUME_IDS.length)])
+  if (!base) return
+  const card: CardInstance = { ...structuredClone(canAburi(base) ? toAburi(base) : base), cost: 0,
+    instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}` }
+  player.hand.push(card)
+  addLog(state, `🔥 ${TAISHO.name}の本日のおすすめ：${card.name}（0AP）`)
+  events.push({ type: 'combo', playerId: id, comboId: 'taisho_osusume' })
 }
 
 function checkWin(state: MatchState, events: MatchEvent[], simultaneousLoser?: PlayerId) {
@@ -594,6 +627,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   next.apNextBonus = 0
   events.push({ type: 'turn_started', playerId: nextId })
   addLog(state, `── ターン ${state.turn}（${label(state, nextId)}）──`)
+  taishoOsusume(state, nextId, events, random)
 
   if (state.refill) {
     // おかわりの試合では追加注文せず、手札も山札も尽きた手番の頭で5枚引き直す。

@@ -12,6 +12,10 @@ const { ABURI, toAburi, canAburi } = loadTs('src/data/aburi.ts')
 const { RELICS, REGULAR_SKILLS } = loadTs('src/data/runRelics.ts')
 const { applyCardMods } = loadTs('src/game/runMods.ts')
 const { NAMAHAM_CARD } = loadTs('src/data/cards.ts')
+const { RUN_EVENTS } = loadTs('src/data/runEvents.ts')
+const events = loadTs('src/game/runEvents.ts')
+const { ENEMY_CHARACTERS, TAISHO } = loadTs('src/data/runEnemies.ts')
+const { createUnluckyCard, createRareCorn } = loadTs('src/data/cardVariants.ts')
 
 let passed = 0
 const test = (name, fn) => {
@@ -59,13 +63,14 @@ test('地図は3本×8段＋大将で、どの段からも次の段へ進める'
   }
 })
 
-test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり大将は100', () => {
-  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', maxBelly: 50, label: '大食い客' })
+test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり大将は150', () => {
+  // random()=0 なら顔ぶれは先頭の「腹ペコの学生」（満腹ラインの増減なし）。
+  assert.deepEqual(run.enemyForRow(0, 'battle', () => 0), { cpuDeckId: 'weak', maxBelly: 50, label: '腹ペコの学生', character: 'harapeko' })
   assert.equal(run.enemyForRow(2, 'battle', () => 0).cpuDeckId, 'weak')
   assert.notEqual(run.enemyForRow(3, 'battle', () => 0).cpuDeckId, 'weak')
   const caps = Array.from({ length: run.RUN_ROWS }, (_, row) => run.enemyForRow(row, 'battle', () => 0).maxBelly)
   assert.ok(caps.every((cap, i) => i === 0 || cap >= caps[i - 1]), '満腹ラインは下がらない')
-  assert.equal(run.enemyForRow(run.RUN_ROWS, 'boss', () => 0).maxBelly, 100)
+  assert.equal(run.enemyForRow(run.RUN_ROWS, 'boss', () => 0).maxBelly, 150)
 })
 
 test('満腹ラインに届いた側が負け、お腹はラインを超えない', () => {
@@ -144,7 +149,11 @@ test('保存は対戦の手前に戻し、壊れたデータは読まない', ()
   let state = run.enterNode(begin('makimono', seeded(4)), 'r0c0')
   state = run.chooseReward(run.finishBattle(state, true, 10, seeded(1)), null)
   const next = state.nodes.find(node => node.id === state.currentNodeId).next[0]
+  // 次のマスは対戦にそろえる（マスの種類は抽選なので、ハプニングや買い物のこともある）。
+  state = { ...state, nodes: state.nodes.map(node => node.id === next
+    ? { ...node, kind: 'battle', enemy: run.enemyForRow(node.row, 'battle', () => 0) } : node) }
   const inBattle = run.enterNode(state, next)
+  assert.equal(inBattle.status, 'battle')
   const saved = run.runForSave(inBattle)
   assert.equal(saved.status, 'map')
   assert.equal(saved.currentNodeId, 'r0c0')
@@ -565,6 +574,158 @@ test('開始時の器：選ぶ前に中断しても同じ3択で再開できる'
   assert.deepEqual(loaded.startRelicIds, state.startRelicIds)
   assert.equal(run.parseRun(JSON.stringify({ ...saved, startRelicIds: [] })), null)
   assert.equal(run.parseRun(JSON.stringify({ ...saved, startRelicIds: ['bogus'] })), null)
+})
+
+// ── 第3段：ハプニング・買い物・敵の個性・大将 ─────────────────────────────
+
+test('地図：ハプニングと買い物のマスも出る', () => {
+  const kinds = new Set()
+  for (let seed = 1; seed <= 40; seed++) for (const node of run.generateRunMap(seeded(seed))) kinds.add(node.kind)
+  for (const kind of ['battle', 'regular', 'rest', 'event', 'shop', 'boss']) assert.ok(kinds.has(kind), `${kind}のマスが出ない`)
+})
+
+/** 1段目の左を指定の種類のマスにして入る。 */
+const enterAs = (kind, archetype = 'akami', random = seeded(5), patch = {}) => {
+  const state = { ...begin(archetype, random), ...patch }
+  const nodes = state.nodes.map(node => node.id === 'r0c0' ? { ...node, kind, enemy: undefined } : node)
+  return run.enterNode({ ...state, nodes }, 'r0c0', random)
+}
+
+test('ハプニング：入ると1つ選ばれ、同じものはなるべく出ない', () => {
+  const state = enterAs('event')
+  assert.equal(state.status, 'event')
+  assert.ok(RUN_EVENTS.some(event => event.id === state.event.id))
+  assert.deepEqual(state.seenEvents, [state.event.id])
+  const seen = RUN_EVENTS.map(event => event.id).filter(id => id !== 'birthday')
+  const only = enterAs('event', 'akami', seeded(9), { seenEvents: seen })
+  assert.equal(only.event.id, 'birthday', '未出のものを優先する')
+})
+
+test('ハプニング：全選択肢が選べて、結果を見てから地図へ戻る', () => {
+  for (const event of RUN_EVENTS) {
+    for (const choice of event.choices) {
+      const start = { ...enterAs('event', 'niku', seeded(3), { gold: 500 }), event: { id: event.id } }
+      assert.equal(events.eventChoiceBlocked(start, choice.id), undefined, `${event.id}:${choice.id}が選べない`)
+      const done = events.resolveEvent(start, choice.id, seeded(11))
+      assert.equal(typeof done.event.result, 'string', `${event.id}:${choice.id}の結果がない`)
+      assert.ok(done.belly >= 0 && done.belly < run.MAX_RUN_BELLY)
+      assert.ok(done.gold >= 0)
+      assert.ok(run.runDeckCards(done).length === done.deck.length, `${event.id}:${choice.id}で読めない寿司が入った`)
+      assert.throws(() => events.resolveEvent(done, choice.id), '2回は選べない')
+      const back = events.leaveEvent(done)
+      assert.equal(back.status, 'map')
+      assert.equal(back.event, undefined)
+    }
+  }
+})
+
+test('ハプニング：お金やデッキが足りない選択肢は選べない', () => {
+  const poor = { ...enterAs('event'), gold: 0, event: { id: 'gacha' } }
+  assert.ok(events.eventChoiceBlocked(poor, 'spin'))
+  assert.throws(() => events.resolveEvent(poor, 'spin'))
+  const thin = { ...enterAs('event'), deck: run.STARTER_DECK.slice(0, 10), event: { id: 'kodomo' } }
+  assert.ok(events.eventChoiceBlocked(thin, 'give'))
+  const gari = events.resolveEvent({ ...enterAs('event'), event: { id: 'gari_tabehoudai' } }, 'take')
+  assert.equal(gari.nextBattleGari, 2)
+})
+
+test('買い物：下げてもらうは100円から50円ずつ上がり、10枚未満にはできない', () => {
+  let state = enterAs('shop', 'akami', seeded(5), { gold: 1000 })
+  assert.equal(state.status, 'shop')
+  assert.equal(run.removeCost(state), 100)
+  state = run.removeCardAtShop(state, 0)
+  assert.equal(state.deck.length, 12)
+  assert.equal(state.gold, 900)
+  assert.equal(run.removeCost(state), 150)
+  state = run.removeCardAtShop(state, 0)
+  state = run.removeCardAtShop(state, 0)
+  assert.equal(state.deck.length, 10)
+  assert.equal(state.gold, 1000 - 100 - 150 - 200)
+  assert.equal(run.canRemoveCard(state), false)
+  assert.throws(() => run.removeCardAtShop(state, 0))
+  assert.equal(run.leaveShop(state).status, 'map')
+})
+
+test('買い物：回転レーンで買った寿司（訳あり・レアのマヨコーン含む）をデッキに入れ、残金を持ち金にする', () => {
+  const state = enterAs('shop', 'akami', seeded(5), { gold: 800 })
+  const bought = [byId('maguro'), createUnluckyCard(byId('tuna_gunkan')), createRareCorn(0)]
+  const after = run.finishShopLane(state, bought, 'fries', 120)
+  assert.deepEqual(after.deck.slice(-3), ['maguro', `tuna_gunkan${run.WAKEARI_SUFFIX}`, run.RARE_CORN_ID])
+  assert.equal(after.gold, 120)
+  assert.equal(after.sideMenu, 'fries')
+  assert.throws(() => run.finishShopLane(after, [], null, 0), '回転レーンは1回だけ')
+  const cards = run.runDeckCards(after).slice(-3)
+  assert.equal(cards[1].attack, Math.floor(byId('tuna_gunkan').attack / 2), '訳ありは攻撃半分')
+  assert.equal(cards[2].attack, 12)
+  assert.equal(run.runCard(run.aburiDeckId(`tuna_gunkan${run.WAKEARI_SUFFIX}`)).aburi, true, '炙ると訳ありが直る')
+  assert.equal(run.finishShopLane(state, [], null, 99999).gold, 800, '残金は持ち金を超えない')
+})
+
+test('敵の個性：大食い客には顔ぶれがあり、ギミックが満腹ラインに入る', () => {
+  const names = new Set()
+  for (let i = 0; i < 60; i++) {
+    // 最初の乱数で顔ぶれが決まるので、0〜1を均等に試す。
+    const enemy = run.enemyForRow(4, 'battle', () => (i + 0.5) / 60)
+    const character = ENEMY_CHARACTERS.find(item => item.id === enemy.character)
+    assert.ok(character)
+    names.add(character.id)
+    assert.equal(enemy.maxBelly, run.ENEMY_MAX_BELLY_BY_ROW[4] + (character.gimmick.maxBellyDelta ?? 0))
+    assert.equal(enemy.aburiRate, 0.2)
+  }
+  assert.equal(names.size, ENEMY_CHARACTERS.length)
+  assert.equal(run.enemyForRow(0, 'battle', seeded(1)).aburiRate, undefined, '序盤は炙りなし')
+  assert.equal(run.enemyForRow(7, 'battle', seeded(1)).aburiRate, 0.4)
+})
+
+test('敵の個性：追加のガリはCPU側だけ、炙り率で敵デッキの一部が炙り版になる', () => {
+  const deck = Array(13).fill(byId('tamago'))
+  const state = createMatch({ mode: 'cpu', deck, cpuDeckId: 'akami', extraGari: { 2: 2 },
+    runMods: { 2: { aburiRate: 0.5 } } }, seeded(7))
+  assert.equal(state.players[2].gari, rules.INIT_GARI[2] + 2)
+  assert.equal(state.players[1].gari, rules.INIT_GARI[1])
+  const cpuCards = [...state.players[2].hand, ...state.players[2].deck]
+  const aburi = cpuCards.filter(card => card.aburi).length
+  assert.ok(aburi > 0 && aburi < cpuCards.length, `炙り版が一部だけ混ざる（${aburi}/${cpuCards.length}）`)
+  assert.ok([...state.players[1].hand, ...state.players[1].deck].every(card => !card.aburi), '自分のデッキは変えない')
+})
+
+test('大将：3ターンごとに本日のおすすめ（炙った高級寿司・0AP）を手札に加える', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'challenge',
+    maxBelly: { 2: TAISHO.maxBelly }, runMods: { 2: { taisho: true } } }, seeded(2))
+  assert.equal(state.players[2].maxBelly, 150)
+  const osusume = []
+  for (let i = 0; i < 40 && state.turn < 7; i++) {
+    const active = state.activePlayerId
+    if (state.phase === 'defending') {
+      state = transitionMatch(state, { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: false }, seeded(i)).state
+      continue
+    }
+    const result = transitionMatch(state, { type: 'end_turn', playerId: active }, seeded(i))
+    state = result.state
+    for (const event of result.events) if (event.type === 'combo' && event.comboId === 'taisho_osusume') osusume.push(state.turn)
+  }
+  assert.deepEqual(osusume, [3, 6])
+  const gift = state.players[2].hand.filter(card => card.cost === 0 && card.aburi)
+  assert.ok(gift.length >= 1, '0APの炙り寿司が手札にある')
+})
+
+test('大将：お腹が100を超えた最初の1回だけ、締めのお茶でお腹−30', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('otoro')), cpuDeckId: 'challenge',
+    maxBelly: { 2: 150 }, initialBelly: { 2: 95 }, runMods: { 2: { taisho: true } } }, () => 0.999)
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
+  const result = transitionMatch(state, play(state, 'otoro'), () => 0.5)
+  state = result.state
+  let after = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5)
+  state = after.state
+  if (state.phase === 'defending') {
+    after = transitionMatch(state, { type: 'respond_defense', playerId: 2, useGari: false }, () => 0.5)
+    state = after.state
+  }
+  assert.equal(state.players[2].teaUsed, true)
+  assert.ok(after.events.some(event => event.type === 'combo' && event.comboId === 'taisho_ocha'))
+  assert.ok(state.players[2].belly < 100, `お茶でお腹が減る（${state.players[2].belly}）`)
+  const plain = createMatch({ mode: 'cpu', deck: [byId('tamago')], cpuDeckId: 'challenge' }, () => 0.5)
+  assert.equal(plain.players[2].mods, undefined, '通常の挑戦CPUには大将ルールがない')
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

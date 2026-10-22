@@ -47,6 +47,8 @@ export type MatchPlayer = {
   mods?: PlayerMods
   /** 鉄板の器：この試合で残っている追加生成の回数。 */
   teppanLeft?: number
+  /** 大将の「締めのお茶」を使ったか。 */
+  teaUsed?: boolean
   /** 研ぎ桶の器：ターン終了後に戻る切れ味。 */
   kiretaRefund?: number
   /** 満腹ライン。省略時は100（寿司はしごの敵だけ小さくする）。 */

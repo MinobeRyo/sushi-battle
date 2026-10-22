@@ -14,7 +14,7 @@ export async function packageServer(output = path.join(root, 'release/gms/sushi-
   }
 
   await mkdir(output, { recursive: true })
-  for (const relative of ['server', 'src/game', 'src/features/draft/draftEngine.ts', 'src/data/aburi.ts', 'src/data/cards.ts', 'src/data/cardVariants.ts', 'src/data/cpuDecks.ts', 'src/data/runRelics.ts', 'src/data/sideMenus.ts', 'src/network/protocol.ts', 'src/network/httpProtocol.ts', 'src/types/index.ts', 'tsconfig.server.json']) {
+  for (const relative of ['server', 'src/game', 'src/features/draft/draftEngine.ts', 'src/data/aburi.ts', 'src/data/cards.ts', 'src/data/cardVariants.ts', 'src/data/cpuDecks.ts', 'src/data/runEnemies.ts', 'src/data/runRelics.ts', 'src/data/sideMenus.ts', 'src/network/protocol.ts', 'src/network/httpProtocol.ts', 'src/types/index.ts', 'tsconfig.server.json']) {
     const destination = path.join(output, relative)
     await mkdir(path.dirname(destination), { recursive: true })
     await cp(path.join(root, relative), destination, { recursive: true })

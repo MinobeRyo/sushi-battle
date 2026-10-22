@@ -1,6 +1,9 @@
 import type { Archetype, Card } from '../types'
 import type { PlayerId, RandomSource } from './types'
 import { CARDS } from '../data/cards'
+import { createRareCorn, createUnluckyCard } from '../data/cardVariants'
+import { ENEMY_CHARACTERS, TAISHO, type EnemyCharacterId } from '../data/runEnemies'
+import { RUN_EVENT_IDS } from '../data/runEvents'
 import { canAburi, toAburi } from '../data/aburi'
 import { CPU_DECKS, type CpuDeckId } from '../data/cpuDecks'
 import { isSideMenuId, SIDE_MENUS, type SideMenuId } from '../data/sideMenus'
@@ -10,12 +13,18 @@ import type { PlayerMods } from './runMods'
 // 寿司はしご（ローグライク）のラン進行。画面・保存先に依存しない純粋な処理だけを置く。
 
 export type RunArchetype = Exclude<Archetype, 'general' | 'gunkan'>
-export type RunNodeKind = 'battle' | 'regular' | 'rest' | 'boss'
+export type RunNodeKind = 'battle' | 'regular' | 'rest' | 'event' | 'shop' | 'boss'
 /** maxBelly は敵の満腹ライン。序盤ほど小さく、短い試合で進める。 */
-export type RunEnemy = { cpuDeckId: CpuDeckId; maxBelly: number; label: string; skill?: RegularSkillId }
+export type RunEnemy = {
+  cpuDeckId: CpuDeckId; maxBelly: number; label: string; skill?: RegularSkillId
+  /** 大食い客の顔ぶれ（名前・台詞・ギミック）。 */
+  character?: EnemyCharacterId
+  /** デッキのうち炙り版にする割合。 */
+  aburiRate?: number
+}
 export type RunNode = { id: string; row: number; col: number; kind: RunNodeKind; next: string[]; enemy?: RunEnemy }
 /** start_relic：系統を選んだ直後、地図の前に器を3つから1つ選ぶ。 */
-export type RunStatus = 'start_relic' | 'map' | 'battle' | 'reward' | 'rest' | 'won' | 'lost'
+export type RunStatus = 'start_relic' | 'map' | 'battle' | 'reward' | 'rest' | 'event' | 'shop' | 'won' | 'lost'
 /** 常連さんに勝つと、寿司に加えて器3つかサイドメニュー3品から1つを選べる。 */
 export type RunReward = {
   gold: number
@@ -45,6 +54,16 @@ export type RunState = {
   status: RunStatus
   reward: RunReward | null
   battlesWon: number
+  /** ハプニング（？マス）の中身。result が付いたら選び終わり。 */
+  event?: { id: string; result?: string }
+  /** このランで出たハプニング。同じものはなるべく出さない。 */
+  seenEvents?: string[]
+  /** 買い物マス：回転レーンで買い終えたか。 */
+  shop?: { laneDone: boolean }
+  /** 「下げてもらう」を使った回数。使うたびに値上がりする。 */
+  removals?: number
+  /** 次の試合だけ増えるガリ（ハプニング「ガリ食べ放題」）。 */
+  nextBattleGari?: number
 }
 
 export const RUN_VERSION = 3
@@ -54,6 +73,12 @@ export const REST_DIGEST = 30
 export const SKIP_REWARD_GOLD = 50
 export const MAX_RUN_BELLY = 100
 export const ABURI_SUFFIX = '#aburi'
+/** 大将のおすすめの「訳あり」（攻撃半分）。炙ると直る。 */
+export const WAKEARI_SUFFIX = '#wakeari'
+export const RARE_CORN_ID = 'mayo_corn_sideways'
+export const SHOP_REMOVE_BASE = 100
+export const SHOP_REMOVE_STEP = 50
+export const MIN_DECK_SIZE = 10
 // デッキが13枚と少なく安い寿司が多いので、試合では手札を厚くする（通常は5枚・毎ターン1枚）。
 export const RUN_OPENING_HAND = 6
 export const RUN_DRAW_PER_TURN = 2
@@ -86,13 +111,24 @@ export const ARCHETYPE_STARTERS: Readonly<Record<RunArchetype, readonly string[]
 const cardById = new Map(CARDS.map(card => [card.id, card]))
 
 export const isAburiId = (deckId: string) => deckId.endsWith(ABURI_SUFFIX)
-export const baseCardId = (deckId: string) => isAburiId(deckId) ? deckId.slice(0, -ABURI_SUFFIX.length) : deckId
+export const isWakeariId = (deckId: string) => deckId.endsWith(WAKEARI_SUFFIX)
+export const baseCardId = (deckId: string) => deckId.split('#')[0]
 export const aburiDeckId = (cardId: string) => `${baseCardId(cardId)}${ABURI_SUFFIX}`
 
-/** ランのデッキIDからカードを作る。炙りフラグ付きなら炙り版にする。 */
+/** ランのデッキIDからカードを作る。炙りフラグ付きなら炙り版、訳ありなら攻撃半分にする。 */
 export function runCard(deckId: string): Card | undefined {
+  if (deckId === RARE_CORN_ID) return createRareCorn(0)
   const card = cardById.get(baseCardId(deckId))
-  return card && isAburiId(deckId) ? toAburi(card) : card
+  if (!card) return undefined
+  if (isAburiId(deckId)) return toAburi(card)
+  return isWakeariId(deckId) ? createUnluckyCard(card) : card
+}
+
+/** 回転レーンで買ったカードをランのデッキIDにする。 */
+export function deckIdFromCard(card: Card): string | null {
+  if (card.variant === 'rare_corn') return RARE_CORN_ID
+  if (!cardById.has(card.id)) return null
+  return card.variant === 'sideways' || card.variant === 'neta_missing' ? `${card.id}${WAKEARI_SUFFIX}` : card.id
 }
 
 export function runDeckCards(run: Pick<RunState, 'deck'>): Card[] {
@@ -112,27 +148,33 @@ const pick = <T,>(items: readonly T[], random: RandomSource): T => items[Math.mi
 
 /** 段ごとの敵の満腹ライン。1軒目50から上げていき、大将だけ100。 */
 export const ENEMY_MAX_BELLY_BY_ROW: readonly number[] = [50, 55, 60, 60, 65, 70, 75, 80]
-export const BOSS_MAX_BELLY = 100
+export const BOSS_MAX_BELLY = TAISHO.maxBelly
+/** 敵デッキを炙り版にする割合（企画書10章）：4〜6軒目2割、7〜8軒目4割。 */
+export const enemyAburiRate = (row: number) => row >= 6 ? 0.4 : row >= 3 ? 0.2 : 0
 
 /** 段ごとの敵。序盤は満腹ラインを低くして短期決着にする。常連さんは同じ段の大食い客より1段強いデッキ＋得意技。 */
 export function enemyForRow(row: number, kind: 'battle' | 'regular' | 'boss', random: RandomSource): RunEnemy {
-  if (kind === 'boss') return { cpuDeckId: 'challenge', maxBelly: BOSS_MAX_BELLY, label: '大将' }
+  if (kind === 'boss') return { cpuDeckId: 'challenge', maxBelly: BOSS_MAX_BELLY, label: TAISHO.name, aburiRate: 0.4 }
   const maxBelly = ENEMY_MAX_BELLY_BY_ROW[Math.min(row, ENEMY_MAX_BELLY_BY_ROW.length - 1)]
+  const aburiRate = enemyAburiRate(row)
+  const extra = aburiRate > 0 ? { aburiRate } : {}
   if (kind === 'regular') {
     const skill = pick(REGULAR_SKILLS, random)
     if (row <= 2) {
       const deck = pick(CPU_DECKS, random)
-      return { cpuDeckId: deck.id, maxBelly, label: `常連さん · ${deck.name}`, skill: skill.id }
+      return { cpuDeckId: deck.id, maxBelly, label: `常連さん · ${deck.name}`, skill: skill.id, ...extra }
     }
-    return { cpuDeckId: 'challenge', maxBelly, label: '常連さん · 肉寿司＋巻物', skill: skill.id }
+    return { cpuDeckId: 'challenge', maxBelly, label: '常連さん · 肉寿司＋巻物', skill: skill.id, ...extra }
   }
-  if (row <= 2) return { cpuDeckId: 'weak', maxBelly, label: '大食い客' }
+  const character = pick(ENEMY_CHARACTERS, random)
+  const withCharacter = (cap: number) => Math.max(20, cap + (character.gimmick.maxBellyDelta ?? 0))
+  if (row <= 2) return { cpuDeckId: 'weak', maxBelly: withCharacter(maxBelly), label: character.name, character: character.id }
   const deck = pick(CPU_DECKS, random)
-  return { cpuDeckId: deck.id, maxBelly, label: `大食い客 · ${deck.name}` }
+  return { cpuDeckId: deck.id, maxBelly: withCharacter(maxBelly), label: `${character.name} · ${deck.name}`, character: character.id, ...extra }
 }
 
-/** 第2段で出るマスの重み。ハプニング・買い物（企画書の20・8）は第3段で足すまで対戦とお茶に寄せる。 */
-const NODE_WEIGHTS: ReadonlyArray<readonly [Exclude<RunNodeKind, 'boss'>, number]> = [['battle', 65], ['regular', 15], ['rest', 20]]
+/** マスの重み（企画書3章）：対戦45・ハプニング20・常連さん15・お茶12・買い物8。 */
+const NODE_WEIGHTS: ReadonlyArray<readonly [Exclude<RunNodeKind, 'boss'>, number]> = [['battle', 45], ['event', 20], ['regular', 15], ['rest', 12], ['shop', 8]]
 
 function rollKind(random: RandomSource): Exclude<RunNodeKind, 'boss'> {
   const total = NODE_WEIGHTS.reduce((sum, [, weight]) => sum + weight, 0)
@@ -204,10 +246,51 @@ export function reachableNodeIds(run: RunState): string[] {
   return current.next
 }
 
-export function enterNode(run: RunState, id: string): RunState {
+export function enterNode(run: RunState, id: string, random: RandomSource = Math.random): RunState {
   if (!reachableNodeIds(run).includes(id)) throw new Error(`入れないマスです: ${id}`)
   const node = findNode(run, id)!
-  return { ...run, currentNodeId: id, visited: [...run.visited, id], status: node.kind === 'rest' ? 'rest' : 'battle' }
+  const moved = { ...run, currentNodeId: id, visited: [...run.visited, id] }
+  if (node.kind === 'rest') return { ...moved, status: 'rest' }
+  if (node.kind === 'shop') return { ...moved, status: 'shop', shop: { laneDone: false } }
+  if (node.kind === 'event') {
+    const seen = run.seenEvents ?? []
+    const fresh = RUN_EVENT_IDS.filter(eventId => !seen.includes(eventId))
+    const eventId = pick(fresh.length > 0 ? fresh : RUN_EVENT_IDS, random)
+    return { ...moved, status: 'event', event: { id: eventId }, seenEvents: [...seen, eventId] }
+  }
+  return { ...moved, status: 'battle' }
+}
+
+// ── 買い物マス ────────────────────────────────────────────────────────────────
+
+/** 「下げてもらう」の料金。100円から、使うたびに50円ずつ上がる。 */
+export const removeCost = (run: Pick<RunState, 'removals'>) => SHOP_REMOVE_BASE + SHOP_REMOVE_STEP * (run.removals ?? 0)
+
+export function canRemoveCard(run: RunState): boolean {
+  return run.status === 'shop' && run.deck.length > MIN_DECK_SIZE && run.gold >= removeCost(run)
+}
+
+export function removeCardAtShop(run: RunState, deckIndex: number): RunState {
+  if (!canRemoveCard(run)) throw new Error('下げてもらえません')
+  if (run.deck[deckIndex] === undefined) throw new Error(`デッキにない寿司です: ${deckIndex}`)
+  return { ...run, gold: run.gold - removeCost(run), removals: (run.removals ?? 0) + 1, deck: run.deck.filter((_, index) => index !== deckIndex) }
+}
+
+/** 回転レーンでの買い物を確定する。残金は購入画面が計算した値を使う。 */
+export function finishShopLane(run: RunState, cards: Card[], sideMenu: SideMenuId | null | undefined, budgetLeft: number): RunState {
+  if (run.status !== 'shop' || run.shop?.laneDone) throw new Error('回転レーンで買える状態ではありません')
+  const bought = cards.flatMap(card => {
+    const id = deckIdFromCard(card)
+    return id ? [id] : []
+  })
+  return { ...run, deck: [...run.deck, ...bought], gold: Math.max(0, Math.min(run.gold, Math.floor(budgetLeft))),
+    sideMenu: sideMenu ?? run.sideMenu, shop: { laneDone: true } }
+}
+
+export function leaveShop(run: RunState): RunState {
+  if (run.status !== 'shop') throw new Error('買い物マスではありません')
+  const { shop: _, ...rest } = run
+  return { ...rest, status: 'map' }
 }
 
 const isArchetypeCard = (card: Card, archetype: RunArchetype) => card.archetype.includes(archetype)
@@ -274,9 +357,11 @@ export function finishBattle(run: RunState, won: boolean, endBelly: number, rand
   if (run.status !== 'battle') throw new Error('対戦中ではありません')
   if (!won) return { ...run, belly: MAX_RUN_BELLY, status: 'lost' }
   const node = findNode(run, run.currentNodeId)
-  // 試合後に消化して、お腹を半分にして次へ持ち越す。
+  // 試合後に消化して、お腹を半分にして次へ持ち越す。ハプニングのガリは使い切り。
   const belly = Math.floor(Math.max(0, endBelly) / 2)
   const battlesWon = run.battlesWon + 1
+  const { nextBattleGari: _, ...cleared } = run
+  run = cleared
   if (node?.kind === 'boss') return { ...run, belly, battlesWon, status: 'won' }
   if (node?.kind === 'regular') {
     const gold = 450 + Math.floor(random() * 11) * 10
@@ -341,10 +426,15 @@ export function aburiAtRest(run: RunState, deckIndex: number): RunState {
 }
 
 /** 試合に持ち込む補正：自分は器、常連さんは得意技。 */
-export function runMatchMods(run: Pick<RunState, 'relics'>, enemy: RunEnemy | undefined): Partial<Record<PlayerId, PlayerMods>> {
+export function runMatchMods(run: Pick<RunState, 'relics'>, enemy: RunEnemy | undefined, isBoss = false): Partial<Record<PlayerId, PlayerMods>> {
+  const enemyMods: PlayerMods = {
+    ...(enemy?.skill ? { skill: enemy.skill } : {}),
+    ...(enemy?.aburiRate ? { aburiRate: enemy.aburiRate } : {}),
+    ...(isBoss ? { taisho: true } : {}),
+  }
   return {
     ...(run.relics.length > 0 ? { 1: { relics: [...run.relics] } } : {}),
-    ...(enemy?.skill ? { 2: { skill: enemy.skill } } : {}),
+    ...(Object.keys(enemyMods).length > 0 ? { 2: enemyMods } : {}),
   }
 }
 
@@ -357,7 +447,8 @@ export function parseRun(raw: string | null): RunState | null {
     const data = parsed as RunState
     if (data?.version !== RUN_VERSION || !Array.isArray(data.deck) || !Array.isArray(data.nodes)) return null
     if (!RUN_ARCHETYPES.some(item => item.id === data.archetype)) return null
-    if (!['start_relic', 'map', 'battle', 'reward', 'rest', 'won', 'lost'].includes(data.status)) return null
+    if (!['start_relic', 'map', 'battle', 'reward', 'rest', 'event', 'shop', 'won', 'lost'].includes(data.status)) return null
+    if (data.status === 'event' && !(data.event && RUN_EVENT_IDS.includes(data.event.id))) return null
     if (data.status === 'start_relic' && !(Array.isArray(data.startRelicIds) && data.startRelicIds.length > 0 && data.startRelicIds.every(isRelicId))) return null
     if (!Array.isArray(data.relics) || !data.relics.every(isRelicId)) return null
     if (data.sideMenu !== null && !isSideMenuId(data.sideMenu)) return null
