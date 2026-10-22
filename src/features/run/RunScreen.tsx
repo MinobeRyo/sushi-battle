@@ -5,16 +5,17 @@ import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
-  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_HAND_LIMIT, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
+  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, RUN_ACT_COUNT, actInfo, actOf, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_HAND_LIMIT, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
   MIN_DECK_SIZE, aburiAtRest, aburiDeckId, canAburiDeckId, canRemoveCard, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
   finishShopLane, leaveShop, reachableNodeIds, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
 } from '../../game/run'
 import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL, type RelicId } from '../../data/runRelics'
 import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
-import { ENEMY_CHARACTER_BY_ID, TAISHO } from '../../data/runEnemies'
+import { ACT_BOSSES, ENEMY_CHARACTER_BY_ID, bossRules } from '../../data/runEnemies'
 import { RUN_EVENT_BY_ID } from '../../data/runEvents'
 import { eventChoiceBlocked, leaveEvent, resolveEvent } from '../../game/runEvents'
+import { RunDebugPanel } from './RunDebugPanel'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
 
@@ -25,6 +26,9 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   // 試合前の顔見せを済ませたマス（訪れた順番つき）。再開時はもう一度見せる。
   const [introDone, setIntroDone] = useState<string | null>(null)
   const [laneOpen, setLaneOpen] = useState(false)
+  // アドレスに #debug を付けたときだけ、デバッグメニューを出す。
+  const [debug] = useState(() => window.location.hash.includes('debug'))
+  const debugPanel = debug && run ? <RunDebugPanel run={run} onChange={next => { setIntroDone(null); setLaneOpen(false); setRun(next) }} /> : null
 
   // 進むたびに保存する。決着したランは「続きから」に残さない。
   useEffect(() => {
@@ -48,24 +52,25 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
         <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
         <div className="run-body"><EncounterIntro run={run} node={node} onStart={() => setIntroDone(battleKey)} /></div>
         {deckOpen && <DeckDialog cards={runDeckCards(run)} onClose={() => setDeckOpen(false)} />}
+        {debugPanel}
       </main>
     }
     const gimmick = node.enemy.character ? ENEMY_CHARACTER_BY_ID[node.enemy.character].gimmick : {}
-    return <BattleScreen
+    return <>{debugPanel}<BattleScreen
       key={battleKey}
       deck={runDeckCards(run)}
       cpuDeckId={node.enemy.cpuDeckId}
       initialBelly={{ 1: run.belly, ...(gimmick.initialBelly ? { 2: gimmick.initialBelly } : {}) }}
       maxBelly={{ 2: node.enemy.maxBelly }}
       sideMenu={run.sideMenu}
-      runMods={runMatchMods(run, node.enemy, node.kind === 'boss')}
+      runMods={runMatchMods(run, node.enemy)}
       refillOnEmpty
       openingHand={{ 1: RUN_OPENING_HAND, ...(gimmick.openingHand ? { 2: gimmick.openingHand } : {}) }}
       startAP={{ 1: RUN_START_AP, ...(gimmick.startAP ? { 2: gimmick.startAP } : {}) }}
       drawBonus={{ 1: RUN_DRAW_PER_TURN - 1, ...(gimmick.drawBonus ? { 2: gimmick.drawBonus } : {}) }}
       extraGari={{ 1: run.nextBattleGari ?? 0, 2: gimmick.extraGari ?? 0 }}
       handLimit={{ 1: RUN_HAND_LIMIT }}
-      onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} />
+      onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} /></>
   }
 
   if (run.status === 'shop' && laneOpen && !run.shop?.laneDone) {
@@ -103,6 +108,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
         <span>進むたびに自動で保存されます</span>
       </footer>}
       {deckOpen && <DeckDialog cards={runDeckCards(run)} onClose={() => setDeckOpen(false)} />}
+      {debugPanel}
     </main>
   )
 }
@@ -125,7 +131,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
         {saved && <section className="run-panel run-resume" aria-label="続きから">
           <div>
             <h2>続きから</h2>
-            <p>{RUN_ARCHETYPES.find(item => item.id === saved.archetype)?.name}・{saved.visited.length}軒目まで・お腹 {saved.belly}・デッキ {saved.deck.length}枚</p>
+            <p>{RUN_ARCHETYPES.find(item => item.id === saved.archetype)?.name}・{actOf(saved)}幕 {saved.visited.length}軒目まで・お腹 {saved.belly}・デッキ {saved.deck.length}枚</p>
           </div>
           <button type="button" className="run-primary" onClick={onResume}>再開する</button>
         </section>}
@@ -155,7 +161,8 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>はじめに器（ずっと効く道具）を3つから1つもらえます。</li>
             <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>
             <li>「？」はハプニング、「買」は買い物（回転レーンで寿司を買う・寿司を下げてもらう）です。</li>
-            <li>大食い客は一人ひとり癖があります。最後の大将は専用ルールで待ち構えています。</li>
+            <li>全{RUN_ACT_COUNT}幕（回転寿司→立ち食い寿司→回らない名店）。各幕の最後にボスがいて、倒すと器と寿司をもらって次の幕へ。最後の大将に勝てばクリアです。</li>
+            <li>大食い客は一人ひとり癖があります。ボスは専用ルールで待ち構えています。</li>
           </ul>
         </section>
         <button type="button" className="run-text-button" onClick={onExit}>← お品書きへ戻る</button>
@@ -201,7 +208,8 @@ function StarterDeckPreview({ archetype }: { archetype: RunArchetype }) {
 
 function RunHeader({ run, onOpenDeck }: { run: RunState; onOpenDeck: () => void }) {
   const current = findNode(run, run.currentNodeId)
-  const floor = current ? (current.id === BOSS_NODE_ID ? '大将' : `${current.row + 1}軒目`) : '入口'
+  const act = actOf(run)
+  const floor = `${act}幕 ${current ? (current.id === BOSS_NODE_ID ? actInfo(act).boss.name : `${current.row + 1}軒目`) : '入口'}`
   return (
     <header className="run-header">
       <div className="run-stat">
@@ -238,7 +246,7 @@ const NODE_LABEL: Record<RunNode['kind'], { mark: string; name: string }> = {
   rest: { mark: '茶', name: 'お茶' },
   event: { mark: '？', name: 'ハプニング' },
   shop: { mark: '買', name: '買い物' },
-  boss: { mark: '将', name: '大将' },
+  boss: { mark: '将', name: '幕のボス' },
 }
 
 const MAP_W = 300
@@ -259,17 +267,18 @@ function RunMap({ run, onEnter }: { run: RunState; onEnter: (id: string) => void
   }, [run.currentNodeId])
   return (
     <section className="run-map-section" aria-label="はしごの地図">
+      <p className="run-map-act">{actOf(run)}幕「{actInfo(actOf(run)).name}」<span>全{RUN_ACT_COUNT}幕・最後に{actInfo(actOf(run)).boss.name}</span></p>
       <p className="run-map-hint" role="status">{run.currentNodeId === null ? '最初の店を選んでください' : '次の店を選んでください'}</p>
       <div className="run-map" ref={mapRef} style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}>
         <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
-          {run.nodes.flatMap(node => node.next.map(nextId => {
+          {run.nodes.filter(node => !node.debug).flatMap(node => node.next.map(nextId => {
             const next = byId.get(nextId)!
             const walked = pathEdges.has(`${node.id}>${nextId}`)
             return <line key={`${node.id}>${nextId}`} x1={nodeX(node)} y1={nodeY(node)} x2={nodeX(next)} y2={nodeY(next)}
               className={walked ? 'run-map-edge run-map-edge--walked' : 'run-map-edge'} />
           }))}
         </svg>
-        {run.nodes.map(node => {
+        {run.nodes.filter(node => !node.debug).map(node => {
           const label = NODE_LABEL[node.kind]
           const canEnter = reachable.includes(node.id)
           const state = node.id === run.currentNodeId ? 'current' : visited.has(node.id) ? 'visited' : canEnter ? 'open' : 'closed'
@@ -279,7 +288,7 @@ function RunMap({ run, onEnter }: { run: RunState; onEnter: (id: string) => void
               style={{ left: `${nodeX(node) / MAP_W * 100}%`, top: `${nodeY(node) / MAP_H * 100}%` }}
               disabled={!canEnter} onClick={() => onEnter(node.id)}
               title={node.enemy?.skill ? `得意技「${REGULAR_SKILL_BY_ID[node.enemy.skill].name}」：${REGULAR_SKILL_BY_ID[node.enemy.skill].text}` : undefined}
-              aria-label={`${node.kind === 'boss' ? '' : `${node.row + 1}軒目 `}${node.enemy?.label ?? label.name}${node.enemy?.skill ? `（得意技：${REGULAR_SKILL_BY_ID[node.enemy.skill].name}）` : ''}${state === 'visited' || state === 'current' ? '（通過済み）' : canEnter ? '（入れる）' : ''}`}>
+              aria-label={`${node.kind === 'boss' ? '幕のボス ' : `${node.row + 1}軒目 `}${node.enemy?.label ?? label.name}${node.enemy?.skill ? `（得意技：${REGULAR_SKILL_BY_ID[node.enemy.skill].name}）` : ''}${state === 'visited' || state === 'current' ? '（通過済み）' : canEnter ? '（入れる）' : ''}`}>
               <span aria-hidden="true">{label.mark}</span>
             </button>
           )
@@ -347,7 +356,7 @@ function RunReward({ run, onChoose, onBonus }: {
   if (reward.cardDone) {
     return (
       <section className="run-panel run-reward" aria-labelledby="run-bonus-heading">
-        <h2 id="run-bonus-heading">常連さんからのおみやげ</h2>
+        <h2 id="run-bonus-heading">{reward.actClear ? `${actInfo(actOf(run)).boss.name}からの心づけ` : '常連さんからのおみやげ'}</h2>
         <p className="run-note">器（ずっと効く道具）を1つ、またはサイドメニューを1品選びます。サイドメニューは毎試合持ち込め、今の一品と入れ替わります。</p>
         <h3 className="run-subheading">器</h3>
         <div className="run-reward-list">
@@ -376,7 +385,8 @@ function RunReward({ run, onChoose, onBonus }: {
   const hasBonus = Boolean(reward.relicIds?.length || reward.sideMenuIds?.length)
   return (
     <section className="run-panel run-reward" aria-labelledby="run-reward-heading">
-      <h2 id="run-reward-heading">勝利！ 報酬を選ぶ</h2>
+      <h2 id="run-reward-heading">{reward.actClear ? `${actOf(run)}幕クリア！ 報酬を選ぶ` : '勝利！ 報酬を選ぶ'}</h2>
+      {reward.actClear && <p className="run-note">選び終えると {actOf(run) + 1}幕「{actInfo(actOf(run) + 1).name}」へ進みます。敵の満腹ラインと炙りの割合が上がります。</p>}
       <p className="run-note">持ち金 ＋¥{reward.gold.toLocaleString()}。お腹は半分に消化して {run.belly} になりました。寿司を1枚選んでデッキに加えます。{hasBonus && 'このあと器かサイドメニューも選べます。'}</p>
       <div className="run-reward-list">
         {reward.cardIds.map(id => ({ id, card: runCard(id) })).filter((item): item is { id: string; card: Card } => !!item.card)
@@ -456,21 +466,23 @@ function RunRest({ run, onRest, onAburi }: { run: RunState; onRest: () => void; 
 function EncounterIntro({ run, node, onStart }: { run: RunState; node: RunNode; onStart: () => void }) {
   const enemy = node.enemy!
   const character = enemy.character ? ENEMY_CHARACTER_BY_ID[enemy.character] : null
+  const boss = enemy.boss ? ACT_BOSSES.find(item => item.id === enemy.boss) : undefined
   const isBoss = node.kind === 'boss'
   const skill = enemy.skill ? REGULAR_SKILL_BY_ID[enemy.skill] : null
-  const name = isBoss ? TAISHO.name : character?.name ?? (skill ? '常連さん' : '大食い客')
-  const line = isBoss ? TAISHO.line : character?.line ?? (skill ? 'いつもの席、空いてるかい？' : 'さあ、食べ比べといこうか。')
+  const name = boss?.name ?? character?.name ?? (skill ? '常連さん' : '大食い客')
+  const line = boss?.line ?? character?.line ?? (skill ? 'いつもの席、空いてるかい？' : 'さあ、食べ比べといこうか。')
+  const act = actOf(run)
   const traits = [
-    ...(isBoss ? TAISHO.rules : []),
+    ...(boss ? bossRules(boss) : []),
     ...(character ? [character.trait] : []),
     ...(skill ? [`得意技「${skill.name}」：${skill.text}`] : []),
-    `満腹ライン ${enemy.maxBelly}`,
+    ...(boss ? [] : [`満腹ライン ${enemy.maxBelly}`]),
     ...(enemy.aburiRate ? [`デッキの${Math.round(enemy.aburiRate * 10)}割が炙り版`] : []),
   ]
   return (
     <section className={`run-panel run-encounter${isBoss ? ' run-encounter--boss' : ''}`} aria-labelledby="run-encounter-heading">
       <p className="run-rest-mark" aria-hidden="true">{isBoss ? '将' : skill ? '常' : '食'}</p>
-      <p className="run-encounter-kicker">{isBoss ? 'はしごの締め' : `${node.row + 1}軒目`}・{enemy.label.split(' · ')[1] ?? 'おまかせ'}</p>
+      <p className="run-encounter-kicker">{act}幕「{actInfo(act).name}」・{isBoss ? (act >= RUN_ACT_COUNT ? 'はしごの締め' : '幕の締め') : `${node.row + 1}軒目`}・{enemy.label.split(' · ')[1] ?? 'おまかせ'}</p>
       <h2 id="run-encounter-heading">{name}があらわれた！</h2>
       <blockquote className="run-encounter-line">「{line}」</blockquote>
       <ul className="run-encounter-traits">{traits.map(text => <li key={text}>{text}</li>)}</ul>
@@ -578,7 +590,7 @@ function RunResult({ run, onRetry, onExit }: { run: RunState; onRetry: () => voi
     <section className="run-panel run-result" aria-labelledby="run-result-heading">
       <p className="run-rest-mark" aria-hidden="true">{won ? '祝' : '満'}</p>
       <h2 id="run-result-heading">{won ? '大将に勝利！ はしご完走' : 'お腹いっぱい… はしご終了'}</h2>
-      <p className="run-note">{run.visited.length}軒をめぐり、{run.battlesWon}勝。最後のデッキは{run.deck.length}枚でした。</p>
+      <p className="run-note">{actOf(run)}幕「{actInfo(actOf(run)).name}」まで進み、{run.battlesWon}勝。最後のデッキは{run.deck.length}枚、器は{run.relics.length}個でした。</p>
       <div className="run-result-actions">
         <button type="button" className="run-primary" onClick={onRetry}>もう一度はしごする</button>
         <button type="button" className="run-secondary" onClick={onExit}>お品書きへ</button>

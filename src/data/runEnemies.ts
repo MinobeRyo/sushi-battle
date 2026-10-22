@@ -40,17 +40,41 @@ export const ENEMY_CHARACTERS: readonly EnemyCharacter[] = [
 export const ENEMY_CHARACTER_BY_ID: Readonly<Record<EnemyCharacterId, EnemyCharacter>> =
   Object.fromEntries(ENEMY_CHARACTERS.map(item => [item.id, item])) as Record<EnemyCharacterId, EnemyCharacter>
 
-/** 大将の専用ルール（企画書9-3）。数値はエンジンと揃える。 */
-export const TAISHO = {
-  name: '大将',
-  line: 'はしごの締めにうちを選ぶとは、いい度胸だ。握らせてもらうよ。',
-  maxBelly: 150,
-  osusumeEvery: 3,
-  teaThreshold: 100,
-  teaDigest: 30,
-  rules: [
-    'お腹の上限が150（大将は大食い）',
-    '3ターンごとに「本日のおすすめ」：炙った高級寿司を1枚、0APで手札に加える',
-    'お腹が100を超えた最初の1回だけ「締めのお茶」でお腹−30',
-  ],
-} as const
+/** 幕の最後に待つボス。本日のおすすめ（osusumeEvery ターンごと）と締めのお茶（tea）は、幕が進むほど揃う。 */
+export type ActBoss = {
+  id: 'tencho' | 'oyakata' | 'taisho'
+  name: string
+  line: string
+  maxBelly: number
+  /** 何ターンごとに本日のおすすめを出すか。null なら出さない。 */
+  osusumeEvery: number | null
+  /** 満腹ラインの2/3を超えた最初の1回だけ、お腹−30。 */
+  tea: boolean
+  /** デッキのうち炙り版にする割合。 */
+  aburiRate: number
+}
+
+export const TEA_DIGEST = 30
+/** 締めのお茶が出るお腹（満腹ラインの2/3）。大将（150）なら100。 */
+export const teaThreshold = (maxBelly: number) => Math.floor(maxBelly * 2 / 3)
+
+export const ACT_BOSSES: readonly ActBoss[] = [
+  { id: 'tencho', name: '回転寿司の店長', line: 'うちのレーンで勝ち越すとは、なかなかやるね。最後は私がお相手しよう。',
+    maxBelly: 100, osusumeEvery: 4, tea: false, aburiRate: 0.2 },
+  { id: 'oyakata', name: '立ち食いの親方', line: '立ち食いは速さが命だ。ついて来られるかい？',
+    maxBelly: 125, osusumeEvery: 3, tea: true, aburiRate: 0.4 },
+  { id: 'taisho', name: '大将', line: 'はしごの締めにうちを選ぶとは、いい度胸だ。握らせてもらうよ。',
+    maxBelly: 150, osusumeEvery: 3, tea: true, aburiRate: 0.6 },
+]
+
+/** ボスの専用ルールの説明文。 */
+export function bossRules(boss: Pick<ActBoss, 'maxBelly' | 'osusumeEvery' | 'tea'>): string[] {
+  return [
+    `お腹の上限が${boss.maxBelly}`,
+    ...(boss.osusumeEvery ? [`${boss.osusumeEvery}ターンごとに「本日のおすすめ」：炙った高級寿司を1枚、0APで手札に加える`] : []),
+    ...(boss.tea ? [`お腹が${teaThreshold(boss.maxBelly)}を超えた最初の1回だけ「締めのお茶」でお腹−${TEA_DIGEST}`] : []),
+  ]
+}
+
+/** 最後の大将（企画書9-3）。 */
+export const TAISHO = ACT_BOSSES[2]

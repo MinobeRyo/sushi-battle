@@ -2,6 +2,9 @@ import type { Card, CardBoost } from '../types'
 import { canAburi, toAburi } from '../data/aburi'
 import type { RegularSkillId, RelicId } from '../data/runRelics'
 
+/** ボスの専用ルール。osusumeEvery ターンごとに本日のおすすめ、tea なら締めのお茶。 */
+export type BossRule = { name: string; osusumeEvery?: number | null; tea?: boolean }
+
 // 寿司はしご専用の試合補正。通常対戦・オンラインでは MatchPlayer.mods を持たないため何も変わらない。
 
 export type PlayerMods = {
@@ -9,8 +12,8 @@ export type PlayerMods = {
   skill?: RegularSkillId
   /** 敵デッキのうち炙り版にする割合（0〜1）。後半の大食い客ほど高い。 */
   aburiRate?: number
-  /** 大将の専用ルール（本日のおすすめ・締めのお茶）。 */
-  taisho?: boolean
+  /** 幕のボスの専用ルール（本日のおすすめ・締めのお茶）。 */
+  boss?: BossRule
 }
 
 export const hasRelic = (mods: PlayerMods | undefined, id: RelicId) => Boolean(mods?.relics?.includes(id))

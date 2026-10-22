@@ -8,7 +8,7 @@ import type { SideMenuId } from '../data/sideMenus'
 import type { CardInstance, MatchAction, MatchEvent, MatchMode, MatchPlayer, MatchResult, MatchState, PendingAttack, PlayerId, RandomSource } from './types'
 import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
 import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
-import { TAISHO } from '../data/runEnemies'
+import { bossRules, TEA_DIGEST, teaThreshold } from '../data/runEnemies'
 import { canAburi, toAburi } from '../data/aburi'
 import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, handLimitOf, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
@@ -136,7 +136,7 @@ function applyPlayerMods(state: MatchState, id: PlayerId, mods: PlayerMods | und
   if (hasSkill(mods, 'gari_yama')) player.gari += 3
   if (hasRelic(mods, 'toishi')) player.kiretaStack += 3
   if (hasRelic(mods, 'teppan')) player.teppanLeft = 3
-  if (mods.taisho) addLog(state, `👨‍🍳 ${TAISHO.name}の専用ルール：${TAISHO.rules.join('／')}`)
+  if (mods.boss) addLog(state, `👨‍🍳 ${mods.boss.name}の専用ルール：${bossRules({ maxBelly: bellyCap(player), osusumeEvery: mods.boss.osusumeEvery ?? null, tea: Boolean(mods.boss.tea) }).join('／')}`)
   if (mods.skill) addLog(state, `🍶 ${label(state, id)}は常連さん！ 得意技「${REGULAR_SKILL_BY_ID[mods.skill].name}」：${REGULAR_SKILL_BY_ID[mods.skill].text}`)
 }
 
@@ -243,26 +243,28 @@ function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEv
   const player = state.players[id]
   player.belly = Math.min(bellyCap(player), player.belly + dealt)
   if (dealt > 0) events.push({ type: 'damage', playerId: id, amount: dealt })
-  // 大将の締めのお茶：100を超えた最初の1回だけ、満腹で倒れる前ならお腹を減らす。
-  if (player.mods?.taisho && !player.teaUsed && player.belly >= TAISHO.teaThreshold && player.belly < bellyCap(player)) {
+  // ボスの締めのお茶：満腹ラインの2/3を超えた最初の1回だけ、満腹で倒れる前ならお腹を減らす。
+  const boss = player.mods?.boss
+  if (boss?.tea && !player.teaUsed && player.belly >= teaThreshold(bellyCap(player)) && player.belly < bellyCap(player)) {
     player.teaUsed = true
-    player.belly = Math.max(0, player.belly - TAISHO.teaDigest)
-    addLog(state, `🍵 ${TAISHO.name}が締めのお茶をすすった：お腹 −${TAISHO.teaDigest}`)
+    player.belly = Math.max(0, player.belly - TEA_DIGEST)
+    addLog(state, `🍵 ${boss.name}が締めのお茶をすすった：お腹 −${TEA_DIGEST}`)
     events.push({ type: 'combo', playerId: id, comboId: 'taisho_ocha' })
   }
 }
 
-/** 大将の本日のおすすめ：数ターンごとに、炙った高級寿司を0APで手札に加える（手札上限を超えてもよい）。 */
+/** ボスの本日のおすすめ：数ターンごとに、炙った高級寿司を0APで手札に加える（手札上限を超えてもよい）。 */
 const TAISHO_OSUSUME_IDS = ['otoro', 'uni_gunkan', 'wagyu', 'negitoro_gunkan', 'kani_gunkan'] as const
 function taishoOsusume(state: MatchState, id: PlayerId, events: MatchEvent[], random: RandomSource) {
   const player = state.players[id]
-  if (!player.mods?.taisho || state.turn % TAISHO.osusumeEvery !== 0) return
+  const every = player.mods?.boss?.osusumeEvery
+  if (!every || state.turn % every !== 0) return
   const base = CARDS.find(card => card.id === TAISHO_OSUSUME_IDS[Math.floor(random() * TAISHO_OSUSUME_IDS.length)])
   if (!base) return
   const card: CardInstance = { ...structuredClone(canAburi(base) ? toAburi(base) : base), cost: 0,
     instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}` }
   player.hand.push(card)
-  addLog(state, `🔥 ${TAISHO.name}の本日のおすすめ：${card.name}（0AP）`)
+  addLog(state, `🔥 ${player.mods!.boss!.name}の本日のおすすめ：${card.name}（0AP）`)
   events.push({ type: 'combo', playerId: id, comboId: 'taisho_osusume' })
 }
 

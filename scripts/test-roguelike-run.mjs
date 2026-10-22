@@ -14,7 +14,8 @@ const { applyCardMods } = loadTs('src/game/runMods.ts')
 const { NAMAHAM_CARD } = loadTs('src/data/cards.ts')
 const { RUN_EVENTS } = loadTs('src/data/runEvents.ts')
 const events = loadTs('src/game/runEvents.ts')
-const { ENEMY_CHARACTERS, TAISHO } = loadTs('src/data/runEnemies.ts')
+const { ENEMY_CHARACTERS, TAISHO, teaThreshold: ENEMY_TEA } = loadTs('src/data/runEnemies.ts')
+const debug = loadTs('src/game/runDebug.ts')
 const { createUnluckyCard, createRareCorn } = loadTs('src/data/cardVariants.ts')
 
 let passed = 0
@@ -70,7 +71,8 @@ test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり
   assert.notEqual(run.enemyForRow(3, 'battle', () => 0).cpuDeckId, 'weak')
   const caps = Array.from({ length: run.RUN_ROWS }, (_, row) => run.enemyForRow(row, 'battle', () => 0).maxBelly)
   assert.ok(caps.every((cap, i) => i === 0 || cap >= caps[i - 1]), '満腹ラインは下がらない')
-  assert.equal(run.enemyForRow(run.RUN_ROWS, 'boss', () => 0).maxBelly, 150)
+  // ボスは幕ごと：店長100・親方125・大将150。
+  assert.deepEqual([1, 2, 3].map(act => run.enemyForRow(run.RUN_ROWS, 'boss', () => 0, act).maxBelly), [100, 125, 150])
 })
 
 test('満腹ラインに届いた側が負け、お腹はラインを超えない', () => {
@@ -145,10 +147,59 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
 test('負けるとラン終了、大将に勝つとクリア', () => {
   const state = run.enterNode(begin('kaisen', seeded(9)), 'r0c2')
   assert.equal(run.finishBattle(state, false, 100).status, 'lost')
-  const atBoss = { ...state, currentNodeId: run.BOSS_NODE_ID, visited: [...state.visited, run.BOSS_NODE_ID] }
-  const won = run.finishBattle(atBoss, true, 50)
+  // 1・2幕のボスに勝つと報酬（寿司＋器かサイド）を選んで次の幕の入口へ。3幕の大将に勝つとクリア。
+  let current = state
+  for (const act of [1, 2]) {
+    const atBoss = { ...current, act, status: 'battle', currentNodeId: run.BOSS_NODE_ID, visited: [...current.visited, run.BOSS_NODE_ID] }
+    const cleared = run.finishBattle(atBoss, true, 50, seeded(act))
+    assert.equal(cleared.status, 'reward')
+    assert.equal(cleared.reward.actClear, true)
+    assert.ok(cleared.reward.gold >= 600)
+    assert.equal(cleared.reward.relicIds.length, 3)
+    const afterCard = run.chooseReward(cleared, cleared.reward.cardIds[0], seeded(10 + act))
+    assert.equal(afterCard.status, 'reward', '器・サイドを選ぶまで次の幕へ進まない')
+    current = run.chooseBonus(afterCard, { relic: cleared.reward.relicIds[0] }, seeded(20 + act))
+    assert.equal(current.act, act + 1)
+    assert.equal(current.status, 'map')
+    assert.equal(current.currentNodeId, null)
+    assert.deepEqual(current.visited, [])
+    assert.equal(current.belly, 25, 'お腹は勝ったときに半分になったまま')
+    assert.ok(current.relics.includes(cleared.reward.relicIds[0]))
+    const boss = current.nodes.find(node => node.kind === 'boss')
+    assert.equal(boss.enemy.boss, act === 1 ? 'oyakata' : 'taisho')
+  }
+  const finalBoss = { ...current, status: 'battle', currentNodeId: run.BOSS_NODE_ID, visited: [run.BOSS_NODE_ID] }
+  const won = run.finishBattle(finalBoss, true, 50)
   assert.equal(won.status, 'won')
   assert.equal(won.reward, null)
+})
+
+test('3幕：幕が進むほど敵の満腹ラインと炙りの割合が上がり、最弱CPUは1幕だけ', () => {
+  for (const row of [0, 4, 7]) {
+    const caps = [1, 2, 3].map(act => run.enemyForRow(row, 'battle', () => 0, act).maxBelly)
+    assert.ok(caps[0] < caps[1] && caps[1] < caps[2], `${row + 1}軒目：${caps}`)
+    const rates = [1, 2, 3].map(act => run.enemyAburiRate(row, act))
+    assert.ok(rates[0] < rates[1] && rates[1] < rates[2], `${row + 1}軒目の炙り：${rates}`)
+  }
+  assert.equal(run.enemyForRow(0, 'battle', () => 0, 1).cpuDeckId, 'weak')
+  assert.notEqual(run.enemyForRow(0, 'battle', () => 0, 2).cpuDeckId, 'weak')
+  assert.deepEqual(run.generateRunMap(seeded(3), 2).find(node => node.kind === 'boss').enemy.boss, 'oyakata')
+})
+
+test('3幕：ボスの専用ルールは幕ごと（店長はおすすめだけ、親方と大将は締めのお茶も）', () => {
+  const mods = act => run.runMatchMods({ relics: [] }, run.enemyForRow(run.RUN_ROWS, 'boss', () => 0, act))[2].boss
+  assert.deepEqual(mods(1), { name: '回転寿司の店長', osusumeEvery: 4, tea: false })
+  assert.deepEqual(mods(2), { name: '立ち食いの親方', osusumeEvery: 3, tea: true })
+  assert.deepEqual(mods(3), { name: '大将', osusumeEvery: 3, tea: true })
+  // 親方（満腹125）の締めのお茶は83（2/3）を超えたとき。
+  assert.equal(ENEMY_TEA(125), 83)
+  // 3幕になる前の保存は1幕として読み、ボスに店長の印を付ける。
+  const old = { ...begin('akami', seeded(2)) }
+  delete old.act
+  old.nodes = old.nodes.map(node => node.kind === 'boss' ? { ...node, enemy: { cpuDeckId: 'challenge', maxBelly: 150, label: '大将' } } : node)
+  const parsed = run.parseRun(JSON.stringify(old))
+  assert.equal(parsed.act, 1)
+  assert.equal(parsed.nodes.find(node => node.kind === 'boss').enemy.boss, 'tencho')
 })
 
 test('保存は対戦の手前に戻し、壊れたデータは読まない', () => {
@@ -697,7 +748,7 @@ test('敵の個性：追加のガリはCPU側だけ、炙り率で敵デッキ�
 
 test('大将：3ターンごとに本日のおすすめ（炙った高級寿司・0AP）を手札に加える', () => {
   let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'challenge',
-    maxBelly: { 2: TAISHO.maxBelly }, runMods: { 2: { taisho: true } } }, seeded(2))
+    maxBelly: { 2: TAISHO.maxBelly }, runMods: { 2: { boss: { name: '大将', osusumeEvery: 3, tea: true } } } }, seeded(2))
   assert.equal(state.players[2].maxBelly, 150)
   const osusume = []
   for (let i = 0; i < 40 && state.turn < 7; i++) {
@@ -717,7 +768,7 @@ test('大将：3ターンごとに本日のおすすめ（炙った高級寿司�
 
 test('大将：お腹が100を超えた最初の1回だけ、締めのお茶でお腹−30', () => {
   let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('otoro')), cpuDeckId: 'challenge',
-    maxBelly: { 2: 150 }, initialBelly: { 2: 95 }, runMods: { 2: { taisho: true } } }, () => 0.999)
+    maxBelly: { 2: 150 }, initialBelly: { 2: 95 }, runMods: { 2: { boss: { name: '大将', osusumeEvery: 3, tea: true } } } }, () => 0.999)
   state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
   const result = transitionMatch(state, play(state, 'otoro'), () => 0.5)
   state = result.state
@@ -774,6 +825,50 @@ test('はしごの試合は自分だけ手札上限10枚。CPUと通常対戦は
   assert.deepEqual(sizes.slice(0, 3), [8, 10, 10], '6→8→10で止まる')
   assert.ok(state.players[2].hand.length <= rules.HAND_LIMIT)
   assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[1].handLimit, undefined)
+})
+
+test('デバッグ：好きなマスへ飛び、抜けたら今の続きから進める', () => {
+  const start = begin('akami', seeded(4))
+  const shop = debug.debugJump(start, 'shop', seeded(1))
+  assert.equal(shop.status, 'shop')
+  const node = shop.nodes.find(item => item.id === shop.currentNodeId)
+  assert.equal(node.debug, true)
+  assert.equal(run.leaveShop(shop).status, 'map')
+  assert.deepEqual(run.reachableNodeIds(run.leaveShop(shop)), ['r0c0', 'r0c1', 'r0c2'], '入口から飛んだら1段目へ')
+  const event = debug.debugJump(start, 'event', seeded(1), 'gacha')
+  assert.equal(event.event.id, 'gacha')
+  for (const kind of ['battle', 'regular']) {
+    const battle = debug.debugJump(start, kind, seeded(2))
+    assert.equal(battle.status, 'battle')
+    assert.ok(battle.nodes.find(item => item.id === battle.currentNodeId).enemy)
+    const won = debug.debugFinishBattle(battle, true, seeded(3))
+    assert.equal(won.status, 'reward')
+    assert.equal(debug.debugFinishBattle(battle, false).status, 'lost')
+  }
+  const boss = debug.debugJump(start, 'boss')
+  assert.equal(boss.currentNodeId, run.BOSS_NODE_ID)
+  assert.equal(boss.status, 'battle')
+  // 仮のマスは次に飛ぶと置き換わり、増え続けない。
+  const twice = debug.debugJump(debug.debugJump(start, 'rest'), 'rest')
+  assert.equal(twice.nodes.filter(item => item.debug).length, 2)
+  const thrice = debug.debugJump(run.takeRest(twice), 'rest')
+  assert.equal(thrice.nodes.filter(item => item.debug).length, 2)
+})
+
+test('デバッグ：持ち金・お腹・器・寿司・炙り・次の幕', () => {
+  let state = begin('hikari', seeded(5))
+  state = debug.debugGold(state, 500)
+  assert.equal(state.gold, 500)
+  assert.equal(debug.debugBelly(state, 150).belly, run.MAX_RUN_BELLY - 1)
+  state = debug.debugAddRelic(state, 'toishi')
+  assert.deepEqual(debug.debugAddRelic(state, 'toishi').relics, ['toishi'], '同じ器は重ねない')
+  state = debug.debugAddCard(state, run.aburiDeckId('maguro'))
+  assert.equal(run.runDeckCards(state).at(-1).aburi, true)
+  const all = debug.debugAburiAll(state)
+  assert.ok(all.deck.every(id => !run.canAburiDeckId(id)))
+  const next = debug.debugNextAct(state, seeded(6))
+  assert.equal(next.act, 2)
+  assert.equal(debug.debugNextAct({ ...state, act: 3 }).act, 3, '最後の幕より先へは行かない')
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

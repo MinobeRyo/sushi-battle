@@ -96,7 +96,7 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
         const combo = COMBO_META[event.comboId]
         announceCombo({
           name: combo.name, desc: combo.desc,
-          playerLabel: event.comboId.startsWith('taisho_') ? '大将'
+          playerLabel: event.comboId.startsWith('taisho_') ? matchRef.current?.players[event.playerId].mods?.boss?.name ?? 'ボス'
             : mode === 'two_player' ? `PLAYER ${event.playerId}` : event.playerId === 1 ? 'YOU' : 'CPU',
         })
       }
