@@ -9,6 +9,7 @@ import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
+import { boostBelly } from './battleEngine'
 import { calcFieldDmg, toField, countNamahamu, getSacrificeLimit, getSacrificeBonus, isReservableDefense, getDestroyTargets, MAKI_COMP_5, makimonoCount, namahamuAuraBonus, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
@@ -105,8 +106,11 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   const isPlayerTurn = s.phase === 'player'
   const isReactionDefender = s.pendingReaction?.defenderId === s.activePlayer
   const isDefender = s.pendingAttack?.defenderId === s.activePlayer
-  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, s.cBelly, { nikuMatsuri: s.pNikuMatsuri })
-  const opponentDmg = calcFieldDmg(s.cField, s.cAttackBuff, s.cKiretaStack, s.pBelly, { nikuMatsuri: s.cNikuMatsuri })
+  // 「相手のお腹○以上」の判定用。満腹ラインが100でない相手は100あたりに直す。
+  const cBoostBelly = boostBelly(s.cBelly, s.cMaxBelly)
+  const pBoostBelly = boostBelly(s.pBelly, s.pMaxBelly)
+  const previewDmg = calcFieldDmg(s.pField, s.pAttackBuff, s.pKiretaStack, cBoostBelly, { nikuMatsuri: s.pNikuMatsuri })
+  const opponentDmg = calcFieldDmg(s.cField, s.cAttackBuff, s.cKiretaStack, pBoostBelly, { nikuMatsuri: s.cNikuMatsuri })
 
   const phaseLabel = s.phase === 'player' ? 'あなたのターン'
     : s.phase === 'reacting' ? '光り物の防御を選んでください'
@@ -167,7 +171,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     : inspect
   const selectedCard = currentInspect?.card
   const selectedOwnerIsOpponent = currentInspect?.owner === 'opponent'
-  const handAttack = (card: Card) => calcFieldDmg([toField(card)], s.pAttackBuff, s.pKiretaStack, s.cBelly, {
+  const handAttack = (card: Card) => calcFieldDmg([toField(card)], s.pAttackBuff, s.pKiretaStack, cBoostBelly, {
     gunkanBoost: makimonoCount(s.pField) >= MAKI_COMP_5,
     namahamuBoost: namahamuAuraBonus(s.pField), fieldCount: s.pField.length + 1,
   })
@@ -223,7 +227,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           <div className="battle-tables">
             <div className="battle-player-area">
               <BattleTable selectedFieldId={currentInspect?.owner === 'opponent' && 'fid' in currentInspect.card && typeof currentInspect.card.fid === 'string' ? currentInspect.card.fid : undefined} label={opponentLabel} cards={s.cField} combosFired={s.cCombosFired} isEnemy
-                attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={s.pBelly} nikuMatsuri={s.cNikuMatsuri}
+                attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack} enemyBelly={pBoostBelly} nikuMatsuri={s.cNikuMatsuri}
                 floats={floats.filter(item => item.target === 'cpu')} flash={s.flash === 'cpu'}
                 onShowStatus={() => setStatusSide('opponent')}
                 onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'opponent' })}>
@@ -234,7 +238,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             </div>
             <div className="battle-player-area">
               <BattleTable selectedFieldId={currentInspect?.owner === 'player' && 'fid' in currentInspect.card && typeof currentInspect.card.fid === 'string' ? currentInspect.card.fid : undefined} label={activeLabel} cards={s.pField} combosFired={s.pCombosFired}
-                attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} enemyBelly={s.cBelly} nikuMatsuri={s.pNikuMatsuri}
+                attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} enemyBelly={cBoostBelly} nikuMatsuri={s.pNikuMatsuri}
                 floats={floats.filter(item => item.target === 'player')} flash={s.flash === 'player'}
                 onShowStatus={() => setStatusSide('player')}
                 onInspect={(card, actualAttack) => setInspect({ card, canPlay: false, remainingTurns: card.turnsLeft, actualAttack, owner: 'player' })}>
@@ -336,7 +340,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             fieldCards={currentInspect.owner === 'opponent' ? s.cField : s.pField}
             combosFired={currentInspect.owner === 'opponent' ? s.cCombosFired : s.pCombosFired}
             enemyFieldCards={s.cField}
-            enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, s.pBelly, {
+            enemyCardAttack={card => calcFieldDmg([card], s.cAttackBuff, s.cKiretaStack, pBoostBelly, {
               gunkanBoost: makimonoCount(s.cField) >= MAKI_COMP_5,
               namahamuBoost: namahamuAuraBonus(s.cField), fieldCount: s.cField.length,
             })}

@@ -7,6 +7,13 @@ import { applyCardMods, hasRelic, type PlayerMods } from './runMods'
 export const MAX_BELLY = 100
 /** その人の満腹ライン。寿司はしごの敵だけ100以外になる。 */
 export const bellyCap = (player: { maxBelly?: number }) => player.maxBelly ?? MAX_BELLY
+/**
+ * 「相手のお腹○以上」の判定に使うお腹。満腹ラインが100でない相手（寿司はしごの敵）は100あたりに直す。
+ * 例：満腹ライン50の相手のお腹25は50として扱い、焼肉寿司（50以上）が効く。
+ */
+export const boostBelly = (belly: number, cap: number = MAX_BELLY) => cap === MAX_BELLY ? belly : Math.floor(belly * MAX_BELLY / cap)
+/** 相手プレイヤーから、上の判定用のお腹を作る。 */
+export const boostBellyOf = (player: { belly: number; maxBelly?: number }) => boostBelly(player.belly, bellyCap(player))
 
 export const HAND_LIMIT = 7
 

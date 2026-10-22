@@ -5,7 +5,7 @@ import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
-  BOSS_NODE_ID, MAX_RUN_BELLY, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
+  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
   MIN_DECK_SIZE, aburiAtRest, aburiDeckId, canAburiDeckId, canRemoveCard, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
   finishShopLane, leaveShop, reachableNodeIds, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
@@ -140,6 +140,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
               </button>
             ))}
           </div>
+          <StarterDeckPreview archetype={archetype} />
           <button type="button" className="run-primary" onClick={() => onStart(archetype)}>この系統ではしごを始める</button>
         </section>
         <section className="run-panel run-rules" aria-label="遊び方">
@@ -159,6 +160,41 @@ function RunStart({ saved, onStart, onResume, onExit }: {
         <button type="button" className="run-text-button" onClick={onExit}>← お品書きへ戻る</button>
       </div>
     </main>
+  )
+}
+
+/** 選んだ系統の初期デッキ13枚。系統の3枚を先に、汎用10枚を後に並べる。 */
+function StarterDeckPreview({ archetype }: { archetype: RunArchetype }) {
+  const groups = useMemo(() => {
+    const entries = [
+      ...ARCHETYPE_STARTERS[archetype].map(id => ({ id, own: true })),
+      ...STARTER_DECK.map(id => ({ id, own: false })),
+    ]
+    const map = new Map<string, { card: Card; own: boolean; count: number }>()
+    for (const { id, own } of entries) {
+      const card = runCard(id)
+      if (!card) continue
+      const entry = map.get(id)
+      if (entry) entry.count += 1
+      else map.set(id, { card, own, count: 1 })
+    }
+    return [...map.values()]
+  }, [archetype])
+  const name = RUN_ARCHETYPES.find(item => item.id === archetype)?.name
+  return (
+    <div className="run-starter" aria-live="polite">
+      <h3 className="run-subheading">{name}の初期デッキ（{STARTER_DECK.length + ARCHETYPE_STARTERS[archetype].length}枚）</h3>
+      <ul className="run-starter-list">
+        {groups.map(({ card, own, count }) => (
+          <li key={card.id} data-own={own ? 'true' : undefined} title={card.effect ? undefined : '特殊効果なし'}>
+            <span className="run-deck-art"><SushiArt card={card} size={40} /></span>
+            <span className="run-starter-name">{card.name}{count > 1 && <b> ×{count}</b>}{own && <em>{name}</em>}</span>
+            <span className="run-deck-meta">AP {card.cost}・攻 {card.attack}{card.type === 'persist' ? `・持続${card.fullness}` : ''}</span>
+            <span className="run-starter-effect">{card.effect ? <CardEffectText card={card} variant="short" /> : '特殊効果なし'}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

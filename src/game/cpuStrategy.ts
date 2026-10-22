@@ -2,7 +2,7 @@ import { INBOUND_DON_SACRIFICE_BONUS } from '../data/sideMenus'
 import type { SideMenuId } from '../data/sideMenus'
 import type { FieldCard, MatchAction, MatchPlayer } from './types'
 import { applySummon, calcFieldDmg, calcGariReduction, countNamahamu, digestBonus,
-  bellyCap, FIELD_MAX, getDestroyTargets, getSacrificeLimit } from './battleRules'
+  bellyCap, boostBelly, FIELD_MAX, getDestroyTargets, getSacrificeLimit } from './battleRules'
 
 export const CHALLENGE_SMART_RATE = 0.8
 
@@ -29,13 +29,14 @@ function futureField(field: FieldCard[]): FieldCard[] {
 export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAction | null {
   const cpu = state.players[2]
   const enemy = state.players[1]
-  const attack = (field = cpu.field, belly = enemy.belly) =>
-    calcFieldDmg(field, cpu.attackBuff, cpu.kiretaStack, belly)
-  const threat = (field = enemy.field, belly = cpu.belly) =>
-    calcFieldDmg(field, enemy.attackBuff, enemy.kiretaStack, belly)
-  const currentAttack = attack()
   const enemyCap = bellyCap(enemy)
   const cpuCap = bellyCap(cpu)
+  // 引数は生のお腹。「相手のお腹○以上」の判定には満腹ラインで直した値を渡す。
+  const attack = (field = cpu.field, belly = enemy.belly) =>
+    calcFieldDmg(field, cpu.attackBuff, cpu.kiretaStack, boostBelly(belly, enemyCap))
+  const threat = (field = enemy.field, belly = cpu.belly) =>
+    calcFieldDmg(field, enemy.attackBuff, enemy.kiretaStack, boostBelly(belly, cpuCap))
+  const currentAttack = attack()
   // 相手がガリを使っても勝てるなら、そのまま攻撃へ進む。
   if (enemy.belly + afterGari(currentAttack, enemy.gari) >= enemyCap) return null
 
@@ -57,7 +58,7 @@ export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAc
   }
 
   const currentFuture = calcFieldDmg(futureField(cpu.field), cpu.attackBuff,
-    cpu.kiretaSpent ? 0 : cpu.kiretaStack, enemy.belly)
+    cpu.kiretaSpent ? 0 : cpu.kiretaStack, boostBelly(enemy.belly, enemyCap))
   let best: MatchAction | null = null
   let bestScore = -Infinity
   for (const card of cpu.hand) {
@@ -74,14 +75,14 @@ export function getChallengeAction(state: CpuView, canUseMenu: boolean): MatchAc
         nikuMatsuri: cpu.nikuMatsuri, sacrificedThisTurn: cpu.sacrificedThisTurn,
         sacrificeCount: sacrifices,
         sacrificeAttackBonus: activeMenu(cpu, 'inbound_don') ? INBOUND_DON_SACRIFICE_BONUS : 0,
-        kiretaSpent: cpu.kiretaSpent, enemyBelly: enemy.belly,
+        kiretaSpent: cpu.kiretaSpent, enemyBelly: boostBelly(enemy.belly, enemyCap),
         turnAttackBonus: tempuraTarget && !cpu.tempuraTriggeredThisTurn
           && (activeMenu(cpu, 'tempura') || activeMenu(enemy, 'tempura')) ? 3 : 0,
       })
       const enemyBelly = enemy.belly + result.extraDmg
-      const nextAttack = calcFieldDmg(result.field, result.attackBuff, result.kireta, enemyBelly)
+      const nextAttack = calcFieldDmg(result.field, result.attackBuff, result.kireta, boostBelly(enemyBelly, enemyCap))
       const nextFuture = calcFieldDmg(futureField(result.field), result.attackBuff,
-        result.kiretaSpent ? 0 : result.kireta, enemyBelly)
+        result.kiretaSpent ? 0 : result.kireta, boostBelly(enemyBelly, enemyCap))
       for (const target of targets.length ? targets : [undefined]) {
         const remaining = target ? enemy.field.filter(item => item.fid !== target.fid) : enemy.field
         const beforeRisk = cpu.belly + afterGari(threat(), cpu.gari)

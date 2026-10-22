@@ -1,3 +1,4 @@
+import { boostBelly } from './battleEngine'
 import type { Card } from '../../types'
 import type { BattleView } from './types'
 import { INBOUND_DON_SACRIFICE_BONUS } from '../../data/sideMenus'
@@ -63,14 +64,14 @@ export function previewBattleSummon(view: BattleView, card: Card, options: Battl
     sacrificedThisTurn: view.pSacrificedThisTurn, sacrificeCount,
     reserveDefense: options.reserveDefense,
     sacrificeAttackBonus: view.pSideMenu?.id === 'inbound_don' && view.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0,
-    kiretaSpent: view.pKiretaSpent, enemyBelly: view.cBelly, turnAttackBonus: tempuraBonus,
+    kiretaSpent: view.pKiretaSpent, enemyBelly: boostBelly(view.cBelly, view.cMaxBelly), turnAttackBonus: tempuraBonus,
   })
   const enemyField = view.cField.filter(item => item.fid !== options.targetFieldId)
   const defense = enemyField.find(item => item.defenseState === 'ready' && isDefenseCard(item))
   const kaisenReattack = result.fired.some(combo => combo.id === 'umi_zanmai')
   // 召喚時に防御が入るのは海鮮の再攻撃のみ。通常のガリはここでは使えない。
   const awaitsDefense = result.extraDmg > 0 && kaisenReattack && !!defense
-    && getDefenseTargets(result.field, result.attackBuff, result.kireta, view.cBelly)
+    && getDefenseTargets(result.field, result.attackBuff, result.kireta, boostBelly(view.cBelly, view.cMaxBelly))
       .some(item => item.archetype.includes('kaisen'))
   // 固定ダメージで腹の閾値を越えると、場の条件付き攻撃も即座に変化する。
   const enemyBellyAfter = awaitsDefense ? view.cBelly : Math.min(view.cMaxBelly ?? MAX_BELLY, view.cBelly + Math.max(0, result.extraDmg))
@@ -81,9 +82,9 @@ export function previewBattleSummon(view: BattleView, card: Card, options: Battl
     ok: true,
     apBefore: view.pAP,
     apAfter,
-    fieldAttackBefore: calcFieldDmg(view.pField, view.pAttackBuff, view.pKiretaStack, view.cBelly),
-    fieldAttackAfter: calcFieldDmg(result.field, result.attackBuff, result.kireta, enemyBellyAfter),
-    cardAttack: calcFieldDmg([summoned], result.attackBuff, result.kireta, enemyBellyAfter, {
+    fieldAttackBefore: calcFieldDmg(view.pField, view.pAttackBuff, view.pKiretaStack, boostBelly(view.cBelly, view.cMaxBelly)),
+    fieldAttackAfter: calcFieldDmg(result.field, result.attackBuff, result.kireta, boostBelly(enemyBellyAfter, view.cMaxBelly)),
+    cardAttack: calcFieldDmg([summoned], result.attackBuff, result.kireta, boostBelly(enemyBellyAfter, view.cMaxBelly), {
       gunkanBoost: makimonoCount(result.field) >= MAKI_COMP_5,
       namahamuBoost: namahamuAuraBonus(result.field), fieldCount: result.field.length,
     }),

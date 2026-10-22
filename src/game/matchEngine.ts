@@ -10,7 +10,7 @@ import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
 import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
 import { TAISHO } from '../data/runEnemies'
 import { canAburi, toAburi } from '../data/aburi'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -299,13 +299,13 @@ function startAttack(state: MatchState, attack: PendingAttack, events: MatchEven
 
 export function getAttackDefenseTargets(state: MatchState, attack: PendingAttack) {
   const attacker = state.players[attack.attackerId]
-  return getDefenseTargets(attacker.field, attacker.attackBuff, attacker.kiretaStack, state.players[attack.defenderId].belly)
+  return getDefenseTargets(attacker.field, attacker.attackBuff, attacker.kiretaStack, boostBellyOf(state.players[attack.defenderId]))
     .filter(card => attack.source === 'end_turn' || (attack.kaisenReattack && card.archetype.includes('kaisen')))
 }
 
 function attackAmount(state: MatchState, attack: PendingAttack): number {
   const attacker = state.players[attack.attackerId]
-  const belly = state.players[attack.defenderId].belly
+  const belly = boostBellyOf(state.players[attack.defenderId])
   return attack.source === 'end_turn'
     ? calcFieldDmg(attacker.field, attacker.attackBuff, attacker.kiretaStack, belly)
     : (attack.fixedDamage ?? attack.amount) + (attack.kaisenReattack
@@ -387,7 +387,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     drawBonus: player.drawBonus, nikuMatsuri: player.nikuMatsuri,
     sacrificeCount, reserveDefense, sacrificedThisTurn: player.sacrificedThisTurn,
     sacrificeAttackBonus: activeSideMenu(player, 'inbound_don') ? INBOUND_DON_SACRIFICE_BONUS : 0,
-    kiretaSpent: player.kiretaSpent, enemyBelly: enemy.belly,
+    kiretaSpent: player.kiretaSpent, enemyBelly: boostBellyOf(enemy),
     turnAttackBonus: tempuraBonus,
     mods: player.mods,
   })
@@ -540,7 +540,7 @@ function finishTurn(state: MatchState, events: MatchEvent[], random: RandomSourc
   const player = state.players[id]
   const nextId = otherPlayer(id)
   const total = calcFieldDmg(player.field, player.attackBuff, player.kiretaStack,
-    state.players[nextId].belly, { nikuMatsuri: player.nikuMatsuri })
+    boostBellyOf(state.players[nextId]), { nikuMatsuri: player.nikuMatsuri })
   if (total > 0) addLog(state, `${label(state, id)}の攻撃: ${total} ダメージ！`)
   startAttack(state, { attackerId: id, defenderId: nextId, amount: total, source: 'end_turn' }, events, random)
 }
@@ -768,8 +768,8 @@ export function getCpuDefenseAction(state: MatchState, random: RandomSource = Ma
   const defense = cpu.field.find(card => card.fid === attack.defenseCardId && card.defenseState === 'ready')
   const targets = getAttackDefenseTargets(state, attack)
   const opts = { gunkanBoost: makimonoCount(attacker.field) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(attacker.field), fieldCount: attacker.field.length }
-  const target = [...targets].sort((a, b) => calcFieldDmg([b], attacker.attackBuff, attacker.kiretaStack, cpu.belly, opts)
-    - calcFieldDmg([a], attacker.attackBuff, attacker.kiretaStack, cpu.belly, opts))[0]
+  const target = [...targets].sort((a, b) => calcFieldDmg([b], attacker.attackBuff, attacker.kiretaStack, boostBellyOf(cpu), opts)
+    - calcFieldDmg([a], attacker.attackBuff, attacker.kiretaStack, boostBellyOf(cpu), opts))[0]
   const useDefense = Boolean(defense && target)
   // ランダム防御はここでは抽選せず、候補ごとの結果の平均でガリを判断する。
   const anticipated = useDefense && defense ? (defense.effect === 'reserve_target_half_2' ? [target] : targets).map(candidate => {

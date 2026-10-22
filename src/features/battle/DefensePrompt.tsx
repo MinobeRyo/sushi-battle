@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { boostBelly } from './battleEngine'
 import { calcFieldDmg, calcGariReduction, getDefenseReductionRate, namahamuAuraBonus, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
 import { defensePreview } from './defensePreview'
 import { SushiArt } from '../../components/SushiArt'
@@ -27,7 +28,9 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
   const [targetFieldId, setTargetFieldId] = useState<string>()
   const canGari = attack.source === 'end_turn' && gari > 0
   const needsTarget = defenseCard?.effect === 'reserve_target_half_2'
-  const preview = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, useDefense, useGari && canGari, targetFieldId)
+  // 判定用のお腹（満腹ラインが100でなければ100あたりに直す）。表示は生のお腹。
+  const boostedBelly = boostBelly(belly, bellyLimit)
+  const preview = defensePreview(attack, enemyField, attackBuff, kiretaStack, boostedBelly, defenseCard, useDefense, useGari && canGari, targetFieldId)
   const canDefense = defenseCard?.defenseState === 'ready' && defenseCard.fid === attack.defenseCardId && preview.targets.length > 0
   const validTarget = !needsTarget || preview.targets.some(card => card.fid === targetFieldId)
   const canConfirm = ready && (!useDefense || canDefense && validTarget)
@@ -39,7 +42,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
   const minBelly = Math.min(bellyLimit, belly + preview.min)
   const maxBelly = Math.min(bellyLimit, belly + preview.max)
   const fieldDamageOptions = { gunkanBoost: makimonoCount(enemyField) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(enemyField), fieldCount: enemyField.length }
-  const targetAttack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, belly, fieldDamageOptions)
+  const targetAttack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, boostedBelly, fieldDamageOptions)
   const consumption = [useGari && canGari ? `ガリ −1（残${gari - 1}）` : 'ガリ温存',
     useDefense && defenseCard ? `${defenseCard.name} 退場` : null].filter(Boolean).join('・')
 
@@ -97,7 +100,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
     </div>
     {useDefense && needsTarget && <div className="battle-defense__target-area"><div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
       {preview.targets.map(card => {
-        const after = defensePreview(attack, enemyField, attackBuff, kiretaStack, belly, defenseCard, true, useGari && canGari, card.fid)
+        const after = defensePreview(attack, enemyField, attackBuff, kiretaStack, boostedBelly, defenseCard, true, useGari && canGari, card.fid)
         const afterBelly = Math.min(bellyLimit, belly + after.min)
         const currentAttack = targetAttack(card)
         const reducedAttack = defenseCard ? targetAttack(withDefenseReduction(card, defenseCard)) : currentAttack

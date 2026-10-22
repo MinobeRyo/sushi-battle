@@ -728,4 +728,25 @@ test('大将：お腹が100を超えた最初の1回だけ、締めのお茶で�
   assert.equal(plain.players[2].mods, undefined, '通常の挑戦CPUには大将ルールがない')
 })
 
+test('満腹ラインが低い敵にも「相手のお腹○以上」が効く（焼肉寿司・天ぷら）', () => {
+  assert.equal(rules.boostBelly(25, 50), 50)
+  assert.equal(rules.boostBelly(42, 100), 42, '満腹ライン100ならそのまま')
+  const yakiniku = rules.toField(byId('yakiniku'))
+  const ebiTen = rules.toField(byId('ebi_ten'))
+  // 満腹ライン50の敵のお腹25は「半分」なので、焼肉寿司（50以上）は効き、えび天（60以上）はまだ効かない。
+  assert.equal(rules.calcFieldDmg([yakiniku], {}, 0, rules.boostBelly(25, 50)), byId('yakiniku').attack + 2)
+  assert.equal(rules.calcFieldDmg([ebiTen], {}, 0, rules.boostBelly(25, 50)), byId('ebi_ten').attack)
+  assert.equal(rules.calcFieldDmg([ebiTen], {}, 0, rules.boostBelly(30, 50)), byId('ebi_ten').attack + 5)
+  // エンジン：満腹ライン50・お腹25の敵へのターン終了攻撃に焼肉寿司の+2が乗る。
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('yakiniku')), cpuDeckId: 'weak',
+    maxBelly: { 2: 50 }, initialBelly: { 2: 25 } }, () => 0.999)
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 3 } } }
+  state = transitionMatch(state, play(state, 'yakiniku'), () => 0.5).state
+  const before = state.players[2].belly
+  let result = transitionMatch(state, { type: 'end_turn', playerId: 1 }, () => 0.5)
+  if (result.state.phase === 'defending') result = transitionMatch(result.state, { type: 'respond_defense', playerId: 2, useGari: false }, () => 0.5)
+  const dealt = result.events.filter(event => event.type === 'damage' && event.playerId === 2).reduce((sum, event) => sum + event.amount, 0)
+  assert.equal(dealt, byId('yakiniku').attack + 2, `焼肉寿司の強化込みで${byId('yakiniku').attack + 2}（実際は${dealt}、開始時お腹${before}）`)
+})
+
 console.log(`\n${passed}件のテストに合格しました`)
