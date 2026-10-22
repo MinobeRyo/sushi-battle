@@ -16,6 +16,8 @@ export const boostBelly = (belly: number, cap: number = MAX_BELLY) => cap === MA
 export const boostBellyOf = (player: { belly: number; maxBelly?: number }) => boostBelly(player.belly, bellyCap(player))
 
 export const HAND_LIMIT = 7
+/** その人の手札上限。寿司はしごの自分だけ増やす。 */
+export const handLimitOf = (player: { handLimit?: number }) => player.handLimit ?? HAND_LIMIT
 
 export const FIELD_MAX = 8
 

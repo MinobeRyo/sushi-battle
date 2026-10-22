@@ -10,7 +10,7 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, drawBonus, maxBelly, onSummon }: {
+export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, drawBonus, maxBelly, onSummon }: {
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode
   cpuBattleMode?: CpuBattleMode
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
@@ -21,11 +21,12 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
   openingHand?: Partial<Record<PlayerId, number>>
   startAP?: Partial<Record<PlayerId, number>>
   extraGari?: Partial<Record<PlayerId, number>>
+  handLimit?: Partial<Record<PlayerId, number>>
   drawBonus?: Partial<Record<PlayerId, number>>
   maxBelly?: Partial<Record<PlayerId, number>>
   onSummon?: () => void
 }) {
-  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, drawBonus, maxBelly }
+  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, drawBonus, maxBelly }
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
   if (matchRef.current === null) matchRef.current = createMatch({ ...matchOptions, matchId: 'local-0' })

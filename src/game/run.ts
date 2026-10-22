@@ -84,6 +84,8 @@ export const RUN_OPENING_HAND = 6
 export const RUN_DRAW_PER_TURN = 2
 // 自分だけ初期APを3にする（以降も毎ターン+1、上限10は同じ）。
 export const RUN_START_AP = 3
+// 毎ターン2枚引くので、自分だけ手札上限を10枚にする（生ハムなど生成カードの置き場も確保する）。
+export const RUN_HAND_LIMIT = 10
 
 export const RUN_ARCHETYPES: ReadonlyArray<{ id: RunArchetype; name: string; detail: string }> = [
   { id: 'akami', name: '赤身', detail: '重いが高火力。三種盛りで爆発' },
@@ -104,8 +106,8 @@ export const ARCHETYPE_STARTERS: Readonly<Record<RunArchetype, readonly string[]
   makimono: ['kappa_maki', 'natto_maki', 'ikura_gunkan'],
   hikari: ['aji', 'iwashi', 'kohada'],
   kaisen: ['ika', 'tako', 'ebi'],
-  // 牛タン・焼肉寿司で生ハムを増やし、カルビで生贄にする。
-  niku: ['gyutan', 'karubi', 'yakiniku'],
+  // 牛タン・焼肉寿司で生ハムを増やし、カルビ・和牛で生贄にする（増やす量に使う量が追いつくよう4枚）。
+  niku: ['gyutan', 'karubi', 'yakiniku', 'wagyu'],
 }
 
 const cardById = new Map(CARDS.map(card => [card.id, card]))

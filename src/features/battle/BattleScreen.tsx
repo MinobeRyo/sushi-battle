@@ -45,6 +45,7 @@ export function BattleScreen({
   openingHand,
   startAP,
   extraGari,
+  handLimit,
   drawBonus,
   maxBelly,
   onBack,
@@ -63,13 +64,14 @@ export function BattleScreen({
   openingHand?: Partial<Record<PlayerId, number>>
   startAP?: Partial<Record<PlayerId, number>>
   extraGari?: Partial<Record<PlayerId, number>>
+  handLimit?: Partial<Record<PlayerId, number>>
   drawBonus?: Partial<Record<PlayerId, number>>
   maxBelly?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 
@@ -134,13 +136,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
     attackBuff: s.cAttackBuff, drawBonus: s.cDrawBonus, kiretaStack: s.cKiretaStack,
     kiretaSpent: s.cKiretaSpent, nikuMatsuri: s.cNikuMatsuri,
     digestStopTurns: s.cDigestStopTurns, apNextBonus: s.cApNextBonus, thisTurnArch: s.cThisTurnArch,
-    sideMenu: s.cSideMenu, sacrificedThisTurn: s.cSacrificedThisTurn,
+    sideMenu: s.cSideMenu, sacrificedThisTurn: s.cSacrificedThisTurn, handLimit: s.cHandLimit,
   } : {
     summonedIds: s.pSummonedIds, combosFired: s.pCombosFired, field: s.pField,
     attackBuff: s.pAttackBuff, drawBonus: s.pDrawBonus, kiretaStack: s.pKiretaStack,
     kiretaSpent: s.pKiretaSpent, nikuMatsuri: s.pNikuMatsuri,
     digestStopTurns: s.pDigestStopTurns, apNextBonus: s.pApNextBonus, thisTurnArch: s.pThisTurnArch,
-    sideMenu: s.pSideMenu, sacrificedThisTurn: s.pSacrificedThisTurn,
+    sideMenu: s.pSideMenu, sacrificedThisTurn: s.pSacrificedThisTurn, handLimit: s.pHandLimit,
   }
 
   const playerStatus = {

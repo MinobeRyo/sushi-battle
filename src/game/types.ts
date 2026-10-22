@@ -55,6 +55,8 @@ export type MatchPlayer = {
   maxBelly?: number
   /** 基本APの上乗せ（寿司はしごで自分だけ初期APを増やす）。省略時は0。 */
   apOffset?: number
+  /** 手札上限。省略時は7（寿司はしごの自分だけ増やす）。 */
+  handLimit?: number
 }
 
 export type PendingAttack = {

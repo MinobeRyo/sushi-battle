@@ -88,15 +88,21 @@ test('満腹ラインに届いた側が負け、お腹はラインを超えな�
   assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[2].maxBelly, undefined)
 })
 
-test('最初のデッキは汎用10枚＋系統3枚の13枚', () => {
+test('最初のデッキは汎用10枚＋系統の寿司（肉寿司だけ4枚、ほかは3枚）', () => {
   for (const { id } of run.RUN_ARCHETYPES) {
     const state = run.createRun(id, seeded(3))
-    assert.equal(state.deck.length, 13)
-    assert.equal(run.runDeckCards(state).length, 13, `${id}の寿司IDが存在しません`)
+    const size = 10 + (id === 'niku' ? 4 : 3)
+    assert.equal(state.deck.length, size)
+    assert.equal(run.runDeckCards(state).length, size, `${id}の寿司IDが存在しません`)
     assert.ok(run.ARCHETYPE_STARTERS[id].every(cardId => byId(cardId).archetype.includes(id)))
   }
   assert.deepEqual([...run.ARCHETYPE_STARTERS.akami].sort(), ['chutoro', 'maguro', 'otoro'], '赤身は三種盛りが揃う')
   assert.ok(run.ARCHETYPE_STARTERS.niku.includes('yakiniku'), '肉寿司は焼肉寿司から始まる')
+  // 肉寿司は生ハムを増やすカード（牛タン・焼肉寿司）と、使うカード（カルビ・和牛）を両方持って始める。
+  const niku = run.ARCHETYPE_STARTERS.niku.map(byId)
+  const makes = niku.filter(card => /generate_namahamu|namahamu_deck/.test(card.effect ?? '')).length
+  const uses = niku.reduce((sum, card) => sum + rules.getSacrificeLimit(card), 0)
+  assert.ok(uses >= makes, `生ハムを使える数（${uses}）が増やすカード数（${makes}）以上`)
 })
 
 test('マスは隣の道にしか進めず、お茶でお腹が30減る', () => {
@@ -127,12 +133,12 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
   assert.ok(state.reward.gold >= 250 && state.reward.gold <= 350)
   assert.equal(state.gold, state.reward.gold)
   const taken = run.chooseReward(state, state.reward.cardIds[2])
-  assert.equal(taken.deck.length, 14)
+  assert.equal(taken.deck.length, state.deck.length + 1)
   assert.equal(taken.deck.at(-1), state.reward.cardIds[2])
   assert.equal(taken.status, 'map')
   assert.throws(() => run.chooseReward(state, 'otoro_not_offered'))
   const skipped = run.chooseReward(state, null)
-  assert.equal(skipped.deck.length, 13)
+  assert.equal(skipped.deck.length, state.deck.length)
   assert.equal(skipped.gold, state.gold + run.SKIP_REWARD_GOLD)
 })
 
@@ -747,6 +753,27 @@ test('満腹ラインが低い敵にも「相手のお腹○以上」が効く�
   if (result.state.phase === 'defending') result = transitionMatch(result.state, { type: 'respond_defense', playerId: 2, useGari: false }, () => 0.5)
   const dealt = result.events.filter(event => event.type === 'damage' && event.playerId === 2).reduce((sum, event) => sum + event.amount, 0)
   assert.equal(dealt, byId('yakiniku').attack + 2, `焼肉寿司の強化込みで${byId('yakiniku').attack + 2}（実際は${dealt}、開始時お腹${before}）`)
+})
+
+test('はしごの試合は自分だけ手札上限10枚。CPUと通常対戦は7枚のまま', () => {
+  let state = createMatch({ mode: 'cpu', deck: Array(20).fill(byId('tamago')), cpuDeckId: 'weak',
+    openingHand: { 1: run.RUN_OPENING_HAND }, drawBonus: { 1: run.RUN_DRAW_PER_TURN - 1 },
+    handLimit: { 1: run.RUN_HAND_LIMIT } }, () => 0.999)
+  assert.equal(state.players[1].handLimit, 10)
+  assert.equal(state.players[2].handLimit, undefined)
+  const sizes = []
+  for (let i = 0; i < 12 && state.phase !== 'over'; i++) {
+    if (state.phase === 'defending') {
+      state = transitionMatch(state, { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: false }, () => 0.5).state
+      continue
+    }
+    const active = state.activePlayerId
+    state = transitionMatch(state, { type: 'end_turn', playerId: active }, () => 0.5).state
+    if (active === 1) sizes.push(state.players[1].hand.length)
+  }
+  assert.deepEqual(sizes.slice(0, 3), [8, 10, 10], '6→8→10で止まる')
+  assert.ok(state.players[2].hand.length <= rules.HAND_LIMIT)
+  assert.equal(createMatch({ mode: 'cpu', deck: [byId('tamago')] }, () => 0.5).players[1].handLimit, undefined)
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

@@ -5,7 +5,7 @@ import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
-  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
+  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_HAND_LIMIT, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
   MIN_DECK_SIZE, aburiAtRest, aburiDeckId, canAburiDeckId, canRemoveCard, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
   finishShopLane, leaveShop, reachableNodeIds, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
@@ -64,6 +64,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       startAP={{ 1: RUN_START_AP, ...(gimmick.startAP ? { 2: gimmick.startAP } : {}) }}
       drawBonus={{ 1: RUN_DRAW_PER_TURN - 1, ...(gimmick.drawBonus ? { 2: gimmick.drawBonus } : {}) }}
       extraGari={{ 1: run.nextBattleGari ?? 0, 2: gimmick.extraGari ?? 0 }}
+      handLimit={{ 1: RUN_HAND_LIMIT }}
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} />
   }
 
@@ -130,7 +131,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
         </section>}
         <section className="run-panel" aria-labelledby="run-archetype-heading">
           <h2 id="run-archetype-heading">{saved ? '新しく始める' : '最初の系統を選ぶ'}</h2>
-          <p className="run-note">汎用10枚に、選んだ系統の寿司3枚を足した13枚で始めます。{saved && '新しく始めると、続きのデータは消えます。'}</p>
+          <p className="run-note">汎用10枚に、選んだ系統の寿司（3〜4枚）を足して始めます。{saved && '新しく始めると、続きのデータは消えます。'}</p>
           <div className="run-archetypes" role="radiogroup" aria-label="系統">
             {RUN_ARCHETYPES.map(item => (
               <button type="button" key={item.id} role="radio" aria-checked={archetype === item.id}
@@ -149,7 +150,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             <li>地図で次の店を選び、下から上へ進みます。最後は大将との勝負です。</li>
             <li>お腹は試合をまたいで持ち越します。勝つと半分に消化し、100になったら終わりです。</li>
             <li>勝つたびに寿司を3枚から1枚もらえます。山札が尽きたら「おかわり」で使った寿司が戻ります。</li>
-            <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引き、APは{RUN_START_AP}から始まります。</li>
+            <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引き、手札は{RUN_HAND_LIMIT}枚まで、APは{RUN_START_AP}から始まります。</li>
             <li>「常」の常連さんは得意技を持つ強敵です。勝つと器（ずっと効く道具）かサイドメニューももらえます。</li>
             <li>はじめに器（ずっと効く道具）を3つから1つもらえます。</li>
             <li>「茶」のお茶では、お腹を減らすか、寿司1枚を炙って強くできます。</li>

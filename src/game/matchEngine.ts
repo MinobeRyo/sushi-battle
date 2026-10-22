@@ -10,7 +10,7 @@ import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
 import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
 import { TAISHO } from '../data/runEnemies'
 import { canAburi, toAburi } from '../data/aburi'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, handLimitOf, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -30,6 +30,8 @@ export type MatchOptions = {
   openingHand?: Partial<Record<PlayerId, number>>
   /** 最初のAP（寿司はしご用）。以降も同じだけ上乗せして毎ターン+1、上限10。省略時は2。 */
   startAP?: Partial<Record<PlayerId, number>>
+  /** 手札上限（寿司はしご用）。省略時は7。 */
+  handLimit?: Partial<Record<PlayerId, number>>
   /** 追加のガリ（寿司はしごの敵用）。 */
   extraGari?: Partial<Record<PlayerId, number>>
   /** 試合の最初から持つ、ターン終了時の追加ドロー（寿司はしご用）。 */
@@ -94,7 +96,11 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const p2Cards = withMods(2, cpuDeck ? getCpuDeck(cpuDeck.id, random)
     : options.p2Deck?.length ? options.p2Deck : fallback)
   // 常連特権（得意技）は最初の手札が7枚。
-  const handSize = (id: PlayerId) => hasSkill(mods[id], 'joren_tokken') ? HAND_LIMIT : Math.min(HAND_LIMIT, options.openingHand?.[id] ?? 5)
+  const handSize = (id: PlayerId) => hasSkill(mods[id], 'joren_tokken') ? HAND_LIMIT : Math.min(options.handLimit?.[id] ?? HAND_LIMIT, options.openingHand?.[id] ?? 5)
+  for (const id of [1, 2] as const) {
+    const limit = options.handLimit?.[id]
+    if (limit !== undefined && limit !== HAND_LIMIT) state.players[id].handLimit = Math.max(1, Math.floor(limit))
+  }
   deal(state, 1, p1Cards, random, handSize(1))
   deal(state, 2, p2Cards, random, handSize(2))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
@@ -143,7 +149,7 @@ function label(state: MatchState, id: PlayerId) {
 }
 
 function draw(player: MatchPlayer, count: number) {
-  const take = Math.min(count, Math.max(0, HAND_LIMIT - player.hand.length))
+  const take = Math.min(count, Math.max(0, handLimitOf(player) - player.hand.length))
   player.hand.push(...player.deck.splice(0, take))
 }
 
@@ -179,11 +185,11 @@ function drawWithRefill(state: MatchState, id: PlayerId, count: number, random: 
   const before = player.hand.length
   draw(player, count)
   const drawn = player.hand.length - before
-  if (drawn < count && player.hand.length < HAND_LIMIT && refillDeck(state, id, random)) draw(player, count - drawn)
+  if (drawn < count && player.hand.length < handLimitOf(player) && refillDeck(state, id, random)) draw(player, count - drawn)
 }
 
 function drawPersistIkaTako(player: MatchPlayer, random: RandomSource): string {
-  if (player.hand.length >= HAND_LIMIT) return '手札上限のため、持続型いか・たこのドローなし'
+  if (player.hand.length >= handLimitOf(player)) return '手札上限のため、持続型いか・たこのドローなし'
   const candidates = player.deck.flatMap((card, index) =>
     card.type === 'persist' && (card.id === 'ika' || card.id === 'tako') ? [index] : [])
   if (candidates.length === 0) return '山札に持続型の「いか」「たこ」がないため、ドローなし'
@@ -198,7 +204,7 @@ function repeatDraw(times: number, drawOne: () => string): string {
 }
 
 function drawAkami(player: MatchPlayer, random: RandomSource): string {
-  if (player.hand.length >= HAND_LIMIT) return '手札上限のため、赤身カードのドローなし'
+  if (player.hand.length >= handLimitOf(player)) return '手札上限のため、赤身カードのドローなし'
   const candidates = player.deck.flatMap((card, index) => card.archetype.includes('akami') ? [index] : [])
   if (candidates.length === 0) return '山札に赤身カードがないため、ドローなし'
   const index = candidates[Math.floor(random() * candidates.length)]
@@ -207,7 +213,7 @@ function drawAkami(player: MatchPlayer, random: RandomSource): string {
 }
 
 function drawMaki(player: MatchPlayer, random: RandomSource): string {
-  if (player.hand.length >= HAND_LIMIT) return '手札上限のため、巻物のサーチなし'
+  if (player.hand.length >= handLimitOf(player)) return '手札上限のため、巻物のサーチなし'
   const candidates = player.deck.flatMap((card, index) =>
     card.archetype.includes('makimono') && !card.archetype.includes('gunkan') ? [index] : [])
   if (candidates.length === 0) return '山札に軍艦以外の巻物がないため、サーチなし'
@@ -456,7 +462,7 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
     // 確定した召喚で一度だけ抽選し、手札個体や場の一時効果は複製しない。
     const chance = tobikoCopyChance(player.summonedIds, card.aburi)
     if (chance > 0 && random() < chance) {
-      if (player.hand.length < HAND_LIMIT) {
+      if (player.hand.length < handLimitOf(player)) {
         player.hand.push({
           ...structuredClone(CARDS.find(item => item.id === 'tobiko_gunkan')!),
           instanceId: `${state.matchId}:p${id}:${state.nextInstanceId++}`,
