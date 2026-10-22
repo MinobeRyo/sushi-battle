@@ -538,9 +538,11 @@ test('常連さん：得意技はCPU側だけに効く', () => {
     if (skill === 'hayagui') assert.equal(a.players[2].maxAP, b.players[2].maxAP + 1)
     else assert.equal(40 - a.players[2].belly, (40 - b.players[2].belly) * 2)
   }
-  // 皿積み：机の寿司1枚につき、すべての攻撃+1
+  // 皿積み：机の寿司はそれぞれ+1。合計は枚数分だけ増える（8枚で+8。以前は1枚ごとに+枚数で+64になった）。
   const plates = [byId('natto_maki'), byId('kappa_maki')].map(card => rules.toField(applyCardMods(card, { skill: 'sarazumi' })))
-  assert.equal(rules.calcFieldDmg(plates, {}, 0, 0), (3 + 2) + (1 + 2))
+  assert.equal(rules.calcFieldDmg(plates, {}, 0, 0), (3 + 1) + (1 + 1))
+  const eight = Array.from({ length: 8 }, () => rules.toField(applyCardMods(byId('kappa_maki'), { skill: 'sarazumi' })))
+  assert.equal(rules.calcFieldDmg(eight, {}, 0, 0), 8 * 1 + 8)
 })
 
 test('常連さんの報酬：寿司3枚（炙り1枚）＋器3つかサイドメニュー3品', () => {
@@ -895,6 +897,29 @@ test('机の寿司を下げる・手札の寿司を残す：寿司はしごの�
   // 通常のCPU戦・オンライン（allowDiscard なし）ではできない。
   const plain = createMatch({ mode: 'cpu', deck, cpuDeckId: 'weak' }, () => 0.999)
   assert.equal(transitionMatch(plain, { type: 'discard_hand', playerId: 1, cardInstanceId: plain.players[1].hand[0].instanceId }).error, 'discard_not_allowed')
+})
+
+test('シールド：回復・効果なし・インフラ系の寿司で張り、相手の攻撃を受けて、次の自分の手番で消える', () => {
+  assert.equal(rules.shieldOf(byId('tamago')), 4)
+  assert.equal(rules.shieldOf(toAburi(byId('tamago'))), 6, '炙りは1.5倍（切り上げ）')
+  assert.equal(rules.shieldOf(byId('maguro')), 0, '攻撃役の寿司には付かない')
+  let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('uni_gunkan')), cpuDeckId: 'weak', shieldEnabled: true }, () => 0.999)
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
+  state = transitionMatch(state, play(state, 'uni_gunkan'), () => 0.5).state
+  assert.equal(state.players[1].shield, 6)
+  // 相手の攻撃をシールドが先に受ける。
+  const hit = structuredClone(state)
+  const before = hit.players[1].belly
+  hit.players[2].field = [rules.toField(byId('maguro'))]
+  hit.activePlayerId = 2
+  let result = transitionMatch(hit, { type: 'end_turn', playerId: 2 }, () => 0.5)
+  if (result.state.phase === 'defending') result = transitionMatch(result.state, { type: 'respond_defense', playerId: 1, useGari: false }, () => 0.5)
+  const dealt = result.events.filter(event => event.type === 'damage' && event.playerId === 1).reduce((sum, event) => sum + event.amount, 0)
+  assert.equal(dealt, byId('maguro').attack - 6, `マグロ${byId('maguro').attack}のうち6をシールドが受ける（お腹は${before}から）`)
+  assert.ok(result.state.log.some(line => line.includes('シールドが 6 を防いだ')))
+  assert.equal(result.state.players[1].shield, 0, '自分の手番の始めに消える')
+  const plain = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'weak' }, () => 0.999)
+  assert.equal(transitionMatch(plain, play(plain, 'tamago'), () => 0.5).state.players[1].shield, undefined, '通常のCPU戦では張らない')
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

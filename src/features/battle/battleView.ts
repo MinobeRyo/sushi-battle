@@ -16,7 +16,7 @@ export function toBattleView(match: MatchState, viewer: PlayerId, phase: ViewPha
     // 手渡し中は相手に手札が見えないよう、表示用データからも外す。
     pHand: phase === 'pass' ? [] : p.hand,
     pDeckSummary: phase === 'pass' ? [] : summarizeDeck(p.deck),
-    pField: p.field, pDeckCount: p.deck.length, allowDiscard: match.allowDiscard ?? false, pBelly: p.belly, pMaxBelly: bellyCap(p), pHandLimit: handLimitOf(p), pGari: p.gari,
+    pField: p.field, pDeckCount: p.deck.length, allowDiscard: match.allowDiscard ?? false, shieldEnabled: match.shieldEnabled ?? false, pShield: p.shield ?? 0, cShield: c.shield ?? 0, pBelly: p.belly, pMaxBelly: bellyCap(p), pHandLimit: handLimitOf(p), pGari: p.gari,
     pAP: p.ap, pMaxAP: p.maxAP, pSummonedIds: p.summonedIds, pSummonedArch: p.summonedArch,
     pDrawBonus: p.drawBonus, pAttackBuff: p.attackBuff, pCombosFired: p.combosFired,
     pKiretaStack: p.kiretaStack, pThisTurnBases: p.thisTurnBases, pThisTurnArch: p.thisTurnArch,

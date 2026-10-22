@@ -10,7 +10,7 @@ import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
 import { useBattleHandNavigation } from './useBattleHandNavigation'
-import { boostBelly } from './battleEngine'
+import { boostBelly, shieldOf } from './battleEngine'
 import { calcFieldDmg, toField, countNamahamu, getSacrificeLimit, getSacrificeBonus, isReservableDefense, getDestroyTargets, MAKI_COMP_5, makimonoCount, namahamuAuraBonus, FIELD_MAX, REORDER_BUDGET, REORDER_SECONDS } from './battleEngine'
 import { C, R } from './battlePresentation'
 import { ComboStatusBar } from './BattleStatus'
@@ -48,6 +48,7 @@ export function BattleScreen({
   extraGari,
   handLimit,
   allowDiscard,
+  shieldEnabled,
   drawBonus,
   maxBelly,
   onBack,
@@ -68,13 +69,14 @@ export function BattleScreen({
   extraGari?: Partial<Record<PlayerId, number>>
   handLimit?: Partial<Record<PlayerId, number>>
   allowDiscard?: boolean
+  shieldEnabled?: boolean
   drawBonus?: Partial<Record<PlayerId, number>>
   maxBelly?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, allowDiscard, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, allowDiscard, shieldEnabled, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 
@@ -219,13 +221,13 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
           </div>
           <div className="battle-status-grid">
             <PlayerStatusPanel label={isCompact ? mode === 'cpu' ? '相手 CPU' : opponentLabel : `相手 · ${opponentLabel}`} isOpponent
-              gari={s.cGari}
+              gari={s.cGari} shield={s.cShield}
               belly={s.cBelly} maxBelly={s.cMaxBelly} ap={s.cAP} maxAP={s.cMaxAP} fieldDamage={opponentDmg}
               handCount={s.cHandCount} deckCount={s.cDeckCount} {...opponentStatus}
               compactControl={<button type="button" aria-label={`${opponentLabel}の状態とコンボを見る`} onClick={() => setStatusSide('opponent')}>状態・コンボ</button>}
               digestStopTurns={s.cDigestStopTurns} apNextBonus={s.cApNextBonus} />
             <PlayerStatusPanel label={mode === 'cpu' ? 'あなた' : `あなた · ${activeLabel}`}
-              gari={s.pGari}
+              gari={s.pGari} shield={s.pShield}
               belly={s.pBelly} maxBelly={s.pMaxBelly} ap={s.pAP} maxAP={s.pMaxAP} fieldDamage={previewDmg}
               handCount={s.pHand.length} deckCount={s.pDeckCount} {...playerStatus}
               compactControl={<><ComboStatusBar st={playerStatus} inline hideKireta /><button type="button" aria-label={`${activeLabel}の状態とコンボを見る`} onClick={() => setStatusSide('player')}>状態・コンボ</button></>}
@@ -276,7 +278,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
                 : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
                   namahamuBoost={namahamuAuraBonus(s.pField) > 0} compact={isCompact} actualAttack={handAttack(card)}
                   blockedLabel={!isPlayerTurn ? '待機' : s.pAP < card.cost ? 'AP不足' : '満席'}
-                  canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack}
+                  canPlay={!playBlockedReason(card)} attackBuff={s.pAttackBuff} kiretaStack={s.pKiretaStack} shield={s.shieldEnabled ? shieldOf(card) : 0}
                   isSelected={inspect?.card === card}
                   onSelect={() => {
                     setDetailsOpen(false)

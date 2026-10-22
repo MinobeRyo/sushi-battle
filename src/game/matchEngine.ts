@@ -10,7 +10,7 @@ import { applyCardMods, hasRelic, hasSkill, type PlayerMods } from './runMods'
 import { REGULAR_SKILL_BY_ID } from '../data/runRelics'
 import { bossRules, TEA_DIGEST, teaThreshold } from '../data/runEnemies'
 import { canAburi, toAburi } from '../data/aburi'
-import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, handLimitOf, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
+import { applySummon, calcFieldDmg, calcGariReduction, calcKaisenReattackDamage, countNamahamu, cpuChoose, digestBonus, digestionAmount, FIELD_MAX, getDefenseTargets, getDefenseReserveError, getDestroyTargets, getDestroyTargetError, getSacrificeError, getSacrificeLimit, hasAkamiMoriOnSummon, namahamuAuraBonus, isDefenseCard, bellyCap, boostBellyOf, HAND_LIMIT, handLimitOf, shieldOf, INIT_AP, INIT_GARI, MAKI_COMP_5, makimonoCount, MAX_BELLY, shuffled, tekkaApBonus, toField, withDefenseReduction, getDefenseReductionRate } from './battleRules'
 
 export const otherPlayer = (id: PlayerId): PlayerId => id === 1 ? 2 : 1
 
@@ -30,6 +30,8 @@ export type MatchOptions = {
   openingHand?: Partial<Record<PlayerId, number>>
   /** 最初のAP（寿司はしご用）。以降も同じだけ上乗せして毎ターン+1、上限10。省略時は2。 */
   startAP?: Partial<Record<PlayerId, number>>
+  /** 回復系・効果なし・インフラ系の寿司でシールドを張る（寿司はしご用）。 */
+  shieldEnabled?: boolean
   /** 机の寿司を下げる・手札の寿司を残す操作を許す（寿司はしご用）。 */
   allowDiscard?: boolean
   /** 手札上限（寿司はしご用）。省略時は7。 */
@@ -108,6 +110,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   deal(state, 2, p2Cards, random, handSize(2))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
   if (options.allowDiscard) state.allowDiscard = true
+  if (options.shieldEnabled) state.shieldEnabled = true
   for (const id of [1, 2] as const) {
     const cap = options.maxBelly?.[id]
     if (cap !== undefined && cap !== MAX_BELLY) state.players[id].maxBelly = Math.max(1, Math.floor(cap))
@@ -243,8 +246,14 @@ function addCardToDeck(state: MatchState, id: PlayerId, card: Card, count: numbe
 }
 
 function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEvent[]) {
-  const dealt = Math.max(0, amount)
   const player = state.players[id]
+  // シールドが先に受ける（寿司はしご）。
+  const blocked = Math.min(player.shield ?? 0, Math.max(0, amount))
+  if (blocked > 0) {
+    player.shield = (player.shield ?? 0) - blocked
+    addLog(state, `🛡 ${label(state, id)}のシールドが ${blocked} を防いだ（残り${player.shield}）`)
+  }
+  const dealt = Math.max(0, amount) - blocked
   player.belly = Math.min(bellyCap(player), player.belly + dealt)
   if (dealt > 0) events.push({ type: 'damage', playerId: id, amount: dealt })
   // ボスの締めのお茶：満腹ラインの2/3を超えた最初の1回だけ、満腹で倒れる前ならお腹を減らす。
@@ -496,6 +505,11 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   addLog(state, `${label(state, id)} ▶ ${card.name} 召喚`)
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
   events.push({ type: 'summon', playerId: id, cardInstanceId: card.instanceId, cardId: card.id })
+  const shield = state.shieldEnabled ? shieldOf(card) : 0
+  if (shield > 0) {
+    player.shield = (player.shield ?? 0) + shield
+    addLog(state, `🛡 ${label(state, id)}: ${card.name}でシールド +${shield}（計${player.shield}）`)
+  }
   for (const combo of result.fired) events.push({ type: 'combo', playerId: id, comboId: combo.id })
   const attack: PendingAttack = {
     attackerId: id, defenderId: enemyId, source: 'summon', amount: result.extraDmg,
@@ -616,6 +630,8 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   const next = state.players[nextId]
   if (next.sideMenu) next.sideMenu.usedThisTurn = false
   next.skippedDigestionThisTurn = 0
+  // シールドは相手の手番を守ったら、自分の手番の始めに消える。
+  if (next.shield) next.shield = 0
   const round = state.mode === 'cpu' ? oldTurn : Math.ceil(oldTurn / 2)
   const digestion = (digestionAmount(round) + digestBonus(next.field) + (activeSideMenu(next, 'miso') ? 2 : 0))
     * (hasSkill(next.mods, 'sokonashi') ? 2 : 1)

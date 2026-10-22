@@ -71,6 +71,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       extraGari={{ 1: run.nextBattleGari ?? 0, 2: gimmick.extraGari ?? 0 }}
       handLimit={{ 1: RUN_HAND_LIMIT }}
       allowDiscard
+      shieldEnabled
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} /></>
   }
 

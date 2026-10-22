@@ -57,6 +57,8 @@ export type MatchPlayer = {
   apOffset?: number
   /** 手札上限。省略時は7（寿司はしごの自分だけ増やす）。 */
   handLimit?: number
+  /** 寿司はしごのシールド。相手の攻撃をお腹の代わりに受け、自分の手番の始めに消える。 */
+  shield?: number
 }
 
 export type PendingAttack = {
@@ -97,6 +99,8 @@ export type MatchState = {
   refill?: Record<PlayerId, Card[]>
   /** 寿司はしご用：自分の手番に0APで、机の寿司を下げる・手札の寿司を残す（捨てる）ことができる。 */
   allowDiscard?: boolean
+  /** 寿司はしご用：回復系・効果なし・インフラ系の寿司を出すとシールドを張る。 */
+  shieldEnabled?: boolean
 }
 
 export type MatchAction =

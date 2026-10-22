@@ -16,6 +16,24 @@ export const boostBelly = (belly: number, cap: number = MAX_BELLY) => cap === MA
 export const boostBellyOf = (player: { belly: number; maxBelly?: number }) => boostBelly(player.belly, bellyCap(player))
 
 export const HAND_LIMIT = 7
+
+/**
+ * 寿司はしごのシールド。回復系・効果なし・インフラ系（ドロー・AP）の寿司は、出したときに盾を張る。
+ * 盾は相手の攻撃をお腹の代わりに受け、次の自分の手番の始めに消える。炙り版は1.5倍（切り上げ）。
+ */
+export const SHIELD_BY_CARD: Readonly<Record<string, number>> = {
+  // 回復系
+  tamago: 4, ume_shiso_maki: 4, bintoro: 3, chutoro: 5,
+  // 効果なし
+  kanpyo_maki: 4, natto_maki: 4, negitoro_maki: 5, salmon_maki: 4, avocado_maki: 3,
+  corn_gunkan: 3, seafood_gunkan: 4, uni_gunkan: 6, negitoro_gunkan: 5, takowasa: 3,
+  // インフラ系（ドロー・AP）
+  inari: 3, onion_salmon: 3, ebi_avocado: 3, mentaiko: 4, tuna_salad_gunkan: 3, kappa_maki: 3,
+}
+export const shieldOf = (card: { id: string; aburi?: boolean }) => {
+  const base = SHIELD_BY_CARD[card.id] ?? 0
+  return card.aburi ? Math.ceil(base * 1.5) : base
+}
 /** その人の手札上限。寿司はしごの自分だけ増やす。 */
 export const handLimitOf = (player: { handLimit?: number }) => player.handLimit ?? HAND_LIMIT
 
@@ -208,7 +226,6 @@ export function calcFieldDmg(
   const auraBonus = typeof opts.namahamuBoost === 'number' ? opts.namahamuBoost
     : opts.namahamuBoost === false ? 0
     : opts.namahamuBoost === true ? Math.max(2, namahamuAuraBonus(field)) : namahamuAuraBonus(field)
-  const plates = opts.fieldCount ?? field.length
   return field.reduce((sum, c) => {
     if (c.defenseState === 'ready') return sum
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
@@ -216,7 +233,8 @@ export function calcFieldDmg(
       .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
     const base = c.attack + baseBuff + (c.turnAttackBonus ?? 0)
       + (c.id === NAMAHAM_CARD.id ? auraBonus : 0)
-      + (c.boost?.sarazumi ? plates : 0)
+      // 皿積み（常連さん）：1枚ごとに+1。机の合計では枚数分（最大+8）だけ増える。
+      + (c.boost?.sarazumi ? 1 : 0)
     const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack * (c.boost?.kiretaMult ?? 1) : 0
     const effectBonus = bellyBoostBonus(c, enemyBelly)
     let total = base + kiretaBonus + effectBonus

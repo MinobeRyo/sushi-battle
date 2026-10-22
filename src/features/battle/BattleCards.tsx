@@ -316,9 +316,9 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, c
 }
 
 export function HandSushi({
-  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, compact = false, blockedLabel, actualAttack, onSelect,
+  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, compact = false, blockedLabel, actualAttack, shield = 0, onSelect,
 }: {
-  card: Card; canPlay: boolean; attackBuff: Record<string, number>
+  card: Card; canPlay: boolean; attackBuff: Record<string, number>; shield?: number
   kiretaStack: number; namahamuBoost?: boolean; isSelected: boolean; combosFired?: readonly string[]; compact?: boolean; blockedLabel?: string; actualAttack?: number; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
@@ -349,6 +349,7 @@ export function HandSushi({
       <div className="battle-hand-card-stats">
         <span className="battle-hand-card-attack">{compact ? '攻' : '攻撃 '}{actualAttack ?? card.attack + buff + kBonus + auraBonus}</span>
         {isPersist && <span className="battle-hand-card-turns">×{card.fullness}T</span>}
+        {shield > 0 && <span className="battle-hand-card-turns battle-hand-card-shield" title={`出すとシールド+${shield}`}>🛡{shield}</span>}
       </div>
       <p className="battle-hand-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>

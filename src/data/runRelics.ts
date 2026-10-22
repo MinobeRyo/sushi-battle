@@ -53,7 +53,7 @@ export const REGULAR_SKILLS: ReadonlyArray<{ id: RegularSkillId; name: string; t
   { id: 'hayagui', name: '早食い', text: '毎ターンAP＋1' },
   { id: 'sokonashi', name: '底なし胃袋', text: '消化が2倍' },
   { id: 'gari_yama', name: 'ガリ山盛り', text: 'ガリ＋3' },
-  { id: 'sarazumi', name: '皿積み', text: '机の寿司1枚につき、すべての攻撃＋1' },
+  { id: 'sarazumi', name: '皿積み', text: '机の寿司はそれぞれ攻撃＋1（机の合計は枚数分だけ増える）' },
   { id: 'joren_tokken', name: '常連特権', text: '最初の手札7枚' },
   { id: 'aburi_zuki', name: '炙り好き', text: 'デッキの半分が炙り版' },
 ]

@@ -11,6 +11,8 @@ export type PlayerStatusProps = {
   belly: number
   maxBelly?: number
   gari: number
+  /** 寿司はしごのシールド。0なら出さない。 */
+  shield?: number
   ap: number
   maxAP: number
   fieldDamage: number
@@ -42,7 +44,7 @@ type ActiveEffect = {
 }
 
 export function PlayerStatusPanel({
-  label, isOpponent = false, belly, maxBelly = MAX_BELLY, gari, ap, maxAP, fieldDamage, handCount, deckCount, deckControl, compactControl,
+  label, isOpponent = false, belly, maxBelly = MAX_BELLY, gari, shield = 0, ap, maxAP, fieldDamage, handCount, deckCount, deckControl, compactControl,
   attackBuff, drawBonus, kireta, kiretaSpent, nikuMatsuri, sacrificedThisTurn,
   digestStopTurns, apNextBonus, field, summonedIds, combosFired, thisTurnArch, sideMenu,
 }: PlayerStatusProps) {
@@ -72,6 +74,7 @@ export function PlayerStatusPanel({
           <h2 id={headingId} className="player-status-panel__heading">{label}</h2>
           <span className="player-status-panel__gari" data-empty={gari === 0}
             aria-label={`${label}のガリ 残り${gari}個`}>ガリ <strong>{gari}</strong>個</span>
+          {shield > 0 && <span className="player-status-panel__gari player-status-panel__shield" aria-label={`${label}のシールド ${shield}`}>🛡 <strong>{shield}</strong></span>}
         </div>
         <div className="player-status-panel__belly" data-level={bellyLevel}>
           <div className="player-status-panel__belly-numbers">

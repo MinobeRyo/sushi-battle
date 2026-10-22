@@ -26,6 +26,9 @@ export type BattleView = {
   pHandLimit?: number; cHandLimit?: number
   /** 寿司はしご：机の寿司を下げる・手札の寿司を残す操作ができるか。 */
   allowDiscard?: boolean
+  /** 寿司はしご：シールドあり。手札に盾の量を出す。 */
+  shieldEnabled?: boolean
+  pShield?: number; cShield?: number
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>
   pDrawBonus: number
