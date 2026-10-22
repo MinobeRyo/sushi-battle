@@ -33,7 +33,7 @@ export function applyCardMods(card: Card, mods: PlayerMods | undefined): Card {
     result = { ...result, fullness: result.fullness + 2 }
   }
   if (hasRelic(mods, 'meiko_deba') && result.archetype.includes('hikari')) boost.kiretaMult = 2
-  if (hasRelic(mods, 'gunkan_kata') && result.archetype.includes('gunkan')) boost.gunkanMult = 3
+  if (hasRelic(mods, 'gunkan_kata') && result.archetype.includes('gunkan')) boost.gunkanMult = 2
   if (hasRelic(mods, 'norikan') && isMaki) boost.norikan = true
   if (hasRelic(mods, 'tako_tsubo') && result.effect === 'chain_on_kaisen_summon') boost.chainExtra = 3
   if (hasRelic(mods, 'tairyo_bata') && result.archetype.includes('kaisen')) boost.fullReattack = true

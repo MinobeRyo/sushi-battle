@@ -407,7 +407,7 @@ test('器：1枚ごとの強化（七輪・巻きす・名工の出刃・軍艦�
   assert.equal(rules.calcFieldDmg([deba], {}, 3, 0), 7 + 6)
   const kata = ['kappa_maki', 'kanpyo_maki', 'natto_maki', 'avocado_maki', 'uni_gunkan']
     .map(id => rules.toField(applyCardMods(byId(id), mods(['gunkan_kata']))))
-  assert.equal(rules.calcFieldDmg(kata.slice(4), {}, 0, 0, { gunkanBoost: true }), 60, '軍艦の攻撃3倍')
+  assert.equal(rules.calcFieldDmg(kata.slice(4), {}, 0, 0, { gunkanBoost: true }), 40, '軍艦の攻撃2倍')
   const nori = [rules.toField(applyCardMods(byId('kappa_maki'), mods(['norikan'])))]
   assert.equal(rules.makimonoCount(nori), 3)
   assert.equal(rules.makimonoCount([]), 0)

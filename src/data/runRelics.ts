@@ -27,7 +27,7 @@ export const RELICS: readonly RelicDefinition[] = [
   { id: 'ipponzuri', name: '一本釣りの竿', archetype: 'akami', grade: 'tokujo', text: '赤身三種盛りの後、赤身を出すたびに10ダメージ' },
   { id: 'makisu', name: '巻きす', archetype: 'makimono', grade: 'nami', text: '持続型の巻物の持続＋2' },
   { id: 'norikan', name: '海苔缶', archetype: 'makimono', grade: 'jo', text: '巻物コンプの判定で、机の巻物を2枚多く数える' },
-  { id: 'gunkan_kata', name: '軍艦の型枠', archetype: 'makimono', grade: 'tokujo', text: '巻物フルコンプ中、軍艦の攻撃が1.5倍ではなく3倍' },
+  { id: 'gunkan_kata', name: '軍艦の型枠', archetype: 'makimono', grade: 'tokujo', text: '巻物フルコンプ中、軍艦の攻撃が1.5倍ではなく2倍' },
   { id: 'toishi', name: '砥石', archetype: 'hikari', grade: 'nami', text: '試合開始時に切れ味＋3' },
   { id: 'togi_oke', name: '研ぎ桶', archetype: 'hikari', grade: 'jo', text: 'コハダで使った切れ味の半分が、ターン終了後に戻る' },
   { id: 'meiko_deba', name: '名工の出刃', archetype: 'hikari', grade: 'tokujo', text: '切れ味による攻撃強化が2倍' },

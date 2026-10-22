@@ -34,7 +34,7 @@ export const RELIC_LINEAGE_LABEL: Readonly<Record<string, string>> = {
 const NORMAL_STATUS: Partial<Record<RelicId, { status: RelicStatus; note: string }>> = {
   wasabi_tsubo: { status: 'partial', note: '効果は動くが、対戦画面の三種盛りの進み具合は「◯/3」のまま' },
   saku_bako: { status: 'partial', note: '赤身を出した時点の手札だけ下がる。そのあと引いた赤身は次に赤身を出すまで下がらない' },
-  gunkan_kata: { status: 'partial', note: '攻撃の数値は3倍になるが、状態表示の「軍艦×1.5」は変わらない' },
+  gunkan_kata: { status: 'partial', note: '攻撃の数値は2倍になるが、状態表示の「軍艦×1.5」は変わらない' },
   togi_oke: { status: 'partial', note: '切れ味は戻るが、状態表示は「ターン終了後0」のまま' },
   tairyo_bata: { status: 'partial', note: '再攻撃は100%になるが、海の幸三昧の説明文は「50％」のまま' },
 }

@@ -41,7 +41,7 @@ export const ABURI: Readonly<Record<string, AburiSpec>> = {
   salmon_maki: { attack: 5, fullness: 4, text: '持続4／召喚時：1枚引く' },
   avocado_maki: { attack: 3, fullness: 6, text: '持続6' },
   futomaki: { attack: 8, fullness: 4, text: '持続4／巻物コンプでは巻物2枚分に数える' },
-  uni_gunkan: { attack: 32, text: '攻撃32' },
+  uni_gunkan: { attack: 26, text: '攻撃26' },
   ikura_gunkan: { attack: 16, text: '召喚時：1〜2APの巻物2枚を山札へ' },
   negitoro_gunkan: { attack: 23, text: '攻撃23' },
   tobiko_gunkan: { attack: 14, text: '召喚時：とびこ軍艦を手札へ複製（100→75→50→25%）' },
