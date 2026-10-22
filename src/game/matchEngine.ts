@@ -30,6 +30,8 @@ export type MatchOptions = {
   openingHand?: Partial<Record<PlayerId, number>>
   /** 最初のAP（寿司はしご用）。以降も同じだけ上乗せして毎ターン+1、上限10。省略時は2。 */
   startAP?: Partial<Record<PlayerId, number>>
+  /** 机の寿司を下げる・手札の寿司を残す操作を許す（寿司はしご用）。 */
+  allowDiscard?: boolean
   /** 手札上限（寿司はしご用）。省略時は7。 */
   handLimit?: Partial<Record<PlayerId, number>>
   /** 追加のガリ（寿司はしごの敵用）。 */
@@ -88,7 +90,8 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   const mods = options.runMods ?? {}
   // 後半の敵は、デッキの一部が炙り版になる（aburiRate）。
   const withAburiRate = (id: PlayerId, card: Card) => {
-    const rate = mods[id]?.aburiRate ?? 0
+    // 常連さんの得意技「炙り好き」は、デッキの半分（後半の敵ならその割合と大きい方）を炙る。
+    const rate = Math.max(mods[id]?.aburiRate ?? 0, hasSkill(mods[id], 'aburi_zuki') ? ABURI_ZUKI_RATE : 0)
     return rate > 0 && canAburi(card) && random() < rate ? toAburi(card) : card
   }
   const withMods = (id: PlayerId, cards: Card[]) => mods[id] ? cards.map(card => applyCardMods(withAburiRate(id, card), mods[id])) : cards
@@ -104,6 +107,7 @@ export function createMatch(options: MatchOptions, random: RandomSource = Math.r
   deal(state, 1, p1Cards, random, handSize(1))
   deal(state, 2, p2Cards, random, handSize(2))
   if (options.refillOnEmpty) state.refill = { 1: structuredClone(p1Cards), 2: structuredClone(p2Cards) }
+  if (options.allowDiscard) state.allowDiscard = true
   for (const id of [1, 2] as const) {
     const cap = options.maxBelly?.[id]
     if (cap !== undefined && cap !== MAX_BELLY) state.players[id].maxBelly = Math.max(1, Math.floor(cap))
@@ -252,6 +256,9 @@ function damage(state: MatchState, id: PlayerId, amount: number, events: MatchEv
     events.push({ type: 'combo', playerId: id, comboId: 'taisho_ocha' })
   }
 }
+
+/** 常連さんの得意技「炙り好き」で炙る割合。 */
+const ABURI_ZUKI_RATE = 0.5
 
 /** ボスの本日のおすすめ：数ターンごとに、炙った高級寿司を0APで手札に加える（手札上限を超えてもよい）。 */
 const TAISHO_OSUSUME_IDS = ['otoro', 'uni_gunkan', 'wagyu', 'negitoro_gunkan', 'kani_gunkan'] as const
@@ -753,12 +760,26 @@ export function transitionMatch(state: MatchState, action: MatchAction, random: 
   } else if (action.type === 'use_side_menu') {
     const error = getSideMenuUseError(state, action.playerId)
     if (error) return reject(error)
+  } else if (action.type === 'discard_field' || action.type === 'discard_hand') {
+    if (!state.allowDiscard) return reject('discard_not_allowed')
+    if (action.type === 'discard_field' && !player.field.some(card => card.fid === action.fieldId)) return reject('card_not_on_field')
+    if (action.type === 'discard_hand' && !player.hand.some(card => card.instanceId === action.cardInstanceId)) return reject('card_not_in_hand')
   } else if (action.type !== 'end_turn') return reject('unknown_action')
   const next = structuredClone(state)
   const events: MatchEvent[] = []
   if (action.type === 'play_card') summon(next, action.playerId, index, events, random, action.sacrificeCount, action.targetFieldId, action.reserveDefense)
   else if (action.type === 'use_side_menu') applySideMenu(next, action.playerId, events)
-  else finishTurn(next, events, random)
+  else if (action.type === 'discard_field') {
+    const own = next.players[action.playerId]
+    const card = own.field.find(item => item.fid === action.fieldId)!
+    own.field = own.field.filter(item => item.fid !== action.fieldId)
+    addLog(next, `${label(next, action.playerId)}: ${card.name}を机から下げた`)
+  } else if (action.type === 'discard_hand') {
+    const own = next.players[action.playerId]
+    const card = own.hand.find(item => item.instanceId === action.cardInstanceId)!
+    own.hand = own.hand.filter(item => item.instanceId !== action.cardInstanceId)
+    addLog(next, `${label(next, action.playerId)}: ${card.name}を手札から残した`)
+  } else finishTurn(next, events, random)
   next.revision += 1
   return { state: next, events }
 }

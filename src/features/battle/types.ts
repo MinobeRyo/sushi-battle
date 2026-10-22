@@ -24,6 +24,8 @@ export type BattleView = {
   pMaxBelly?: number; cMaxBelly?: number
   /** 手札上限。省略時は7（寿司はしごの自分だけ増える）。 */
   pHandLimit?: number; cHandLimit?: number
+  /** 寿司はしご：机の寿司を下げる・手札の寿司を残す操作ができるか。 */
+  allowDiscard?: boolean
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>
   pDrawBonus: number

@@ -13,7 +13,7 @@ import { ScreenPager } from '../../components/ScreenPager'
 import './BattleCards.css'
 
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, kiretaSpent = false, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, kiretaSpent = false, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onDiscard, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
@@ -25,6 +25,8 @@ export function CardDetailSheet({
   enemyCardAttack?: (card: FieldCard) => number
   sacrificeAttackBonus?: number
   onPlay: (sacrificeCount?: number, targetFieldId?: string, reserveDefense?: boolean) => void
+  /** 寿司はしご：机の寿司を下げる・手札の寿司を残す。渡されたときだけボタンを出す。 */
+  onDiscard?: () => void
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
@@ -256,6 +258,7 @@ export function CardDetailSheet({
 
         <div className="battle-detail-actions">
           <button type="button" className="battle-detail-cancel" onClick={onClose}>{isField ? '閉じる' : 'キャンセル'}</button>
+          {onDiscard && <button type="button" className="battle-detail-cancel battle-detail-discard" onClick={onDiscard}>{isField ? '机から下げる（0AP）' : '手札から残す（0AP）'}</button>}
           {!isField && (
             <motion.button
               type="button"

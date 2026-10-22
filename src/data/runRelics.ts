@@ -55,7 +55,7 @@ export const REGULAR_SKILLS: ReadonlyArray<{ id: RegularSkillId; name: string; t
   { id: 'gari_yama', name: 'ガリ山盛り', text: 'ガリ＋3' },
   { id: 'sarazumi', name: '皿積み', text: '机の寿司1枚につき、すべての攻撃＋1' },
   { id: 'joren_tokken', name: '常連特権', text: '最初の手札7枚' },
-  { id: 'aburi_zuki', name: '炙り好き', text: 'デッキの寿司がすべて炙り版' },
+  { id: 'aburi_zuki', name: '炙り好き', text: 'デッキの半分が炙り版' },
 ]
 
 export const REGULAR_SKILL_BY_ID: Readonly<Record<RegularSkillId, { id: RegularSkillId; name: string; text: string }>> =

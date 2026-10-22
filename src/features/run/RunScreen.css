@@ -1,3 +1,15 @@
+/* 色の変数。ダイアログ・帯は試合画面の上にも出るので、そこでも使えるようにする。 */
+.run-screen, .run-dialog-backdrop, .run-toolbar, .run-debug {
+  --run-ink: #382b1f;
+  --run-sub: #6b5a47;
+  --run-paper: #fffaf0;
+  --run-line: #cfbfaa;
+  --run-indigo: #1c3c43;
+  --run-red: #a73b2c;
+  --run-gold: #b8842a;
+}
+.run-dialog { color: var(--run-ink); }
+
 .run-screen {
   --run-ink: #382b1f;
   --run-sub: #6b5a47;
@@ -255,8 +267,8 @@
 .run-map-act span { display: block; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; font-size: 12px; color: var(--run-sub); }
 
 /* デバッグメニュー（#debug のときだけ） */
-.run-debug-toggle { position: fixed; right: 12px; bottom: 12px; z-index: 90; min-height: 40px; padding: 6px 14px; border: 2px solid #1c3c43; border-radius: 999px; background: #fffaf0; color: #1c3c43; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px #0003; }
-.run-debug { position: fixed; right: 12px; bottom: 12px; z-index: 90; width: min(460px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px; border: 2px solid #1c3c43; border-radius: 12px; background: #fffaf0; color: #382b1f; font-size: 13px; box-shadow: 0 8px 24px #0005; }
+.run-debug-toggle { min-height: 28px; padding: 2px 12px; border: 2px solid #1c3c43; border-radius: 999px; background: #fffaf0; color: #1c3c43; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px #0003; }
+.run-debug { position: fixed; top: 40px; left: 50%; translate: -50% 0; z-index: 90; width: min(460px, calc(100vw - 24px)); max-height: calc(100vh - 52px); overflow: auto; padding: 10px 12px; border: 2px solid #1c3c43; border-radius: 12px; background: #fffaf0; color: #382b1f; font-size: 13px; box-shadow: 0 8px 24px #0005; }
 .run-debug header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .run-debug header span { flex: 1; color: #6b5a47; }
 .run-debug h3 { margin: 8px 0 4px; font-size: 12px; font-weight: 800; color: #1c3c43; }
@@ -265,3 +277,21 @@
 .run-debug button:disabled { opacity: .45; cursor: default; }
 .run-debug select { flex: 1; min-width: 0; min-height: 32px; border: 1px solid #cfbfaa; border-radius: 8px; background: #fff; font-size: 12px; }
 .run-debug label { display: flex; align-items: center; gap: 4px; }
+
+/* 画面上中央の小さな帯（器・デバッグ）。試合中も操作ボタンに重ならない位置に出す。 */
+.run-toolbar { position: fixed; top: 4px; left: 50%; z-index: 90; display: flex; gap: 6px; translate: -50% 0; }
+.run-toolbar > button, .run-toolbar .run-debug-toggle { min-height: 28px; padding: 2px 12px; border: 1.5px solid #1c3c43; border-radius: 999px; background: #fffaf0e6; color: #1c3c43; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 6px #0002; }
+.run-toolbar b { color: #a73b2c; }
+.run-relic-summary { padding: 8px 16px 0; font-size: 12px; color: var(--run-sub, #6b5a47); }
+.run-relic-list { overflow: auto; padding: 8px 16px 16px; display: grid; gap: 6px; list-style: none; }
+.run-relic-list li { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: start; padding: 8px; border: 1px solid #cfbfaa; border-radius: 10px; background: #fff; }
+.run-relic-list li[data-grade='tokujo'] { border-color: #b8842a; background: #fdf6e3; }
+.run-relic-list li[data-grade='side'] { border-style: dashed; }
+.run-relic-list .run-relic-empty { display: block; color: #6b5a47; }
+.run-relic-grade { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #1c3c43; color: #fff; font-weight: 800; font-size: 13px; }
+.run-relic-list li[data-grade='jo'] .run-relic-grade { background: #a73b2c; }
+.run-relic-list li[data-grade='tokujo'] .run-relic-grade { background: #b8842a; }
+.run-relic-list li[data-grade='side'] .run-relic-grade { background: #7a6a55; font-size: 11px; }
+.run-relic-body { display: grid; gap: 2px; font-size: 13px; }
+.run-relic-body strong { font-size: 15px; }
+.run-relic-body small { color: #6b5a47; font-size: 11px; }

@@ -98,7 +98,7 @@ function OnlineBattle({ room, snapshot, match, comboAnim, onBack }: {
       if (canReact) { setInspect(null); void room.respondReaction(useDefense, targetFieldId) }
     },
     restart: () => { void room.rematch() },
-    handlePassReady: () => {}, handleReorderComplete: () => {},
+    handlePassReady: () => {}, handleReorderComplete: () => {}, discard: () => {},
   }
   return (
     <div className="online-screen flex h-full flex-col bg-stone-950">

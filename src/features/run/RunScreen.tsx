@@ -15,7 +15,7 @@ import { SIDE_MENU_BY_ID } from '../../data/sideMenus'
 import { ACT_BOSSES, ENEMY_CHARACTER_BY_ID, bossRules } from '../../data/runEnemies'
 import { RUN_EVENT_BY_ID } from '../../data/runEvents'
 import { eventChoiceBlocked, leaveEvent, resolveEvent } from '../../game/runEvents'
-import { RunDebugPanel } from './RunDebugPanel'
+import { RunToolbar } from './RunToolbar'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
 
@@ -28,7 +28,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   const [laneOpen, setLaneOpen] = useState(false)
   // アドレスに #debug を付けたときだけ、デバッグメニューを出す。
   const [debug] = useState(() => window.location.hash.includes('debug'))
-  const debugPanel = debug && run ? <RunDebugPanel run={run} onChange={next => { setIntroDone(null); setLaneOpen(false); setRun(next) }} /> : null
+  const debugPanel = run ? <RunToolbar run={run} debug={debug} onChange={next => { setIntroDone(null); setLaneOpen(false); setRun(next) }} /> : null
 
   // 進むたびに保存する。決着したランは「続きから」に残さない。
   useEffect(() => {
@@ -70,6 +70,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       drawBonus={{ 1: RUN_DRAW_PER_TURN - 1, ...(gimmick.drawBonus ? { 2: gimmick.drawBonus } : {}) }}
       extraGari={{ 1: run.nextBattleGari ?? 0, 2: gimmick.extraGari ?? 0 }}
       handLimit={{ 1: RUN_HAND_LIMIT }}
+      allowDiscard
       onFinish={(result: BattleFinish) => setRun(current => current && finishBattle(current, result.won, result.belly))} /></>
   }
 

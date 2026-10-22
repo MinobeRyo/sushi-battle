@@ -1,5 +1,4 @@
 import type { Card, CardBoost } from '../types'
-import { canAburi, toAburi } from '../data/aburi'
 import type { RegularSkillId, RelicId } from '../data/runRelics'
 
 /** ボスの専用ルール。osusumeEvery ターンごとに本日のおすすめ、tea なら締めのお茶。 */
@@ -22,7 +21,8 @@ export const hasSkill = (mods: PlayerMods | undefined, id: RegularSkillId) => mo
 /** 器・得意技のうち、1枚ごとの数値に落とせるものをカードへ書き込む。生成されたカードにも同じ処理を通す。 */
 export function applyCardMods(card: Card, mods: PlayerMods | undefined): Card {
   if (!mods) return card
-  let result = hasSkill(mods, 'aburi_zuki') && canAburi(card) ? toAburi(card) : card
+  // 炙り好き（得意技）はデッキの半分を炙る。割合での炙りは matchEngine の createMatch で行う。
+  let result = card
   const boost: CardBoost = { ...result.boost }
   const isMaki = result.archetype.includes('makimono')
   if (hasRelic(mods, 'shichirin') && result.aburi && !boost.shichirin) {

@@ -521,8 +521,11 @@ test('常連さん：得意技はCPU側だけに効く', () => {
   assert.equal(make('gari_yama').players[1].gari, 1)
   assert.equal(make('joren_tokken').players[2].hand.length, 7)
   assert.equal(make('joren_tokken').players[1].hand.length, 5)
+  // 炙り好きはデッキの半分ほど（全部ではない）を炙る。
   const zuki = make('aburi_zuki')
-  assert.ok([...zuki.players[2].hand, ...zuki.players[2].deck].every(card => card.aburi))
+  const zukiCards = [...zuki.players[2].hand, ...zuki.players[2].deck]
+  const zukiAburi = zukiCards.filter(card => card.aburi).length
+  assert.ok(zukiAburi > 0 && zukiAburi < zukiCards.length, `炙りは一部だけ（${zukiAburi}/${zukiCards.length}）`)
   assert.ok([...zuki.players[1].hand, ...zuki.players[1].deck].every(card => !card.aburi))
   // 早食い・底なし胃袋は相手の手番の始まりに効く
   for (const skill of ['hayagui', 'sokonashi']) {
@@ -869,6 +872,29 @@ test('デバッグ：持ち金・お腹・器・寿司・炙り・次の幕', ()
   const next = debug.debugNextAct(state, seeded(6))
   assert.equal(next.act, 2)
   assert.equal(debug.debugNextAct({ ...state, act: 3 }).act, 3, '最後の幕より先へは行かない')
+})
+
+test('机の寿司を下げる・手札の寿司を残す：寿司はしごの自分の手番だけ、0APでできる', () => {
+  const deck = Array(13).fill(byId('gyutan'))
+  let state = createMatch({ mode: 'cpu', deck, cpuDeckId: 'weak', allowDiscard: true }, () => 0.999)
+  state = { ...state, players: { ...state.players, 1: { ...state.players[1], ap: 5 } } }
+  state = transitionMatch(state, play(state, 'gyutan'), () => 0.5).state
+  const ham = state.players[1].field.find(card => card.id === NAMAHAM_CARD.id)
+  assert.ok(ham, '牛タンで生ハムが机に出る')
+  const ap = state.players[1].ap
+  const lowered = transitionMatch(state, { type: 'discard_field', playerId: 1, fieldId: ham.fid }, () => 0.5)
+  assert.equal(lowered.error, undefined)
+  assert.equal(lowered.state.players[1].field.some(card => card.fid === ham.fid), false)
+  assert.equal(lowered.state.players[1].ap, ap, 'APは減らない')
+  const handCard = lowered.state.players[1].hand[0]
+  const left = transitionMatch(lowered.state, { type: 'discard_hand', playerId: 1, cardInstanceId: handCard.instanceId }, () => 0.5)
+  assert.equal(left.error, undefined)
+  assert.equal(left.state.players[1].hand.length, lowered.state.players[1].hand.length - 1)
+  assert.equal(transitionMatch(left.state, { type: 'discard_hand', playerId: 2, cardInstanceId: left.state.players[2].hand[0].instanceId }).error, 'not_your_turn')
+  assert.equal(transitionMatch(left.state, { type: 'discard_field', playerId: 1, fieldId: 'nope' }).error, 'card_not_on_field')
+  // 通常のCPU戦・オンライン（allowDiscard なし）ではできない。
+  const plain = createMatch({ mode: 'cpu', deck, cpuDeckId: 'weak' }, () => 0.999)
+  assert.equal(transitionMatch(plain, { type: 'discard_hand', playerId: 1, cardInstanceId: plain.players[1].hand[0].instanceId }).error, 'discard_not_allowed')
 })
 
 console.log(`\n${passed}件のテストに合格しました`)

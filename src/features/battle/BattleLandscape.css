@@ -85,6 +85,20 @@
   .battle-hand-card[data-selected='true'] { border-color: #2563eb; outline: 2px solid #2563eb; outline-offset: 1px; box-shadow: none; }
   .battle-hand-card[data-playable='false'] .battle-hand-card-type { color: #776b5b; }
 
+  /* 手札8枚以上（寿司はしごは最大10枚）：5列×2段に並べ、絵を小さくして名前・AP・攻撃を読めるようにする。 */
+  .battle-hand[data-crowded='true'] { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 4px; padding: 2px 5px 4px; }
+  .battle-hand[data-crowded='true'] > .battle-hand-card { display: grid; max-width: none; height: auto; padding: 2px 4px; margin: 0;
+    grid-template-columns: 32px auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; column-gap: 4px;
+    grid-template-areas: "art name name" "art cost stats"; align-items: center; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-art { grid-area: art; min-height: 0; height: 100%; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-heading { display: contents; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-cost { grid-area: cost; font-size: 11px; line-height: 16px; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-type { display: none; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-name { grid-area: name; font-size: 12px; line-height: 15px; align-self: end; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-stats { grid-area: stats; min-height: 0; line-height: 16px; justify-content: flex-end; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-attack { font-size: 13px; }
+  .battle-hand[data-crowded='true'] .battle-hand-card-turns { font-size: 10px; }
+
   .battle-side-slot { width: 100%; min-height: 0; height: 100%; padding: 3px; gap: 1px; border-width: 1px; border-radius: 10px; }
   .battle-side-heading { justify-content: center; }
   .battle-side-heading h2, .battle-side-hint, .battle-side-empty p, .battle-side-action-reason { display: none; }

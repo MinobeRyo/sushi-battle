@@ -5,6 +5,7 @@ import type { PlayerId } from '../../game/types'
 import type { MatchOptions } from '../../game/matchEngine'
 import { INBOUND_DON_SACRIFICE_BONUS, canReorderSideMenu } from '../../data/sideMenus'
 import { useEffect, useState } from 'react'
+import type React from 'react'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { playGameSound, prepareGameAudio } from '../../audio/gameSounds'
 import { useBattleGame } from './useBattleGame'
@@ -46,6 +47,7 @@ export function BattleScreen({
   startAP,
   extraGari,
   handLimit,
+  allowDiscard,
   drawBonus,
   maxBelly,
   onBack,
@@ -65,13 +67,14 @@ export function BattleScreen({
   startAP?: Partial<Record<PlayerId, number>>
   extraGari?: Partial<Record<PlayerId, number>>
   handLimit?: Partial<Record<PlayerId, number>>
+  allowDiscard?: boolean
   drawBonus?: Partial<Record<PlayerId, number>>
   maxBelly?: Partial<Record<PlayerId, number>>
   onBack?: () => void
   /** 指定すると決着画面は「次へ」だけになり、結果を呼び出し元へ返す（寿司はしご用）。 */
   onFinish?: (result: BattleFinish) => void
 }) {
-  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
+  const game = useBattleGame({ deck, p2Deck, mode: 'cpu', cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, allowDiscard, drawBonus, maxBelly, onSummon: () => playGameSound('cardPlay') })
   return <BattleBoard game={game} mode="cpu" onBack={onBack} onFinish={onFinish} />
 }
 
@@ -91,7 +94,7 @@ type BattleBoardProps = {
 export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabel = 'もう一回', onFinish }: BattleBoardProps) {
   const {
     s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handleReorderComplete, restart,
+    playCard, useSideMenu, discard, endTurn, respondDefense, respondReaction, handleReorderComplete, restart,
   } = game
   const { layoutRef, arenaRef, handRef, actionsRef, handInView, toggleHand } = useBattleHandNavigation()
   const isCompact = useCompactLandscape()
@@ -189,6 +192,14 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
   const selectedSacrificeBonus = selectedCard ? getSacrificeBonus(selectedCard)
     + (s.pSideMenu?.id === 'inbound_don' && s.pSideMenu.status === 'active' ? INBOUND_DON_SACRIFICE_BONUS : 0) : 0
 
+  // 寿司はしご：選んだ自分の寿司を、机なら下げる・手札なら残す（0AP）。
+  const selectedFieldId = currentInspect && 'fid' in currentInspect.card && typeof currentInspect.card.fid === 'string' ? currentInspect.card.fid : undefined
+  const selectedInstanceId = currentInspect && 'instanceId' in currentInspect.card && typeof currentInspect.card.instanceId === 'string' ? currentInspect.card.instanceId : undefined
+  const discardSelected = s.allowDiscard && isPlayerTurn && currentInspect && currentInspect.owner !== 'opponent'
+    ? currentInspect.remainingTurns !== undefined
+      ? selectedFieldId ? () => discard({ fieldId: selectedFieldId }) : undefined
+      : selectedInstanceId ? () => discard({ cardInstanceId: selectedInstanceId }) : undefined
+    : undefined
   const summonPreview = isCompact && selectedCard && currentInspect?.canPlay && !needsPlayOptions
     ? previewBattleSummon(s, selectedCard) : null
 
@@ -256,7 +267,10 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
               <h2>あなたの手札 <span>{s.pHand.length}枚</span></h2>
               {isCompact ? <div className="battle-hand-ap">{['player', 'cpu', 'waiting', 'animating', 'syncing'].includes(s.phase) && !s.pendingAttack && !s.pendingReaction && !comboAnim && <DeckInspector key={`${s.activePlayer}:${s.turn}:${s.phase}`} entries={s.pDeckSummary} count={s.pDeckCount} showName />}<span>AP <strong>{s.pAP}</strong> / {s.pMaxAP}</span><span className="battle-hand-ap-dots" aria-hidden="true">{Array.from({ length: Math.min(s.pMaxAP, 10) }, (_, i) => <i key={i} data-filled={i < s.pAP} />)}</span></div> : <span>{isPlayerTurn ? 'カードを押して召喚' : 'カードを押して詳細を確認'}</span>}
             </header>
-            <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}>
+            {/* 8枚以上は、スクロールせず1画面に収まる並べ方（PCは1段に列を増やす、スマホ横向きは5列×2段）にする。 */}
+            <div className="battle-hand" role="region" aria-label="手札" tabIndex={0}
+              data-crowded={s.pHand.length > 7 ? 'true' : undefined}
+              style={{ '--hand-cols': Math.max(7, s.pHand.length) } as React.CSSProperties}>
               {s.pHand.length === 0
                 ? <p className="battle-empty-field">手札がありません</p>
                 : s.pHand.map(card => <HandSushi key={card.instanceId} card={card} combosFired={s.pCombosFired}
@@ -351,6 +365,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
             kiretaStack={currentInspect.owner === 'opponent' ? s.cKiretaStack : s.pKiretaStack}
             kiretaSpent={s.pKiretaSpent}
             onPlay={(count, targetFieldId, reserveDefense) => { if (currentInspect?.canPlay) playCard(currentInspect.card, count, targetFieldId, reserveDefense) }}
+            onDiscard={discardSelected}
             onClose={() => {
               setDetailsOpen(false)
               if (!isCompact || currentInspect.remainingTurns !== undefined) setInspect(null)

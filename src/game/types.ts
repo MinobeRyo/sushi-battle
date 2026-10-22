@@ -95,12 +95,17 @@ export type MatchState = {
   log: string[]
   /** 寿司はしごの「おかわり」用。山札切れで戻す元のデッキ。通常対戦・オンラインでは持たない。 */
   refill?: Record<PlayerId, Card[]>
+  /** 寿司はしご用：自分の手番に0APで、机の寿司を下げる・手札の寿司を残す（捨てる）ことができる。 */
+  allowDiscard?: boolean
 }
 
 export type MatchAction =
   | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number; targetFieldId?: string; reserveDefense?: boolean }
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
+  // 寿司はしご専用（allowDiscard の試合だけ）。机の寿司を下げる・手札の寿司を残す。
+  | { type: 'discard_field'; playerId: PlayerId; fieldId: string }
+  | { type: 'discard_hand'; playerId: PlayerId; cardInstanceId: string }
   | { type: 'respond_reaction'; playerId: PlayerId; useDefense: boolean; targetFieldId?: string }
   | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean; useDefense?: boolean; targetFieldId?: string }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。
