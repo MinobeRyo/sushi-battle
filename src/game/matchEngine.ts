@@ -505,7 +505,8 @@ function summon(state: MatchState, id: PlayerId, index: number, events: MatchEve
   addLog(state, `${label(state, id)} ▶ ${card.name} 召喚`)
   for (const message of result.logs) addLog(state, `${label(state, id)}: ${message}`)
   events.push({ type: 'summon', playerId: id, cardInstanceId: card.instanceId, cardId: card.id })
-  const shield = state.shieldEnabled ? shieldOf(card) : 0
+  // シールドはプレイヤー（P1）だけ。CPUは元から強い効果を持つので張らない。
+  const shield = state.shieldEnabled && id === 1 ? shieldOf(card) : 0
   if (shield > 0) {
     player.shield = (player.shield ?? 0) + shield
     addLog(state, `🛡 ${label(state, id)}: ${card.name}でシールド +${shield}（計${player.shield}）`)

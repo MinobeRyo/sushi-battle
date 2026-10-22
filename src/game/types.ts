@@ -99,7 +99,7 @@ export type MatchState = {
   refill?: Record<PlayerId, Card[]>
   /** 寿司はしご用：自分の手番に0APで、机の寿司を下げる・手札の寿司を残す（捨てる）ことができる。 */
   allowDiscard?: boolean
-  /** 寿司はしご用：回復系・効果なし・インフラ系の寿司を出すとシールドを張る。 */
+  /** 寿司はしご用：回復系・効果なし・インフラ系の寿司を出すとシールドを張る（プレイヤーだけ）。 */
   shieldEnabled?: boolean
 }
 

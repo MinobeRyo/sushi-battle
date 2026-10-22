@@ -918,6 +918,12 @@ test('シールド：回復・効果なし・インフラ系の寿司で張り�
   assert.equal(dealt, byId('maguro').attack - 6, `マグロ${byId('maguro').attack}のうち6をシールドが受ける（お腹は${before}から）`)
   assert.ok(result.state.log.some(line => line.includes('シールドが 6 を防いだ')))
   assert.equal(result.state.players[1].shield, 0, '自分の手番の始めに消える')
+  // CPUは同じ寿司を出しても張らない。
+  const cpu = structuredClone(state)
+  cpu.activePlayerId = 2
+  cpu.players[2].hand = [{ ...byId('uni_gunkan'), instanceId: 'cpu-uni' }]
+  cpu.players[2].ap = 5
+  assert.equal(transitionMatch(cpu, { type: 'play_card', playerId: 2, cardInstanceId: 'cpu-uni' }, () => 0.5).state.players[2].shield, undefined)
   const plain = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'weak' }, () => 0.999)
   assert.equal(transitionMatch(plain, play(plain, 'tamago'), () => 0.5).state.players[1].shield, undefined, '通常のCPU戦では張らない')
 })
