@@ -43,10 +43,10 @@ export const ABURI: Readonly<Record<string, AburiSpec>> = {
   futomaki: { attack: 8, fullness: 4, text: '持続4／巻物コンプでは巻物2枚分に数える' },
   uni_gunkan: { attack: 26, text: '攻撃26' },
   ikura_gunkan: { attack: 16, text: '召喚時：1〜2APの巻物2枚を山札へ' },
-  negitoro_gunkan: { attack: 23, text: '攻撃23' },
+  negitoro_gunkan: { attack: 20, text: '攻撃20' },
   tobiko_gunkan: { attack: 14, text: '召喚時：とびこ軍艦を手札へ複製（100→75→50→25%）' },
   ebi_gunkan: { attack: 17, text: '召喚時：山札の巻物を2枚引く' },
-  kani_gunkan: { attack: 24, text: '召喚時：机の軍艦以外の巻物の攻撃をこのターン＋4' },
+  kani_gunkan: { attack: 20, text: '召喚時：机の軍艦以外の巻物の攻撃をこのターン＋4' },
   // 光り物
   saba: { attack: 11, text: '防御の予約が無料（切れ味0）' },
   shime_saba: { attack: 14, text: '切れ味2を消費して3枚引く' },
