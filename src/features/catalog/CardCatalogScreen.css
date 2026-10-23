@@ -296,3 +296,37 @@
   .catalog-model-dialog--compact .catalog-model-detail h2 { font-size: 15px; }
   .catalog-model-dialog--compact .catalog-card-tags span { font-size: 10px; padding: 1px 4px; }
 }
+
+/* ── 器（寿司はしご）のページ ─────────────────────────────── */
+.relic-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 16px; font-size: 14px; font-weight: 700; }
+.relic-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.relic-status[data-status='done'] { background: #dcefd8; color: #2f6a35; }
+.relic-status[data-status='partial'] { background: #fbe9c6; color: #8a5a0b; }
+.relic-status[data-status='todo'] { background: #eee6d9; color: #6f5c48; }
+.relic-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px; border: 1px solid #dbc9b1; border-top: 4px solid #8f7c62; border-radius: 12px; background: #fffcf6; box-shadow: 0 3px 10px #492c0c09; }
+.relic-card[data-grade='jo'] { border-top-color: #d49b2a; }
+.relic-card[data-grade='tokujo'] { border-top-color: #e2611b; }
+.relic-card[data-grade='taisho'] { border-top-color: #8d2a1f; }
+.relic-card[data-status='todo'] { background: #f8f3ea; }
+.relic-card-heading { display: flex; align-items: center; gap: 8px; }
+.relic-card h2 { flex: 1; min-width: 0; font-size: 18px; font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
+.relic-grade { flex-shrink: 0; display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 4px; border-radius: 50%; background: #f1e8d8; color: #5b3b25; font-size: 13px; font-weight: 800; }
+.relic-grade[data-grade='jo'] { background: #fbbf24; }
+.relic-grade[data-grade='tokujo'] { background: #f97316; color: #fff; }
+.relic-grade[data-grade='taisho'] { border-radius: 8px; background: #8d2a1f; color: #fff; }
+.relic-text, .relic-cost, .relic-note { font-size: 13px; line-height: 1.7; }
+.relic-cost { color: #8d2a1f; }
+.relic-note { margin-top: auto; padding: 8px 10px; border-radius: 8px; background: #f5eee2; color: #5f4a35; font-size: 12px; }
+.relic-card[data-status='partial'] .relic-note { background: #fdf2dc; }
+.relic-card :is(.relic-text, .relic-cost, .relic-note) > .catalog-effect-label { display: block; color: #96723d; font-size: 11px; font-weight: 700; }
+
+.compact-catalog-filters--relics { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+.compact-catalog-grid--relics { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; }
+.relic-card--compact { gap: 3px; padding: 6px 10px; overflow: hidden; border-top-width: 3px; }
+.relic-card--compact .relic-card-heading { gap: 6px; }
+.relic-card--compact h2 { font-size: 14px; line-height: 1.3; }
+.relic-card--compact .relic-grade { min-width: 24px; height: 24px; font-size: 11px; }
+.relic-card--compact .catalog-card-tags { display: none; }
+.relic-card--compact :is(.relic-text, .relic-cost) { font-size: 12px; line-height: 1.45; }
+.relic-card--compact .relic-note { padding: 3px 6px; font-size: 11px; line-height: 1.4; }
+.relic-card--compact :is(.relic-text, .relic-cost, .relic-note) > .catalog-effect-label { display: inline; margin-right: 4px; font-size: 10px; }

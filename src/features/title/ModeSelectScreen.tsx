@@ -14,7 +14,7 @@ const MODES: Array<{ id: BattleMode; number: string; label: string; kind: string
   { id: 'weak', number: '01', label: 'CPU対戦 · 最弱', kind: 'ひとりで遊ぶ', detail: 'これまでの汎用デッキCPU' },
   { id: 'cpu', number: '02', label: 'CPU対戦 · 普通', kind: 'ひとりで遊ぶ', detail: '5つのビルドからランダムに対戦' },
   { id: 'challenge', number: '03', label: 'CPU対戦 · 挑戦', kind: 'ひとりで遊ぶ', detail: '総額4,500円の肉寿司＋巻物CPU' },
-  { id: 'run', number: '04', label: '寿司はしご', kind: 'ひとりで遊ぶ', detail: 'デッキを育てて大将に挑むローグライク' },
+  { id: 'run', number: '04', label: '寿司はしご（調整中）', kind: 'ひとりで遊ぶ', detail: 'デッキを育てて大将に挑むローグライク。数値は調整中です' },
   { id: 'online', number: '05', label: 'オンライン対戦', kind: '通信で遊ぶ', detail: '部屋を作成、またはコードで参加' },
 ]
 

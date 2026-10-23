@@ -215,3 +215,33 @@
 .battle-field-card[data-defense-state='ready'] { --card-border: #46899e; --card-background: linear-gradient(160deg, #f0fbff, #d3ebf4); }
 .battle-field-card[data-defense-state] .battle-field-card-turns { color: #25637c; font-size: 12px; }
 .battle-field-card-debuff { color: #8b3275; font-size: 11px; font-weight: 700; line-height: 12px; }
+
+/* 寿司はしごの「炙り」：焼き目のグラデーションと炎の縁 */
+.battle-field-card[data-aburi='true'],
+.battle-hand-card[data-aburi='true'] {
+  --card-border: #e2461b;
+  --card-background: radial-gradient(circle at 50% 8%, #ffd9a8 0, transparent 46%),
+    linear-gradient(165deg, #fff1df, #f7c99a 70%, #e9a46a);
+  box-shadow: 0 0 0 1px #ffb34766, 0 0 12px #ff6a1f66, 0 3px 9px #63320b1a;
+}
+
+.battle-hand-card[data-aburi='true'][data-playable='false'] {
+  background: linear-gradient(165deg, #f3e4d2, #e6c6a3);
+}
+
+.battle-field-card[data-aburi='true'] .battle-field-card-name,
+.battle-hand-card[data-aburi='true'] .battle-hand-card-name {
+  color: #a8320c;
+}
+
+.aburi-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e2461b, #f59e0b);
+  color: #fff;
+  font-size: 0.6em;
+  font-weight: 800;
+  vertical-align: middle;
+}

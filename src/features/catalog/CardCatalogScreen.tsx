@@ -8,6 +8,9 @@ import { getCardEffectDescription } from '../battle/battlePresentation'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { ScreenPager } from '../../components/ScreenPager'
 import { SideMenuArt } from '../side-menu/SideMenuArt'
+import { RelicCard, RelicCatalogSection, RelicFilterSelects } from './RelicCatalog'
+import { useRelicFilters } from './useRelicFilters'
+import { RELIC_CATALOG } from './relicCatalogData'
 import './CardCatalogScreen.css'
 
 const SushiModelViewer = lazy(() => import('./SushiModelViewer'))
@@ -196,6 +199,9 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
   const [archetype, setArchetype] = useState<Archetype | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showSideMenus, setShowSideMenus] = useState(false)
+  // 寿司はしご専用の「器」ページ。寿司カードの表示とは別に切り替える。
+  const [showRelics, setShowRelics] = useState(false)
+  const relicFilters = useRelicFilters()
   const [page, setPage] = useState(0)
   const sideMenuButton = useRef<HTMLButtonElement>(null)
   const returningFromSideMenu = useRef(false)
@@ -225,10 +231,28 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
   }
 
   if (compact) {
+    const show = (sides: boolean, relics: boolean) => { setShowSideMenus(sides); setShowRelics(relics); setPage(0) }
+    const nav = <nav aria-label="図鑑の種類"><button aria-pressed={!showSideMenus && !showRelics} onClick={() => show(false, false)}>寿司</button><button aria-pressed={showSideMenus} onClick={() => show(true, false)}>サイド</button><button aria-pressed={showRelics} onClick={() => show(false, true)}>器</button></nav>
+    if (showRelics) {
+      const relicPages = Math.max(1, Math.ceil(relicFilters.entries.length / 4))
+      const relicPage = Math.min(page, relicPages - 1)
+      return <main className="compact-catalog" aria-labelledby="catalog-title">
+        <header><button onClick={onBack}>← タイトル</button><h1 id="catalog-title">カード図鑑</h1>{nav}</header>
+        <section className="compact-catalog-filters compact-catalog-filters--relics" aria-label="器を探す">
+          <RelicFilterSelects filters={relicFilters} compact onChange={() => setPage(0)} />
+          <button disabled={!relicFilters.hasFilters} onClick={() => { relicFilters.reset(); setPage(0) }}>リセット</button>
+        </section>
+        <div className="compact-catalog-grid compact-catalog-grid--relics">
+          {relicFilters.entries.slice(relicPage * 4, relicPage * 4 + 4).map(entry => <RelicCard key={entry.id} entry={entry} compact />)}
+          {relicFilters.entries.length === 0 && <p className="compact-catalog-empty">該当する器がありません。条件を変えてください。</p>}
+        </div>
+        <footer><span>{relicFilters.entries.length} / {RELIC_CATALOG.length}種</span><ScreenPager page={relicPage} pages={relicPages} onPageChange={setPage} /></footer>
+      </main>
+    }
     const pages = Math.max(1, Math.ceil((showSideMenus ? SIDE_MENU_CATALOG.length : filteredCards.length) / (showSideMenus ? 2 : 4)))
     const currentPage = Math.min(page, pages - 1)
     return <main className="compact-catalog" aria-labelledby="catalog-title">
-      <header><button onClick={onBack}>← タイトル</button><h1 id="catalog-title">カード図鑑</h1><nav aria-label="図鑑の種類"><button aria-pressed={!showSideMenus} onClick={() => { setShowSideMenus(false); setPage(0) }}>寿司</button><button aria-pressed={showSideMenus} onClick={() => { setShowSideMenus(true); setPage(0) }}>サイド</button></nav></header>
+      <header><button onClick={onBack}>← タイトル</button><h1 id="catalog-title">カード図鑑</h1>{nav}</header>
       {showSideMenus ? <p className="compact-catalog-hint">自分の番に0APで使用。寿司20枚・机8枠とは別枠です。</p> : <section className="compact-catalog-filters" aria-label="カードを探す">
         <input aria-label="カードを検索" type="search" value={query} placeholder="名前・効果で検索" onChange={event => { setQuery(event.target.value); setPage(0) }} />
         <select aria-label="タイプ" value={cardType} onChange={event => { setCardType(event.target.value as CardType | 'all'); setPage(0) }}><option value="all">全タイプ</option><option value="instant">即時型</option><option value="persist">持続型</option></select>
@@ -260,16 +284,22 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
       <header className="catalog-header">
         <div className="catalog-header-inner">
           <button type="button" className="catalog-back" onClick={onBack}>← タイトルへ</button>
-          <h1 id="catalog-title">寿司カード図鑑</h1>
-          <span className="catalog-total">全{CATALOG_CARDS.length}種</span>
+          <h1 id="catalog-title">{showRelics ? '器の図鑑' : '寿司カード図鑑'}</h1>
+          <span className="catalog-total">全{showRelics ? RELIC_CATALOG.length : CATALOG_CARDS.length}種</span>
         </div>
       </header>
 
       <div className="catalog-content">
         <nav className="catalog-sections" aria-label="図鑑の種類">
-          <span aria-current="page">寿司カード <small>{CATALOG_CARDS.length}種</small></span>
+          {showRelics
+            ? <button type="button" onClick={() => setShowRelics(false)}>寿司カード <small>{CATALOG_CARDS.length}種</small></button>
+            : <span aria-current="page">寿司カード <small>{CATALOG_CARDS.length}種</small></span>}
           <button ref={sideMenuButton} type="button" onClick={() => setShowSideMenus(true)}>サイドメニュー <small>{SIDE_MENU_CATALOG.length}種</small><span aria-hidden="true">↗</span></button>
+          {showRelics
+            ? <span aria-current="page">器（寿司はしご） <small>{RELIC_CATALOG.length}種</small></span>
+            : <button type="button" onClick={() => setShowRelics(true)}>器（寿司はしご） <small>{RELIC_CATALOG.length}種</small></button>}
         </nav>
+        {showRelics ? <RelicCatalogSection filters={relicFilters} /> : <>
         <p className="catalog-intro">お気に入りの一皿を、立体でじっくり。<br />「3Dで見る」から寿司を回して眺めながら、デッキづくりの参考に。生成専用の寿司は、カードの効果でのみ登場します。</p>
         <section className="catalog-filters" aria-label="カードを探す">
           <label className="catalog-search">
@@ -317,6 +347,7 @@ export function CardCatalogScreen({ onBack }: { onBack: () => void }) {
             <button type="button" onClick={resetFilters}>すべてのカードを見る</button>
           </div>
         )}
+        </>}
       </div>
       {selectedCard && (
         <ModelDialog

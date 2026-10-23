@@ -2,7 +2,7 @@ import type { Card } from '../../types'
 import type { SideMenuId } from '../../data/sideMenus'
 import type { CpuBattleMode, CpuDeckId } from '../../data/cpuDecks'
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { createMatch, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
+import { createMatch, type MatchOptions, getCpuActions, getCpuDefenseAction, getCpuReactionAction, transitionMatch } from '../../game/matchEngine'
 import type { MatchAction, MatchEvent, MatchMode, MatchState, PlayerId } from '../../game/types'
 import { COMBO_META } from './battleEngine'
 import type { FloatNum, Inspect, ViewPhase } from './types'
@@ -10,16 +10,25 @@ import { toBattleView } from './battleView'
 import { useComboAnnouncements } from './useComboAnnouncements'
 
 // ゲーム計算はmatchEngineへ委譲し、このフックは画面の待ち時間・演出だけを管理する。
-export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, onSummon }: {
+export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, allowDiscard, shieldEnabled, drawBonus, maxBelly, onSummon }: {
   deck: Card[]; p2Deck?: Card[]; mode: MatchMode
   cpuBattleMode?: CpuBattleMode
   sideMenu?: SideMenuId | null; p2SideMenu?: SideMenuId | null
   cpuDeckId?: CpuDeckId
   initialBelly?: Partial<Record<PlayerId, number>>
   refillOnEmpty?: boolean
+  runMods?: MatchOptions['runMods']
+  openingHand?: Partial<Record<PlayerId, number>>
+  startAP?: Partial<Record<PlayerId, number>>
+  extraGari?: Partial<Record<PlayerId, number>>
+  handLimit?: Partial<Record<PlayerId, number>>
+  allowDiscard?: boolean
+  shieldEnabled?: boolean
+  drawBonus?: Partial<Record<PlayerId, number>>
+  maxBelly?: Partial<Record<PlayerId, number>>
   onSummon?: () => void
 }) {
-  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty }
+  const matchOptions = { deck, p2Deck, mode, cpuBattleMode, sideMenu, p2SideMenu, cpuDeckId, initialBelly, refillOnEmpty, runMods, openingHand, startAP, extraGari, handLimit, allowDiscard, shieldEnabled, drawBonus, maxBelly }
   const matchRef = useRef<MatchState | null>(null)
   const matchNumber = useRef(0)
   if (matchRef.current === null) matchRef.current = createMatch({ ...matchOptions, matchId: 'local-0' })
@@ -89,7 +98,8 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
         const combo = COMBO_META[event.comboId]
         announceCombo({
           name: combo.name, desc: combo.desc,
-          playerLabel: mode === 'two_player' ? `PLAYER ${event.playerId}` : event.playerId === 1 ? 'YOU' : 'CPU',
+          playerLabel: event.comboId.startsWith('taisho_') ? matchRef.current?.players[event.playerId].mods?.boss?.name ?? 'ボス'
+            : mode === 'two_player' ? `PLAYER ${event.playerId}` : event.playerId === 1 ? 'YOU' : 'CPU',
         })
       }
     }
@@ -196,6 +206,18 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
     if (dispatch({ type: 'use_side_menu', playerId: view.current.viewer })) syncPhase()
   }
 
+  /** 寿司はしご：机の寿司を下げる（fieldId）か、手札の寿司を残す（instanceId）。 */
+  const discard = (target: { fieldId: string } | { cardInstanceId: string }) => {
+    if (view.current.busy || view.current.phase !== 'player') return
+    const action: MatchAction = 'fieldId' in target
+      ? { type: 'discard_field', playerId: view.current.viewer, fieldId: target.fieldId }
+      : { type: 'discard_hand', playerId: view.current.viewer, cardInstanceId: target.cardInstanceId }
+    if (dispatch(action)) {
+      setInspect(null)
+      syncPhase()
+    }
+  }
+
   const respondDefense = (useGari: boolean, useDefense = false, targetFieldId?: string) => {
     const pending = matchRef.current!.pendingAttack
     if (view.current.busy || view.current.phase !== 'defending' || pending?.defenderId !== view.current.viewer) return
@@ -245,5 +267,5 @@ export function useBattleGame({ deck, p2Deck, mode, cpuBattleMode = 'random', si
   const s = toBattleView(match, view.current.viewer, view.current.phase, flash, view.current.passToPlayerId)
   const reorderStep = match.reorderPlayerId === null || match.reorderPlayerId === view.current.viewer ? 'p' : 'c'
   return { s, showLog, setShowLog, comboAnim, floats, inspect, setInspect, reorderStep,
-    playCard, useSideMenu, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart }
+    playCard, useSideMenu, discard, endTurn, respondDefense, respondReaction, handlePassReady, handleReorderComplete, restart }
 }

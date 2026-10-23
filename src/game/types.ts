@@ -1,11 +1,12 @@
 import type { Card } from '../types'
 import type { SideMenuId } from '../data/sideMenus'
 import type { CpuDeckId } from '../data/cpuDecks'
+import type { PlayerMods } from './runMods'
 
 export type PlayerId = 1 | 2
 export type MatchMode = 'cpu' | 'two_player'
 export type RandomSource = () => number
-export type CardInstance = Card & { instanceId: string }
+export type CardInstance = Card & { instanceId: string; /** 本鮪の柵箱でこのターンだけ下げたAP */ sakuDiscount?: number }
 export type FieldCard = Card & { fid: string; turnsLeft: number; kaisenPaired?: boolean; turnAttackBonus?: number; defenseState?: 'reserved' | 'ready'; attackHalved?: boolean; attackReductionRate?: number }
 
 export type SideMenuState = {
@@ -42,6 +43,22 @@ export type MatchPlayer = {
   sushiPlayedThisTurn: number
   tempuraTriggeredThisTurn: boolean
   skippedDigestionThisTurn: number
+  /** 寿司はしごの器・得意技。通常対戦・オンラインでは持たない。 */
+  mods?: PlayerMods
+  /** 鉄板の器：この試合で残っている追加生成の回数。 */
+  teppanLeft?: number
+  /** 大将の「締めのお茶」を使ったか。 */
+  teaUsed?: boolean
+  /** 研ぎ桶の器：ターン終了後に戻る切れ味。 */
+  kiretaRefund?: number
+  /** 満腹ライン。省略時は100（寿司はしごの敵だけ小さくする）。 */
+  maxBelly?: number
+  /** 基本APの上乗せ（寿司はしごで自分だけ初期APを増やす）。省略時は0。 */
+  apOffset?: number
+  /** 手札上限。省略時は7（寿司はしごの自分だけ増やす）。 */
+  handLimit?: number
+  /** 寿司はしごのシールド。相手の攻撃をお腹の代わりに受け、自分の手番の始めに消える。 */
+  shield?: number
 }
 
 export type PendingAttack = {
@@ -80,12 +97,19 @@ export type MatchState = {
   log: string[]
   /** 寿司はしごの「おかわり」用。山札切れで戻す元のデッキ。通常対戦・オンラインでは持たない。 */
   refill?: Record<PlayerId, Card[]>
+  /** 寿司はしご用：自分の手番に0APで、机の寿司を下げる・手札の寿司を残す（捨てる）ことができる。 */
+  allowDiscard?: boolean
+  /** 寿司はしご用：回復系・効果なし・インフラ系の寿司を出すとシールドを張る（プレイヤーだけ）。 */
+  shieldEnabled?: boolean
 }
 
 export type MatchAction =
   | { type: 'play_card'; playerId: PlayerId; cardInstanceId: string; sacrificeCount?: number; targetFieldId?: string; reserveDefense?: boolean }
   | { type: 'end_turn'; playerId: PlayerId }
   | { type: 'use_side_menu'; playerId: PlayerId }
+  // 寿司はしご専用（allowDiscard の試合だけ）。机の寿司を下げる・手札の寿司を残す。
+  | { type: 'discard_field'; playerId: PlayerId; fieldId: string }
+  | { type: 'discard_hand'; playerId: PlayerId; cardInstanceId: string }
   | { type: 'respond_reaction'; playerId: PlayerId; useDefense: boolean; targetFieldId?: string }
   | { type: 'respond_defense'; playerId: PlayerId; useGari: boolean; useDefense?: boolean; targetFieldId?: string }
   // 購入の検証が済んだカードを渡す内部操作。通信要求を直接渡さない。

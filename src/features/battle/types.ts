@@ -20,6 +20,15 @@ export type BattleView = {
   pHand: CardInstance[]; pField: FieldCard[]; pDeckCount: number
   pDeckSummary: DeckSummaryEntry[]
   pBelly: number; pAP: number; pMaxAP: number; pGari: number
+  /** 満腹ライン。省略時は100（寿司はしごの敵だけ変わる）。 */
+  pMaxBelly?: number; cMaxBelly?: number
+  /** 手札上限。省略時は7（寿司はしごの自分だけ増える）。 */
+  pHandLimit?: number; cHandLimit?: number
+  /** 寿司はしご：机の寿司を下げる・手札の寿司を残す操作ができるか。 */
+  allowDiscard?: boolean
+  /** 寿司はしご：シールドあり。手札に盾の量を出す。 */
+  shieldEnabled?: boolean
+  pShield?: number; cShield?: number
   pSummonedIds: string[]
   pSummonedArch: Record<string, number>
   pDrawBonus: number

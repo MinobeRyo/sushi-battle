@@ -71,7 +71,7 @@
   .battle-side-action-reason { white-space: nowrap; }
 
   .battle-hand-section { display: flex; flex-direction: column; min-height: 0; margin-top: 0; padding: 4px 0 0; border-radius: 10px; }
-  .battle-hand { display: grid; flex: 1 1 0; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; min-height: 0; padding: 4px 8px 7px; overflow: visible; scroll-snap-type: none; }
+  .battle-hand { display: grid; flex: 1 1 0; grid-template-columns: repeat(var(--hand-cols, 7), minmax(0, 1fr)); gap: 7px; min-height: 0; padding: 4px 8px 7px; overflow: visible; scroll-snap-type: none; }
   .battle-hand-card-cost { padding: 0 5px; font-size: 13px; line-height: 20px; }
   .battle-hand-card-type { font-size: 11px; }
 

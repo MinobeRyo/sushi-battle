@@ -5,7 +5,7 @@ import { motion, useIsPresent } from 'framer-motion'
 import { SushiArt } from '../../components/SushiArt'
 import type { Card } from '../../types'
 import { cardAttackBuff } from './battleStatusModel'
-import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError, hasNamahamuAura } from './battleEngine'
+import { countNamahamu, FIELD_MAX, getSacrificeBonus, getSacrificeLimit, getDestroyTargets, getDestroyTargetError, getDefenseCost, getDefenseReserveError, isReservableDefense, namahamuAuraBonus } from './battleEngine'
 import { NAMAHAM_CARD } from '../../data/cards'
 import { CardEffectText } from './CardEffectText'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
@@ -13,7 +13,7 @@ import { ScreenPager } from '../../components/ScreenPager'
 import './BattleCards.css'
 
 export function CardDetailSheet({
-  inspect, attackBuff, kiretaStack, kiretaSpent = false, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onClose,
+  inspect, attackBuff, kiretaStack, kiretaSpent = false, fieldCards, combosFired, enemyFieldCards = [], enemyCardAttack, sacrificeAttackBonus = 0, onPlay, onDiscard, onClose,
 }: {
   inspect: Inspect
   attackBuff: Record<string, number>
@@ -25,6 +25,8 @@ export function CardDetailSheet({
   enemyCardAttack?: (card: FieldCard) => number
   sacrificeAttackBonus?: number
   onPlay: (sacrificeCount?: number, targetFieldId?: string, reserveDefense?: boolean) => void
+  /** 寿司はしご：机の寿司を下げる・手札の寿司を残す。渡されたときだけボタンを出す。 */
+  onDiscard?: () => void
   onClose: () => void
 }) {
   const isPresent = useIsPresent()
@@ -45,7 +47,7 @@ export function CardDetailSheet({
   const currentEffectPage = Math.min(effectPage, effectPages - 1)
   const isPersist = card.type === 'persist'
   const buff = cardAttackBuff(card, attackBuff)
-  const auraBonus = card.base === '生ハム' && hasNamahamuAura(fieldCards) ? 2 : 0
+  const auraBonus = card.base === '生ハム' ? namahamuAuraBonus(fieldCards) : 0
   const isField = remainingTurns !== undefined
   const showActualAttack = isField && inspect.actualAttack !== undefined
   const isGenerated = card.id === NAMAHAM_CARD.id
@@ -70,7 +72,7 @@ export function CardDetailSheet({
   const currentTargetPage = Math.min(targetPage, targetPages - 1)
   const detailTabs = [
     { id: 'basic', label: '基本' }, { id: 'effect', label: '効果' },
-    ...(!isField && defenseCost > 0 ? [{ id: 'defense', label: '防御予約' }] : []),
+    ...(!isField && isReservableDefense(card) ? [{ id: 'defense', label: '防御予約' }] : []),
     ...(needsSacrificeChoice ? [{ id: 'sacrifice', label: '生ハム' }] : []),
     ...(!isField && card.effect === 'destroy_enemy_persist_1' ? [{ id: 'target', label: '対象を選ぶ' }] : []),
   ]
@@ -150,7 +152,7 @@ export function CardDetailSheet({
               <span className="battle-detail-type">{isPersist ? '持続型' : '即時型'}</span>
               {card.archetype.map(archetype => <span key={archetype}>{ARCH_LABEL[archetype]}</span>)}
             </div>
-            <h2>{card.name}</h2>
+            <h2>{card.name}{card.aburi && <span className="aburi-badge">炙り</span>}</h2>
           </div>
           <button ref={closeButtonRef} type="button" className="battle-detail-dismiss" onClick={onClose} aria-label="カード詳細を閉じる">✕</button>
         </div>
@@ -184,7 +186,7 @@ export function CardDetailSheet({
           {compact && effectPages > 1 && <ScreenPager page={currentEffectPage} pages={effectPages} onPageChange={setEffectPage} />}
         </div>}
 
-        {!isField && defenseCost > 0 && (!compact || activeTab === 'defense') && (
+        {!isField && isReservableDefense(card) && (!compact || activeTab === 'defense') && (
           <section className="battle-defense-reserve" aria-labelledby={defenseHeadingId}>
             <h3 id={defenseHeadingId}>召喚後の防御を予約</h3>
             <p>攻撃後に防御待機。次の相手の攻撃時、ガリと一緒に選べます。</p>
@@ -256,6 +258,7 @@ export function CardDetailSheet({
 
         <div className="battle-detail-actions">
           <button type="button" className="battle-detail-cancel" onClick={onClose}>{isField ? '閉じる' : 'キャンセル'}</button>
+          {onDiscard && <button type="button" className="battle-detail-cancel battle-detail-discard" onClick={onDiscard}>{isField ? '机から下げる（0AP）' : '手札から残す（0AP）'}</button>}
           {!isField && (
             <motion.button
               type="button"
@@ -284,7 +287,7 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, c
   return (
     <motion.button
       type="button"
-      className="battle-field-card"
+      className="battle-field-card" data-aburi={card.aburi ? 'true' : undefined}
       data-selected={isSelected}
       aria-pressed={compact ? isSelected : undefined}
       data-card-type={card.type}
@@ -313,9 +316,9 @@ export function FieldSushi({ card, isEnemy = false, actualAttack, combosFired, c
 }
 
 export function HandSushi({
-  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, compact = false, blockedLabel, actualAttack, onSelect,
+  card, canPlay, attackBuff, kiretaStack, namahamuBoost = false, isSelected, combosFired, compact = false, blockedLabel, actualAttack, shield = 0, onSelect,
 }: {
-  card: Card; canPlay: boolean; attackBuff: Record<string, number>
+  card: Card; canPlay: boolean; attackBuff: Record<string, number>; shield?: number
   kiretaStack: number; namahamuBoost?: boolean; isSelected: boolean; combosFired?: readonly string[]; compact?: boolean; blockedLabel?: string; actualAttack?: number; onSelect: () => void
 }) {
   const isPersist = card.type === 'persist'
@@ -326,7 +329,7 @@ export function HandSushi({
   return (
     <motion.button
       type="button"
-      className="battle-hand-card"
+      className="battle-hand-card" data-aburi={card.aburi ? 'true' : undefined}
       data-card-type={card.type}
       data-card-variant={card.variant}
       data-playable={canPlay}
@@ -346,6 +349,7 @@ export function HandSushi({
       <div className="battle-hand-card-stats">
         <span className="battle-hand-card-attack">{compact ? '攻' : '攻撃 '}{actualAttack ?? card.attack + buff + kBonus + auraBonus}</span>
         {isPersist && <span className="battle-hand-card-turns">×{card.fullness}T</span>}
+        {shield > 0 && <span className="battle-hand-card-turns battle-hand-card-shield" title={`出すとシールド+${shield}`}>🛡{shield}</span>}
       </div>
       <p className="battle-hand-card-effect"><CardEffectText card={card} variant="short" combosFired={combosFired} /></p>
     </motion.button>

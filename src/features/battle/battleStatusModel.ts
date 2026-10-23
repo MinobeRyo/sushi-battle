@@ -9,7 +9,7 @@ import type { Card } from '../../types'
 export type BattleSideStatus = Pick<MatchPlayer,
   'summonedIds' | 'combosFired' | 'field' | 'attackBuff' | 'drawBonus'
   | 'kiretaStack' | 'kiretaSpent' | 'nikuMatsuri' | 'digestStopTurns'
-  | 'apNextBonus' | 'thisTurnArch'> & { sideMenu?: SideMenuState | null; sacrificedThisTurn?: number }
+  | 'apNextBonus' | 'thisTurnArch'> & { sideMenu?: SideMenuState | null; sacrificedThisTurn?: number; handLimit?: number }
 
 export type BattleStatusItem = {
   id: string
@@ -84,7 +84,7 @@ export function battleStatusDetails(st: BattleSideStatus): {
   }
   if (st.drawBonus > 0) effects.push({
     id: 'draw', name: '追加ドロー', value: `+${st.drawBonus}`,
-    description: `自分のターン終了時に、通常の1枚に加えて${st.drawBonus}枚引きます。試合中持続し、机の巻物が減っても失われません。手札上限は${HAND_LIMIT}枚で、山札が必要です。`,
+    description: `自分のターン終了時に、通常の1枚に加えて${st.drawBonus}枚引きます。試合中持続し、机の巻物が減っても失われません。手札上限は${st.handLimit ?? HAND_LIMIT}枚で、山札が必要です。`,
   })
   if (tekkaAp > 0) effects.push({
     id: 'tekka-ap', name: '鉄火巻きのAP', value: `開始時 +${tekkaAp}`,

@@ -10,7 +10,8 @@ export function CardEffectText({ card, variant = 'full', combosFired = [], tone 
   tone?: 'light' | 'dark'
   lineRange?: { start: number; count: number }
 }) {
-  const conditional = card.effect ? COMBO_EFFECT_PARTS[card.effect]?.[variant] : undefined
+  // 炙り版は専用の説明（getCardEffectDescription）を出し、三種盛りの条件表示は使わない。
+  const conditional = card.effect && !card.aburi ? COMBO_EFFECT_PARTS[card.effect]?.[variant] : undefined
   const plain = getCardEffectDescription(card, variant)
   const active = hasAkamiMori(combosFired)
   const renderPart = (part: EffectTextPart, index: number) => part.combo

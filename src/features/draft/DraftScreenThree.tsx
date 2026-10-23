@@ -35,12 +35,15 @@ type Props = {
   online?: {
     draft: PublicDraft; now: () => number; disabled: boolean; send: (command: DraftCommand) => Promise<boolean>
   }
-  onComplete: (deck: Card[], sideMenu?: SideMenuId | null) => void
+  /** budgetLeft は買い終えた時点の残金（寿司はしごの買い物マスで持ち金に戻す）。 */
+  onComplete: (deck: Card[], sideMenu?: SideMenuId | null, budgetLeft?: number) => void
   playerNum?: 1 | 2
   initialBudget?: number   // 追加注文タイムでは¥1500
   seconds?: number         // 追加注文タイムでは短め
   mode?: 'initial' | 'reorder'
   sideMenuEnabled?: boolean
+  /** 購入を終えるボタンの文言（寿司はしごの買い物マスでは「お会計して店を出る」など）。 */
+  finishLabel?: string
 }
 
 type SelectedItem = { offerId: string; markSold: () => boolean } & (
@@ -55,6 +58,7 @@ export function DraftScreenThree({
   seconds = DRAFT_SECONDS,
   mode = 'initial',
   sideMenuEnabled = mode === 'initial',
+  finishLabel,
 }: Props) {
   const compact = useCompactLandscape()
   const [localDraft, setDraft] = useState(() => createDraftState(initialBudget, seconds, Date.now(), sideMenuEnabled))
@@ -95,7 +99,7 @@ export function DraftScreenThree({
     draftRef.current = result.state
     setDraft(result.state)
     if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current)
-    onCompleteRef.current(result.state.deck.slice(), result.state.sideMenu)
+    onCompleteRef.current(result.state.deck.slice(), result.state.sideMenu, result.state.budget)
   }, [])
 
   useEffect(() => {
@@ -297,7 +301,7 @@ export function DraftScreenThree({
       overlayActive={Boolean(selected || showShinkansenModal || showHelp || handOpen)}
       onOrder={() => { playGameSound('tabletTouch'); setOrderCategory('all'); setShowShinkansenModal(true) }}
       onDeck={() => setHandOpen(true)} onHelp={() => setShowHelp(true)} onFinish={completeDraft}
-      finishLabel={online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : compact ? 'バトルへ進む' : 'お会計・バトルへ'}
+      finishLabel={finishLabel ?? (online ? '購入を完了' : mode === 'reorder' ? 'バトル再開' : compact ? 'バトルへ進む' : 'お会計・バトルへ')}
       hint={shinkansenPlate ? '特急レーンからお受け取りください。' : online ? 'オンラインでは詳細表示中も皿と時間が進みます。' : deck.length === 0 ? emptyDeckHint : '寿司もお皿もタップで選べます。'}
       notice={purchaseNotice}
       overlays={<>

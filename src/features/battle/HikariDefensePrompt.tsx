@@ -1,18 +1,20 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FieldCard, PendingReaction } from '../../game/types'
-import { calcFieldDmg, calcKaisenReattackDamage, getDefenseCost, getDefenseReductionRate, getDefenseTargets, hasNamahamuAura, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
+import { boostBelly } from './battleEngine'
+import { calcFieldDmg, calcKaisenReattackDamage, getDefenseReductionRate, getDefenseTargets, isTargetedDefense, namahamuAuraBonus, MAKI_COMP_5, makimonoCount, MAX_BELLY, withDefenseReduction } from './battleEngine'
 import { useCompactLandscape } from '../../hooks/useCompactLandscape'
 import { ScreenPager } from '../../components/ScreenPager'
 import './DefensePrompt.css'
 import './HikariDefensePrompt.css'
 
-export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackBuff, kiretaStack, enemyBelly, ready, onRespond, onLeave }: {
+export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackBuff, kiretaStack, enemyBelly, enemyMaxBelly = MAX_BELLY, ready, onRespond, onLeave }: {
   reaction: PendingReaction
   defenseCard?: FieldCard
   enemyField: FieldCard[]
   attackBuff: Record<string, number>
   kiretaStack: number
   enemyBelly: number
+  enemyMaxBelly?: number
   ready: boolean
   onRespond: (useDefense: boolean, targetFieldId?: string) => void
   onLeave?: () => void
@@ -24,19 +26,21 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
   const [selection, setSelection] = useState<{ defenseCardId: string; targetFieldId: string } | null>(null)
   const compact = useCompactLandscape()
   const [targetPage, setTargetPage] = useState(0)
-  const targets = getDefenseTargets(enemyField, attackBuff, kiretaStack, enemyBelly)
+  // 判定用のお腹（満腹ラインが100でなければ100あたりに直す）。表示は生のお腹。
+  const boostedBelly = boostBelly(enemyBelly, enemyMaxBelly)
+  const targets = getDefenseTargets(enemyField, attackBuff, kiretaStack, boostedBelly)
   const targetPages = Math.max(1, Math.ceil(targets.length / 4))
   const currentTargetPage = Math.min(targetPage, targetPages - 1)
-  const needsTarget = !!defenseCard && getDefenseCost(defenseCard) === 2
+  const needsTarget = !!defenseCard && isTargetedDefense(defenseCard)
   const targetFieldId = selection?.defenseCardId === reaction.defenseCardId
     && targets.some(card => card.fid === selection.targetFieldId) ? selection.targetFieldId : undefined
   const canUse = ready && defenseCard?.fid === reaction.defenseCardId && defenseCard.defenseState === 'ready' && targets.length > 0 && (!needsTarget || !!targetFieldId)
   const gunkanBoost = makimonoCount(enemyField) >= MAKI_COMP_5
-  const namahamuBoost = hasNamahamuAura(enemyField)
-  const attack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, enemyBelly, { gunkanBoost, namahamuBoost })
+  const namahamuBoost = namahamuAuraBonus(enemyField)
+  const attack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, boostedBelly, { gunkanBoost, namahamuBoost, fieldCount: enemyField.length })
   const reduced = (card: FieldCard) => defenseCard ? withDefenseReduction(card, defenseCard) : card
   const received = (field: FieldCard[]) => reaction.fixedDamage
-    + (reaction.kaisenReattack ? calcKaisenReattackDamage(field, attackBuff, kiretaStack, enemyBelly) : 0)
+    + (reaction.kaisenReattack ? calcKaisenReattackDamage(field, attackBuff, kiretaStack, boostedBelly) : 0)
   const receivedAfter = (target: FieldCard) => received(enemyField.map(card => card.fid === target.fid ? reduced(card) : card))
   const unchangedDamage = received(enemyField)
   const choices = needsTarget ? targets.filter(card => card.fid === targetFieldId) : targets
@@ -44,7 +48,7 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
   const minDamage = Math.min(...possibleDamage), maxDamage = Math.max(...possibleDamage)
   const range = (low: number, high: number) => low === high ? String(low) : `${low}〜${high}`
   const damageLabel = needsTarget && !targetFieldId ? '対象を選択' : `+${range(minDamage, maxDamage)}`
-  const bellyAfter = range(Math.min(MAX_BELLY, enemyBelly + minDamage), Math.min(MAX_BELLY, enemyBelly + maxDamage))
+  const bellyAfter = range(Math.min(enemyMaxBelly, enemyBelly + minDamage), Math.min(enemyMaxBelly, enemyBelly + maxDamage))
   const reductionRate = defenseCard ? getDefenseReductionRate(defenseCard) * 100 : 50
 
   useEffect(() => {
@@ -84,14 +88,14 @@ export function HikariDefensePrompt({ reaction, defenseCard, enemyField, attackB
           onClick={canUse ? () => onRespond(true, needsTarget ? targetFieldId : undefined) : undefined}>
           <span className="battle-defense__choice-title">防御を使う</span>
           <strong className="battle-defense__damage">{damageLabel}<small>今回受ける量</small></strong>
-          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{needsTarget && !targetFieldId ? '—' : bellyAfter}</b>{!(needsTarget && !targetFieldId) && enemyBelly + maxDamage >= MAX_BELLY && <em> 満腹で負け</em>}</span>
+          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{needsTarget && !targetFieldId ? '—' : bellyAfter}</b>{!(needsTarget && !targetFieldId) && enemyBelly + maxDamage >= enemyMaxBelly && <em> 満腹で負け</em>}</span>
           <small>防御1枚退場 · AP・切れ味消費なし</small>
         </button>
         <button type="button" className="battle-defense__keep" disabled={!ready}
           onClick={ready ? () => onRespond(false) : undefined}>
           <span className="battle-defense__choice-title">見送る</span>
           <strong className="battle-defense__damage">+{unchangedDamage}<small>今回受ける量</small></strong>
-          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{Math.min(MAX_BELLY, enemyBelly + unchangedDamage)}</b>{enemyBelly + unchangedDamage >= MAX_BELLY && <em> 満腹で負け</em>}</span>
+          <span className="battle-defense__belly">お腹 {enemyBelly} → <b>{Math.min(enemyMaxBelly, enemyBelly + unchangedDamage)}</b>{enemyBelly + unchangedDamage >= enemyMaxBelly && <em> 満腹で負け</em>}</span>
           <small>温存 · 相手ターン終了で退場</small>
         </button>
       </div>

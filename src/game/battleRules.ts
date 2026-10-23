@@ -1,11 +1,41 @@
 import type { Card } from '../types'
 import { CARDS, NAMAHAM_CARD } from '../data/cards'
 import type { FieldCard, PlayerId, RandomSource } from './types'
+import { applyCardMods, hasRelic, type PlayerMods } from './runMods'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 export const MAX_BELLY = 100
+/** その人の満腹ライン。寿司はしごの敵だけ100以外になる。 */
+export const bellyCap = (player: { maxBelly?: number }) => player.maxBelly ?? MAX_BELLY
+/**
+ * 「相手のお腹○以上」の判定に使うお腹。満腹ラインが100でない相手（寿司はしごの敵）は100あたりに直す。
+ * 例：満腹ライン50の相手のお腹25は50として扱い、焼肉寿司（50以上）が効く。
+ */
+export const boostBelly = (belly: number, cap: number = MAX_BELLY) => cap === MAX_BELLY ? belly : Math.floor(belly * MAX_BELLY / cap)
+/** 相手プレイヤーから、上の判定用のお腹を作る。 */
+export const boostBellyOf = (player: { belly: number; maxBelly?: number }) => boostBelly(player.belly, bellyCap(player))
 
 export const HAND_LIMIT = 7
+
+/**
+ * 寿司はしごのシールド。回復系・効果なし・インフラ系（ドロー・AP）の寿司は、出したときに盾を張る。
+ * 盾は相手の攻撃をお腹の代わりに受け、次の自分の手番の始めに消える。炙り版は1.5倍（切り上げ）。
+ */
+export const SHIELD_BY_CARD: Readonly<Record<string, number>> = {
+  // 回復系
+  tamago: 4, ume_shiso_maki: 4, bintoro: 3, chutoro: 5,
+  // 効果なし
+  kanpyo_maki: 4, natto_maki: 4, negitoro_maki: 5, salmon_maki: 4, avocado_maki: 3,
+  corn_gunkan: 3, seafood_gunkan: 4, uni_gunkan: 6, negitoro_gunkan: 5, takowasa: 3,
+  // インフラ系（ドロー・AP）
+  inari: 3, onion_salmon: 3, ebi_avocado: 3, mentaiko: 4, tuna_salad_gunkan: 3, kappa_maki: 3,
+}
+export const shieldOf = (card: { id: string; aburi?: boolean }) => {
+  const base = SHIELD_BY_CARD[card.id] ?? 0
+  return card.aburi ? Math.ceil(base * 1.5) : base
+}
+/** その人の手札上限。寿司はしごの自分だけ増やす。 */
+export const handLimitOf = (player: { handLimit?: number }) => player.handLimit ?? HAND_LIMIT
 
 export const FIELD_MAX = 8
 
@@ -61,7 +91,7 @@ export const CARD_BY_ID: Record<string, Card> =
 
 // digest_boost_2 を持つカードが机にいる枚数ぶん、毎ターンの消化量が増える
 export function digestBonus(field: FieldCard[]) {
-  return field.filter(c => c.effect === 'digest_boost_2').length * DIGEST_BOOST
+  return field.reduce((sum, c) => sum + (c.effect === 'digest_boost_2' ? (c.aburi ? DIGEST_BOOST * 2 : DIGEST_BOOST) : 0), 0)
 }
 
 // 実処理と効果説明が共有する、対戦中に保持される成立条件。
@@ -70,19 +100,28 @@ export function hasAkamiMori(combosFired: readonly string[]) {
 }
 
 // 中トロ・大トロは、今回の召喚で初めて三種が揃う場合も追加効果を使える。
-export function hasAkamiMoriOnSummon(cardId: string, summonedIds: readonly string[], combosFired: readonly string[]) {
-  return hasAkamiMori(combosFired)
-    || ['maguro', 'chutoro', 'otoro'].every(id => id === cardId || summonedIds.includes(id))
+export function hasAkamiMoriOnSummon(cardId: string, summonedIds: readonly string[], combosFired: readonly string[], required = 3) {
+  return hasAkamiMori(combosFired) || akamiMoriKinds([...summonedIds, cardId]) >= required
+}
+
+/** 赤身三種盛りに数える種類数（わさび壺の器では2種で成立する）。 */
+export function akamiMoriKinds(summonedIds: readonly string[]) {
+  return ['maguro', 'chutoro', 'otoro'].filter(id => summonedIds.includes(id)).length
 }
 
 // 赤身成立後、開始時に机に残っている鉄火巻き1枚ごとの一時AP。
 export function tekkaApBonus(field: FieldCard[], combosFired: string[]) {
-  if (!hasAkamiMori(combosFired)) return 0
-  return field.filter(card => card.effect === 'akami_ap_each_turn_1' && card.turnsLeft > 0).length
+  // 炙り鉄火巻きは三種盛りの前から効く。
+  const mori = hasAkamiMori(combosFired)
+  return field.filter(card => card.effect === 'akami_ap_each_turn_1' && card.turnsLeft > 0 && (mori || card.aburi)).length
 }
 
+/** 巻物コンプの判定枚数。炙り太巻きは2枚分、海苔缶の器があれば机に巻物がいる限り＋2。 */
 export function makimonoCount(field: FieldCard[]) {
-  return field.filter(c => c.archetype.includes('makimono')).length
+  const maki = field.filter(c => c.archetype.includes('makimono'))
+  if (maki.length === 0) return 0
+  return maki.reduce((sum, c) => sum + (c.aburi && c.id === 'futomaki' ? 2 : 1), 0)
+    + (maki.some(c => c.boost?.norikan) ? 2 : 0)
 }
 
 // ── Combos ────────────────────────────────────────────────────────────────────
@@ -94,6 +133,15 @@ export type ComboMeta = { id: string; name: string; emoji: string; desc: string 
 //   状態継続 : 条件を満たしている間ずっと有効（巻物コンプ②＝軍艦1.5倍）
 // 実際の判定は applySummon と calcFieldDmg にある。ここは演出用のメタ情報だけ。
 export const COMBO_META: Record<string, ComboMeta> = {
+  // 寿司はしごのボスの技。コンボではないが、同じカットインで見せる。
+  taisho_osusume: {
+    id: 'taisho_osusume', name: '本日のおすすめ！！！', emoji: '🔥',
+    desc: '炙った高級寿司を0APで手札に加えた！',
+  },
+  taisho_ocha: {
+    id: 'taisho_ocha', name: '締めのお茶…', emoji: '🍵',
+    desc: 'お茶をすすってお腹−30！',
+  },
   akami_mori: {
     id: 'akami_mori', name: '赤身三種盛り！！！', emoji: '🐟',
     desc: '追加効果解放！',
@@ -139,11 +187,32 @@ export function shuffled<T>(arr: T[], random: RandomSource = Math.random): T[] {
 type DmgOpts = {
   nikuMatsuri?: boolean   // 既存表示APIとの互換用。肉祭りに通常攻撃の倍率はない。
   gunkanBoost?: boolean   // 巻物コンプ②: 未指定なら渡された field から判定する
-  namahamuBoost?: boolean // 個別カードの表示・海鮮部分計算にも場全体の合鴨効果を渡す
+  /** 個別カードの表示・海鮮部分計算にも場全体の合鴨効果を渡す。数値なら生ハムへの加算量。 */
+  namahamuBoost?: boolean | number
+  /** 皿積み（寿司はしごの常連さん）で数える机の枚数。個別カードの表示では机全体の枚数を渡す。 */
+  fieldCount?: number
 }
 
 export function hasNamahamuAura(field: FieldCard[]) {
   return field.some(card => card.effect === 'aura_namahamu_2' && card.turnsLeft > 0)
+}
+
+/** 合鴨の生ハム強化量。炙り合鴨は+4。重ならず大きい方を使う。 */
+export function namahamuAuraBonus(field: FieldCard[]) {
+  return field.reduce((max, card) => card.effect === 'aura_namahamu_2' && card.turnsLeft > 0
+    ? Math.max(max, card.aburi ? 4 : 2) : max, 0)
+}
+
+/** 天ぷら系・焼肉寿司の「相手のお腹○以上」強化。炙り版は条件が下がり、強化が増える。 */
+export function bellyBoostBonus(card: Card, enemyBelly: number) {
+  switch (card.effect) {
+    case 'belly_boost_60': return card.aburi ? (enemyBelly >= 50 ? 10 : 0) : enemyBelly >= 60 ? 5 : 0
+    case 'belly_boost_70': return enemyBelly >= 70 ? 8 : 0
+    case 'belly_boost_65': return card.aburi ? (enemyBelly >= 55 ? 12 : 0) : enemyBelly >= 65 ? 6 : 0
+    case 'belly_boost_persist_50':
+    case 'belly_boost_persist_50_namahamu_deck_1': return card.aburi ? (enemyBelly >= 40 ? 4 : 0) : enemyBelly >= 50 ? 2 : 0
+    default: return 0
+  }
 }
 
 export function calcFieldDmg(
@@ -154,26 +223,23 @@ export function calcFieldDmg(
   opts: DmgOpts = {},
 ) {
   const gunkanBoost = opts.gunkanBoost ?? (makimonoCount(field) >= MAKI_COMP_5)
-  const namahamuBoost = opts.namahamuBoost ?? hasNamahamuAura(field)
+  const auraBonus = typeof opts.namahamuBoost === 'number' ? opts.namahamuBoost
+    : opts.namahamuBoost === false ? 0
+    : opts.namahamuBoost === true ? Math.max(2, namahamuAuraBonus(field)) : namahamuAuraBonus(field)
   return field.reduce((sum, c) => {
     if (c.defenseState === 'ready') return sum
     // 複数base（太巻きの subBases）を持つカードは、最も高い base バフを1つだけ受ける
     const baseBuff = [c.base, ...(c.subBases ?? [])]
       .reduce((mx, b) => Math.max(mx, buff[b] ?? 0), 0)
     const base = c.attack + baseBuff + (c.turnAttackBonus ?? 0)
-      + (namahamuBoost && c.id === NAMAHAM_CARD.id ? 2 : 0)
-    const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack : 0
-    let effectBonus = 0
-    switch (c.effect) {
-      case 'belly_boost_60': if (enemyBelly >= 60) effectBonus = 5; break
-      case 'belly_boost_70': if (enemyBelly >= 70) effectBonus = 8; break
-      case 'belly_boost_65': if (enemyBelly >= 65) effectBonus = 6; break
-      case 'belly_boost_persist_50':
-      case 'belly_boost_persist_50_namahamu_deck_1': if (enemyBelly >= 50) effectBonus = 2; break
-    }
+      + (c.id === NAMAHAM_CARD.id ? auraBonus : 0)
+      // 皿積み（常連さん）：1枚ごとに+1。机の合計では枚数分（最大+8）だけ増える。
+      + (c.boost?.sarazumi ? 1 : 0)
+    const kiretaBonus = c.archetype.includes('hikari') ? kiretaStack * (c.boost?.kiretaMult ?? 1) : 0
+    const effectBonus = bellyBoostBonus(c, enemyBelly)
     let total = base + kiretaBonus + effectBonus
     if (gunkanBoost && c.archetype.includes('gunkan')) {
-      total = Math.floor(total * GUNKAN_BOOST)
+      total = Math.floor(total * (c.boost?.gunkanMult ?? GUNKAN_BOOST))
     }
     if (c.attackHalved) total = Math.floor(total / 2)
     if (c.attackReductionRate) total -= Math.floor(total * c.attackReductionRate)
@@ -183,22 +249,35 @@ export function calcFieldDmg(
 
 /** 海の幸の50%部分。えび追加や連鎖などの固定ダメージは含めない。 */
 export function calcKaisenReattackDamage(field: FieldCard[], buff: Record<string, number>, kireta = 0, enemyBelly = 0) {
-  return Math.floor(calcFieldDmg(field.filter(card => card.archetype.includes('kaisen')), buff, kireta, enemyBelly, {
-    gunkanBoost: makimonoCount(field) >= MAKI_COMP_5,
-    namahamuBoost: hasNamahamuAura(field),
-  }) * KAISEN_REATTACK)
+  const opts = { gunkanBoost: makimonoCount(field) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(field), fieldCount: field.length }
+  const kaisen = field.filter(card => card.archetype.includes('kaisen'))
+  // 大漁旗の器を持つ寿司は100%で再攻撃する。
+  const full = calcFieldDmg(kaisen.filter(card => card.boost?.fullReattack), buff, kireta, enemyBelly, opts)
+  return full + Math.floor(calcFieldDmg(kaisen.filter(card => !card.boost?.fullReattack), buff, kireta, enemyBelly, opts) * KAISEN_REATTACK)
 }
 
 export function getDefenseCost(card: Card): number {
-  return card.effect === 'reserve_random_half_1' ? 1 : card.effect === 'reserve_target_half_2' ? 2 : 0
+  // 炙りサバは無料、炙りイワシ生姜は切れ味1で予約できる。
+  if (card.effect === 'reserve_random_half_1') return card.aburi ? 0 : 1
+  if (card.effect === 'reserve_target_half_2') return card.aburi ? 1 : 2
+  return 0
+}
+
+/** 召喚時に予約を選べる防御カード（チーズは自動で予約）。 */
+export function isReservableDefense(card: Card): boolean {
+  return card.effect === 'reserve_random_half_1' || card.effect === 'reserve_target_half_2'
 }
 
 export function isDefenseCard(card: Card): boolean {
-  return getDefenseCost(card) > 0 || card.effect === 'reserve_random_quarter_0'
+  return isReservableDefense(card) || card.effect === 'reserve_random_quarter_0'
+}
+
+export function isTargetedDefense(card: Card): boolean {
+  return card.effect === 'reserve_target_half_2'
 }
 
 export function getDefenseReductionRate(card: Card): number {
-  return card.effect === 'reserve_random_quarter_0' ? 0.25 : isDefenseCard(card) ? 0.5 : 0
+  return card.effect === 'reserve_random_quarter_0' ? (card.aburi ? 0.5 : 0.25) : isDefenseCard(card) ? 0.5 : 0
 }
 
 export function withDefenseReduction(card: FieldCard, defenseCard: Card): FieldCard {
@@ -218,7 +297,7 @@ export function getDefenseReserveError(card: Card, field: FieldCard[], kireta: n
   if (reserveDefense !== undefined && typeof reserveDefense !== 'boolean') return 'invalid_reserve_defense'
   if (!reserveDefense) return undefined
   const cost = getDefenseCost(card)
-  if (!isDefenseCard(card)) return 'defense_not_supported'
+  if (!isReservableDefense(card)) return 'defense_not_supported'
   if (field.some(item => item.defenseState === 'reserved' || item.defenseState === 'ready')) return 'defense_already_reserved'
   if ((kiretaSpent ? 0 : kireta) < cost) return 'insufficient_kireta'
   return undefined
@@ -239,12 +318,14 @@ export function getDestroyTargetError(card: Card, enemyField: FieldCard[], targe
 }
 
 export function getSacrificeLimit(card: Card): number {
-  if (card.effect === 'sacrifice_namahamu_1_4' || card.effect === 'sacrifice_namahamu_1_7') return 1
-  if (card.effect === 'sacrifice_namahamu_2_4' || card.effect === 'sacrifice_namahamu_2_8') return 2
+  if (card.effect === 'sacrifice_namahamu_1_4' || card.effect === 'sacrifice_namahamu_1_7') return card.aburi ? 2 : 1
+  if (card.effect === 'sacrifice_namahamu_2_4' || card.effect === 'sacrifice_namahamu_2_8') return card.aburi ? 3 : 2
   return 0
 }
 
 export function getSacrificeBonus(card: Card): number {
+  if (card.aburi && card.effect === 'sacrifice_namahamu_1_4') return 5
+  if (card.aburi && card.effect === 'sacrifice_namahamu_2_4') return 6
   if (card.effect === 'sacrifice_namahamu_1_4' || card.effect === 'sacrifice_namahamu_2_4') return 4
   // 保存済みの旧個体は、effect IDに対応する従来の数値を維持する。
   return card.effect === 'sacrifice_namahamu_1_7' ? 7 : card.effect === 'sacrifice_namahamu_2_8' ? 8 : 0
@@ -283,6 +364,8 @@ type SummonInput = {
   kiretaSpent: boolean
   enemyBelly: number
   turnAttackBonus?: number
+  /** 寿司はしごの器・得意技。通常対戦では渡さない。 */
+  mods?: PlayerMods
 }
 
 type SummonResult = Omit<SummonInput, 'card' | 'enemyBelly' | 'fieldId' | 'sacrificeCount' | 'sacrificeAttackBonus'> & {
@@ -308,6 +391,9 @@ export function applySummon(input: SummonInput): SummonResult {
   const defenseError = getDefenseReserveError(card, input.field, input.kireta, input.kiretaSpent, input.reserveDefense)
   if (defenseError) throw new RangeError(defenseError)
   const logs: string[] = []
+  const mods = input.mods
+  const aburi = Boolean(card.aburi)
+  const moriRequired = hasRelic(mods, 'wasabi_tsubo') ? 2 : 3
   let extraDmg = 0
   let kaisenReattackDamage = 0
   let belly = input.belly
@@ -326,12 +412,12 @@ export function applySummon(input: SummonInput): SummonResult {
   // ── カード効果（即時適用）
   switch (card.effect) {
     case 'draw_1':
-      drawNow = 1
-      logs.push('🎴 カードを1枚引いた！')
+      drawNow = aburi && card.id === 'ebi_avocado' ? 2 : 1
+      logs.push(`🎴 カードを${drawNow}枚引いた！`)
       break
     case 'draw_2':
-      drawNow = 2
-      logs.push('🎴 カードを2枚引いた！')
+      drawNow = aburi ? 3 : 2
+      logs.push(`🎴 カードを${drawNow}枚引いた！`)
       break
     case 'draw_persist_ika_tako_1':
       // 山札と乱数を持つ試合エンジンで実際の個体を移動する。
@@ -339,15 +425,16 @@ export function applySummon(input: SummonInput): SummonResult {
       break
     // 中トロ・大トロは、この召喚で三種を揃えた場合も発動する。
     case 'akami_digest_10':
-      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired)) {
-        const recovered = Math.min(10, belly)
-        belly = Math.max(0, belly - 10)
+      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired, moriRequired)) {
+        const heal = aburi ? 15 : 10
+        const recovered = Math.min(heal, belly)
+        belly = Math.max(0, belly - heal)
         logs.push(`赤身三種盛り：中トロで満腹度を${recovered}回復`)
       }
       break
     case 'akami_generate_bintoro_deck_1':
-      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired)) {
-        generateBintoroDeck = 1
+      if (hasAkamiMoriOnSummon(card.id, input.summonedIds, input.combosFired, moriRequired)) {
+        generateBintoroDeck = aburi ? 2 : 1
         const recovered = Math.min(5, belly)
         belly = Math.max(0, belly - 5)
         apNext = 1
@@ -357,17 +444,19 @@ export function applySummon(input: SummonInput): SummonResult {
     case 'akami_draw_2_digest_3':
       if (hasAkamiMori(input.combosFired)) {
         drawNow = 2
-        const digested = Math.min(3, belly)
-        belly = Math.max(0, belly - 3)
+        const digest = aburi ? 8 : 3
+        const digested = Math.min(digest, belly)
+        belly = Math.max(0, belly - digest)
         logs.push(`赤身三種盛り：ビントロで最大2枚ドロー / お腹−${digested}`)
       }
       break
     case 'refund_ap_1_if_tako':
-      if (input.field.some(item => [item.base, ...(item.subBases ?? [])].includes('たこ'))) apRefund = 1
+      if (input.field.some(item => [item.base, ...(item.subBases ?? [])].includes('たこ'))) apRefund = aburi ? 2 : 1
       break
     case 'ap_next_1':
-      apNext = 1
-      logs.push('⚡ 次のターン AP +1！')
+      apNext = aburi && card.id === 'inari' ? 2 : 1
+      if (aburi && card.id === 'onion_salmon') drawNow = 1
+      logs.push(`⚡ 次のターン AP +${apNext}！${drawNow ? '（1枚ドロー）' : ''}`)
       break
     case 'reserve_random_half_1':
     case 'reserve_target_half_2':
@@ -376,18 +465,21 @@ export function applySummon(input: SummonInput): SummonResult {
         logs.push(`切れ味${getDefenseCost(card)}を消費して防御を予約`)
       }
       break
-    case 'kireta_stack':
-      kireta += 1
-      logs.push(`✂ 切れ味スタック +1（計${kireta}）`)
+    case 'kireta_stack': {
+      const gain = aburi ? 2 : 1
+      kireta += gain
+      logs.push(`✂ 切れ味スタック +${gain}（計${kireta}）`)
       break
+    }
     case 'kireta_consume_x3': {
       // スタックは即座には0にしない。ターン終了時の攻撃が解決してから消える。
       // そのためコハダ自身も、同じターンに出した他の光り物も切れ味ボーナスを受けられる。
       const use = usableKireta()
+      const mult = aburi ? 5 : KIRETA_MULT
       if (use > 0) {
-        extraDmg += use * KIRETA_MULT
+        extraDmg += use * mult
         kiretaSpent = true
-        logs.push(`✂ 切れ味全消費！ スタック${use} × ${KIRETA_MULT} = +${use * KIRETA_MULT} ダメージ（今ターンの攻撃には乗る）`)
+        logs.push(`✂ 切れ味全消費！ スタック${use} × ${mult} = +${use * mult} ダメージ（今ターンの攻撃には乗る）`)
       } else if (kiretaSpent) {
         logs.push('✂ このターンはすでに切れ味を使い切っている')
       } else {
@@ -400,8 +492,8 @@ export function applySummon(input: SummonInput): SummonResult {
       const use = usableKireta()
       if (use >= 2) {
         kireta -= 2
-        drawNow += 2
-        logs.push(`✂ 切れ味2を消費して2枚ドロー！（残り${kireta}）`)
+        drawNow += aburi ? 3 : 2
+        logs.push(`✂ 切れ味2を消費して${aburi ? 3 : 2}枚ドロー！（残り${kireta}）`)
       } else if (kiretaSpent) {
         logs.push('✂ このターンはすでに切れ味を使い切っている')
       } else {
@@ -409,18 +501,24 @@ export function applySummon(input: SummonInput): SummonResult {
       }
       break
     }
-    case 'self_digest_5':
-      belly = Math.max(0, belly - 5)
-      logs.push('🫧 消化促進！ お腹 -5')
+    case 'self_digest_5': {
+      const digest = aburi ? 10 : 5
+      belly = Math.max(0, belly - digest)
+      logs.push(`🫧 消化促進！ お腹 -${digest}`)
       break
+    }
     case 'digest_boost_2':
       logs.push(`🥒 机にいる間、毎ターンの消化 +${DIGEST_BOOST}`)
       break
     case 'digest_stop_1t':
     case 'digest_stop_akami_1_or_2':
-      stopOppDigestTurns = card.effect === 'digest_stop_akami_1_or_2' && hasAkamiMori(input.combosFired) ? 2 : 1
+      stopOppDigestTurns = (card.effect === 'digest_stop_akami_1_or_2' && hasAkamiMori(input.combosFired) ? 2 : 1) + (aburi ? 1 : 0)
       logs.push(`相手の消化を${stopOppDigestTurns}回停止（残り回数は長い方を維持）`)
       break
+  }
+  if (aburi && card.id === 'salmon_maki') {
+    drawNow += 1
+    logs.push('🎴 炙りサーモン巻き：1枚引いた！')
   }
 
   // 机の配列順は生成された順。古い生ハムから取り除いて召喚枠を空ける。
@@ -449,16 +547,17 @@ export function applySummon(input: SummonInput): SummonResult {
     existingField = remainingField.map(item => {
       if (!item.archetype.includes('makimono') || item.archetype.includes('gunkan')) return item
       count += 1
-      return { ...item, turnAttackBonus: (item.turnAttackBonus ?? 0) + 2 }
+      return { ...item, turnAttackBonus: (item.turnAttackBonus ?? 0) + (aburi ? 4 : 2) }
     })
-    if (count > 0) logs.push(`カニ軍艦：机の軍艦以外の巻物${count}枚の攻撃をこのターン+2`)
+    if (count > 0) logs.push(`カニ軍艦：机の軍艦以外の巻物${count}枚の攻撃をこのターン+${aburi ? 4 : 2}`)
   }
   let field = [...existingField, summonedCard]
-  const generateCount = card.effect === 'generate_namahamu_1' ? 1 : card.effect === 'generate_namahamu_2' ? 2 : 0
+  const baseGenerate = card.effect === 'generate_namahamu_1' ? 1 : card.effect === 'generate_namahamu_2' ? 2 : 0
+  const generateCount = baseGenerate && aburi ? baseGenerate + 1 : baseGenerate
   if (generateCount) {
     const actualCount = Math.min(generateCount, Math.max(0, FIELD_MAX - field.length))
     for (let index = 0; index < actualCount; index++) {
-      field.push(toField(NAMAHAM_CARD, `${summonedCard.fid}:namahamu:${index + 1}`))
+      field.push(toField(applyCardMods(NAMAHAM_CARD, mods), `${summonedCard.fid}:namahamu:${index + 1}`))
     }
     if (actualCount) logs.push(`生ハム${actualCount}体を机に生成（基本攻撃1・自分の3ターン）`)
     if (actualCount < generateCount) logs.push(`机の空き枠が足りず、生ハム${generateCount - actualCount}体を生成できませんでした`)
@@ -467,11 +566,11 @@ export function applySummon(input: SummonInput): SummonResult {
   // このカードが名乗る base 一覧（太巻きは subBases も含む）
   const cardBases = [card.base, ...(card.subBases ?? [])]
 
-  // ── 海鮮連鎖
-  if (cardBases.some(b => CHAIN_TRIGGER_BASES.has(b))) {
+  // ── 海鮮連鎖（炙りシーフード軍艦も起こす。炙りいか・たこは+6、たこ壺で+3）
+  if (cardBases.some(b => CHAIN_TRIGGER_BASES.has(b)) || (aburi && card.id === 'seafood_gunkan')) {
     const chainCards = field.filter(c => c.effect === 'chain_on_kaisen_summon')
     if (chainCards.length > 0) {
-      const chainDmg = chainCards.length * CHAIN_BONUS
+      const chainDmg = chainCards.reduce((sum, c) => sum + (c.aburi ? CHAIN_BONUS * 2 : CHAIN_BONUS) + (c.boost?.chainExtra ?? 0), 0)
       extraDmg += chainDmg
       logs.push(`🔗 連鎖攻撃！ ${chainCards.map(c => c.name).join('+')} → +${chainDmg}`)
     }
@@ -500,12 +599,16 @@ export function applySummon(input: SummonInput): SummonResult {
   }
 
   // 赤身三種盛り（累積・1試合1回・永続バフ）
-  if (!hasAkamiMori(combosFired) &&
-      ['maguro', 'chutoro', 'otoro'].every(id => summonedIds.includes(id))) {
+  if (!hasAkamiMori(combosFired) && akamiMoriKinds(summonedIds) >= moriRequired) {
     combosFired.push('akami_mori')
     extraDmg += 10
     attackBuff = { ...attackBuff, 'マグロ': (attackBuff['マグロ'] ?? 0) + 2 }
     announce(COMBO_META.akami_mori)
+  }
+  // 一本釣りの竿：三種盛りの後は、赤身を出すたびに10ダメージ。
+  if (hasRelic(mods, 'ipponzuri') && hasAkamiMori(combosFired) && card.archetype.includes('akami')) {
+    extraDmg += 10
+    logs.push('🎣 一本釣りの竿：赤身で10ダメージ！')
   }
 
   // 巻物コンプ①（机に同時3枚・1試合1回・以降ドロー+1）
@@ -539,7 +642,7 @@ export function applySummon(input: SummonInput): SummonResult {
       const reattack = calcKaisenReattackDamage(field, attackBuff, kireta, enemyBelly)
       kaisenReattackDamage = reattack
       // 元の合計50%・切り捨てを維持し、その後にえび個体ごとの固定値を足す。
-      const ebiBonus = kaisenField.filter(c => c.id === 'ebi').length * EBI_REATTACK_BONUS
+      const ebiBonus = kaisenField.reduce((sum, c) => sum + (c.id === 'ebi' ? (c.aburi ? 12 : EBI_REATTACK_BONUS) : 0), 0)
       extraDmg += reattack + ebiBonus
       announce(COMBO_META.umi_zanmai,
         `場の海鮮${kaisenField.length}枚が再攻撃${ebiBonus ? `（えび固定追加 +${ebiBonus}）` : ''}`)
@@ -547,7 +650,8 @@ export function applySummon(input: SummonInput): SummonResult {
   }
 
   // 肉祭りは生贄の累計で判定し、通常攻撃への倍率は付けない。
-  if (!nikuMatsuri && sacrificeCount > 0 && sacrificedThisTurn >= NIKU_REQUIRED) {
+  // 焼き網の器があれば、生贄が2体以上たまっている限り何度でも成立する。
+  if ((!nikuMatsuri || hasRelic(mods, 'yakiami')) && sacrificeCount > 0 && sacrificedThisTurn >= NIKU_REQUIRED) {
     nikuMatsuri = true
     extraDmg += NIKU_DAMAGE
     generateNamahamuDeck = 1
