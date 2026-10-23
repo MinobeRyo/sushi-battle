@@ -126,7 +126,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
     <main className="run-screen">
       <div className="run-body run-start">
         <header className="run-title">
-          <p>ローグライク</p>
+          <p>ローグライク・調整中</p>
           <h1>寿司はしご</h1>
           <span>寿司屋をはしごして、最後に大将へ挑む</span>
         </header>
