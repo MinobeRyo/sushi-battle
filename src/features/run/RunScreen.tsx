@@ -17,7 +17,7 @@ import { RUN_EVENT_BY_ID } from '../../data/runEvents'
 import { eventChoiceBlocked, leaveEvent, resolveEvent } from '../../game/runEvents'
 import { RunToolbar } from './RunToolbar'
 import { RunLane } from './RunLane'
-import { PlateStack, TakenPlate } from './PlateBits'
+import { PlateStack, ResultStack, TakenPlate } from './PlateBits'
 import { PLATE_KIND } from './plateKinds'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
@@ -97,6 +97,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
       <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
       {(run.status === 'rest' || run.status === 'event' || (run.status === 'shop' && !laneOpen)) && node && <TakenPlate kind={node.kind} />}
       {run.status === 'reward' && <PlateStack count={run.battlesWon} />}
+      {(run.status === 'won' || run.status === 'lost') && <ResultStack won={run.status === 'won'} count={run.battlesWon} />}
       <div className="run-body">
         {run.status === 'start_relic' && <RunStartRelic run={run} onChoose={id => setRun(chooseStartRelic(run, id))} />}
         {run.status === 'map' && run.lane && <RunLane run={run} onTake={id => setRun(enterNode(run, id))} onRotate={() => setRun(rotateLane(run))} />}
@@ -172,7 +173,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
         <section className="run-panel run-rules" aria-label="遊び方">
           <h2>遊び方</h2>
           <ul>
-            <li>地図で次の店を選び、下から上へ進みます。最後は大将との勝負です。</li>
+            <li>回転レーンの窓の3枚から1枚取る（または「レーンを回す」）をくり返し、8皿取ると最後に大皿（ボス）が回ってきます。</li>
             <li>お腹は試合をまたいで持ち越します。勝つと半分に消化し、100になったら終わりです。</li>
             <li>勝つたびに寿司を3枚から1枚もらえます。山札が尽きたら「おかわり」で使った寿司が戻ります。</li>
             <li>はしごの試合は最初の手札{RUN_OPENING_HAND}枚、毎ターン{RUN_DRAW_PER_TURN}枚引き、手札は{RUN_HAND_LIMIT}枚まで、APは{RUN_START_AP}から始まります。</li>
@@ -545,11 +546,18 @@ function RunShop({ run, onOpenLane, onRemove, onLeave }: {
 
 function RunResult({ run, onRetry, onExit }: { run: RunState; onRetry: () => void; onExit: () => void }) {
   const won = run.status === 'won'
+  const lines: [string, string][] = [
+    ['進んだ先', `${actOf(run)}幕「${actInfo(actOf(run)).name}」`],
+    ['勝った客', `${run.battlesWon}勝`],
+    ['最後のデッキ', `${run.deck.length}枚`],
+    ['集めた器', `${run.relics.length}個`],
+  ]
   return (
-    <section className="run-panel run-result" aria-labelledby="run-result-heading">
-      <p className="run-rest-mark" aria-hidden="true">{won ? '祝' : '満'}</p>
+    <section className="run-panel run-result" data-won={won ? 'true' : undefined} aria-labelledby="run-result-heading">
       <h2 id="run-result-heading">{won ? '大将に勝利！ はしご完走' : 'お腹いっぱい… はしご終了'}</h2>
-      <p className="run-note">{actOf(run)}幕「{actInfo(actOf(run)).name}」まで進み、{run.battlesWon}勝。最後のデッキは{run.deck.length}枚、器は{run.relics.length}個でした。</p>
+      <dl className="run-result-lines">
+        {lines.map(([label, value]) => <div key={label}><dt>{label}</dt><span aria-hidden="true" /><dd>{value}</dd></div>)}
+      </dl>
       <div className="run-result-actions">
         <button type="button" className="run-primary" onClick={onRetry}>もう一度はしごする</button>
         <button type="button" className="run-secondary" onClick={onExit}>お品書きへ</button>
