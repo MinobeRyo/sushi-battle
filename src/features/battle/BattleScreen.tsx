@@ -400,7 +400,7 @@ export function BattleBoard({ game, mode, onBack, canRestart = true, restartLabe
       )}
 
       {s.pendingAttack && isDefender && (s.phase === 'defending' || s.phase === 'syncing') && (
-        <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} maxBelly={s.pMaxBelly} gari={s.pGari}
+        <DefensePrompt attack={s.pendingAttack} belly={s.pBelly} maxBelly={s.pMaxBelly} shield={s.pShield} gari={s.pGari}
           key={`${s.turn}:${s.pendingAttack.attackerId}:${s.pendingAttack.source}:${s.pendingAttack.amount}:${s.pendingAttack.defenseCardId ?? ''}`}
           defenseCard={s.pField.find(card => card.fid === s.pendingAttack!.defenseCardId)}
           enemyField={s.cField} attackBuff={s.cAttackBuff} kiretaStack={s.cKiretaStack}
