@@ -71,11 +71,26 @@ export type RunState = {
   removals?: number
   /** 次の試合だけ増えるガリ（ハプニング「ガリ食べ放題」）。 */
   nextBattleGari?: number
+  /** 回転レーン（地図）。皿の並び・窓の位置・取った皿の数。 */
+  lane?: RunLane
+  /** 対戦の皿を取る前のレーン。対戦の途中で中断したら、ここへ戻す。 */
+  laneBefore?: RunLane
 }
+
+/**
+ * 回転レーンの地図。order はベルトの席（皿の id、取った席は null）、front は窓の先頭の席。
+ * 窓の LANE_WINDOW 枚だけ蓋が開き、1枚取るか、回して1席進める。LANE_PICKS 枚取ると大皿（ボス）が窓に来る。
+ */
+export type RunLane = { order: (string | null)[]; front: number; picks: number; seen?: string[] }
 
 export const RUN_VERSION = 3
 export const RUN_ROWS = 8 // 通常マスの段数。この上に大将が1マス
 export const RUN_COLS = 3
+/** 回転レーン：席の数・窓の枚数・大皿までに取る皿の数・回したときに増えるお腹。 */
+export const LANE_SIZE = 16
+export const LANE_WINDOW = 3
+export const LANE_PICKS = RUN_ROWS
+export const LANE_ROTATE_BELLY = 3
 export const REST_DIGEST = 30
 export const SKIP_REWARD_GOLD = 50
 export const MAX_RUN_BELLY = 100
@@ -221,29 +236,35 @@ function rollKind(random: RandomSource): Exclude<RunNodeKind, 'boss'> {
 export const nodeId = (row: number, col: number) => `r${row}c${col}`
 export const BOSS_NODE_ID = 'boss'
 
-/** 3本の道を下から上へ。隣の道へ斜めに移る線は、交差しないよう段の間ごとに1方向だけ引く。 */
+/** 回転レーンの皿：15枚（最初の1枚は対戦）＋大皿（ボス）。敵は皿を取ったときに、それまでに取った枚数で決める。 */
 export function generateRunMap(random: RandomSource = Math.random, act = 1): RunNode[] {
   const nodes: RunNode[] = []
-  for (let row = 0; row < RUN_ROWS; row++) {
-    for (let col = 0; col < RUN_COLS; col++) {
-      const kind = row === 0 ? 'battle' : rollKind(random)
-      nodes.push({ id: nodeId(row, col), row, col, kind, next: [],
-        ...(kind === 'battle' || kind === 'regular' ? { enemy: enemyForRow(row, kind, random, act) } : {}) })
-    }
+  for (let i = 0; i < LANE_SIZE - 1; i++) {
+    nodes.push({ id: `p${i}`, row: 0, col: i, kind: i === 0 ? 'battle' : rollKind(random), next: [] })
   }
-  const at = (row: number, col: number) => nodes[row * RUN_COLS + col]
-  for (let row = 0; row < RUN_ROWS - 1; row++) {
-    for (let col = 0; col < RUN_COLS; col++) at(row, col).next.push(nodeId(row + 1, col))
-    for (let col = 0; col < RUN_COLS - 1; col++) {
-      const roll = random()
-      if (roll < 0.3) at(row, col).next.push(nodeId(row + 1, col + 1))
-      else if (roll < 0.6) at(row, col + 1).next.push(nodeId(row + 1, col))
-    }
-  }
-  for (let col = 0; col < RUN_COLS; col++) at(RUN_ROWS - 1, col).next.push(BOSS_NODE_ID)
-  nodes.push({ id: BOSS_NODE_ID, row: RUN_ROWS, col: 1, kind: 'boss', next: [], enemy: enemyForRow(RUN_ROWS, 'boss', random, act) })
+  nodes.push({ id: BOSS_NODE_ID, row: RUN_ROWS, col: LANE_SIZE - 1, kind: 'boss', next: [], enemy: enemyForRow(RUN_ROWS, 'boss', random, act) })
   return nodes
 }
+
+/** 皿の並びどおりにベルトへ載せる。大皿は最後の席、窓は先頭の3席。 */
+export function laneFor(nodes: readonly RunNode[]): RunLane {
+  return withSeen({ order: nodes.filter(node => !node.debug).map(node => node.id), front: 0, picks: 0 })
+}
+
+/** 窓に来た皿を「見た」ことにする。見送った皿は、蓋を開けたまま（薄く）流れていく。 */
+function withSeen(lane: RunLane): RunLane {
+  const seen = new Set(lane.seen ?? [])
+  for (const id of laneWindow(lane)) if (id) seen.add(id)
+  return { ...lane, seen: [...seen] }
+}
+
+/** 窓に来ている席の皿（空席は null）。 */
+export function laneWindow(lane: RunLane): (string | null)[] {
+  return Array.from({ length: LANE_WINDOW }, (_, i) => lane.order[(lane.front + i) % lane.order.length] ?? null)
+}
+
+/** 大皿までに、あと何枚取るか。 */
+export const lanePicksLeft = (lane: RunLane) => Math.max(0, LANE_PICKS - lane.picks)
 
 /** ランを始める。最初に器を3つから1つ選ぶ画面（start_relic）から始まる。 */
 export function createRun(archetype: RunArchetype, random: RandomSource = Math.random): RunState {
@@ -251,6 +272,7 @@ export function createRun(archetype: RunArchetype, random: RandomSource = Math.r
   return {
     version: RUN_VERSION, archetype, act: 1,
     deck: [...STARTER_DECK, ...ARCHETYPE_STARTERS[archetype]],
+    lane: laneFor(nodes),
     relics: [], sideMenu: null,
     startRelicIds: rollRelicChoices({ archetype, relics: [] }, random),
     belly: 0, gold: 0, nodes,
@@ -270,18 +292,41 @@ export function findNode(run: RunState, id: string | null): RunNode | undefined 
   return id === null ? undefined : run.nodes.find(node => node.id === id)
 }
 
-/** 次に入れるマス。開始時は1段目のどれでも選べる。 */
+/** 次に取れる皿：窓の皿（大皿は除く）。大皿まで取り切ったら大皿だけ。 */
 export function reachableNodeIds(run: RunState): string[] {
-  if (run.status !== 'map') return []
-  const current = findNode(run, run.currentNodeId)
-  if (!current) return run.nodes.filter(node => node.row === 0).map(node => node.id)
-  return current.next
+  if (run.status !== 'map' || !run.lane) return []
+  if (run.lane.picks >= LANE_PICKS) return [BOSS_NODE_ID]
+  return laneWindow(run.lane).filter((id): id is string => id !== null && id !== BOSS_NODE_ID)
+}
+
+/** レーンを回す：皿を1席ぶん進める。待つほどお腹がふくれる（満腹で倒れはしない）。 */
+export function rotateLane(run: RunState): RunState {
+  if (run.status !== 'map' || !run.lane) throw new Error('レーンを回せる状態ではありません')
+  if (run.lane.picks >= LANE_PICKS) throw new Error('大皿が来ています')
+  return { ...run, belly: Math.min(MAX_RUN_BELLY - 1, run.belly + LANE_ROTATE_BELLY),
+    lane: withSeen({ ...run.lane, front: (run.lane.front + 1) % run.lane.order.length }) }
 }
 
 export function enterNode(run: RunState, id: string, random: RandomSource = Math.random): RunState {
-  if (!reachableNodeIds(run).includes(id)) throw new Error(`入れないマスです: ${id}`)
-  const node = findNode(run, id)!
-  const moved = { ...run, currentNodeId: id, visited: [...run.visited, id] }
+  if (!reachableNodeIds(run).includes(id)) throw new Error(`取れない皿です: ${id}`)
+  const lane = run.lane!
+  const found = findNode(run, id)!
+  // 取った皿の敵は、それまでに取った枚数（＝何軒目か）で強さを決める。
+  const row = Math.min(lane.picks, RUN_ROWS - 1)
+  const node: RunNode = found.kind === 'battle' || found.kind === 'regular'
+    ? { ...found, row, enemy: enemyForRow(row, found.kind, random, actOf(run)) }
+    : found.kind === 'boss' ? found : { ...found, row }
+  const nodes = run.nodes.map(item => item.id === id ? node : item)
+  let nextLane = lane
+  if (node.kind !== 'boss') {
+    const order = lane.order.map(item => item === id ? null : item)
+    const picks = lane.picks + 1
+    // 大皿まで取り切ったら、大皿を窓の真ん中へ回してくる。
+    const bossAt = order.indexOf(BOSS_NODE_ID)
+    const front = picks >= LANE_PICKS && bossAt >= 0 ? (bossAt - 1 + order.length) % order.length : (lane.front + 1) % order.length
+    nextLane = withSeen({ ...lane, order, front, picks })
+  }
+  const moved: RunState = { ...run, nodes, lane: nextLane, laneBefore: lane, currentNodeId: id, visited: [...run.visited, id] }
   if (node.kind === 'rest') return { ...moved, status: 'rest' }
   if (node.kind === 'shop') return { ...moved, status: 'shop', shop: { laneDone: false } }
   if (node.kind === 'event') {
@@ -427,7 +472,8 @@ function settleReward(run: RunState, reward: RunReward, random: RandomSource): R
 /** 次の幕へ：新しい地図の入口から。お腹はそのまま（勝ったときに半分になっている）。 */
 export function startNextAct(run: RunState, random: RandomSource = Math.random): RunState {
   const act = Math.min(RUN_ACT_COUNT, actOf(run) + 1)
-  return { ...run, act, nodes: generateRunMap(random, act), currentNodeId: null, visited: [], status: 'map', reward: null }
+  const nodes = generateRunMap(random, act)
+  return { ...run, act, nodes, lane: laneFor(nodes), laneBefore: undefined, currentNodeId: null, visited: [], status: 'map', reward: null }
 }
 
 export function chooseReward(run: RunState, cardId: string | null, random: RandomSource = Math.random): RunState {
@@ -495,6 +541,8 @@ export function parseRun(raw: string | null): RunState | null {
     const data = parsed as RunState
     if (data?.version !== RUN_VERSION || !Array.isArray(data.deck) || !Array.isArray(data.nodes)) return null
     if (!RUN_ARCHETYPES.some(item => item.id === data.archetype)) return null
+    // 回転レーンになる前（分岐の地図）の保存は読まない。
+    if (!data.lane || !Array.isArray(data.lane.order)) return null
     if (!['start_relic', 'map', 'battle', 'reward', 'rest', 'event', 'shop', 'won', 'lost'].includes(data.status)) return null
     if (data.status === 'event' && !(data.event && RUN_EVENT_IDS.includes(data.event.id))) return null
     // 3幕になる前の保存は1幕として読み、ボスに幕のボスの印を付ける。
@@ -516,5 +564,6 @@ export function parseRun(raw: string | null): RunState | null {
 export function runForSave(run: RunState): RunState {
   if (run.status !== 'battle') return run
   const visited = run.visited.slice(0, -1)
-  return { ...run, status: 'map', visited, currentNodeId: visited.at(-1) ?? null }
+  const { laneBefore, ...rest } = run
+  return { ...rest, status: 'map', visited, currentNodeId: visited.at(-1) ?? null, lane: laneBefore ?? run.lane }
 }

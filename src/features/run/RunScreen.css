@@ -295,3 +295,75 @@
 .run-relic-body { display: grid; gap: 2px; font-size: 13px; }
 .run-relic-body strong { font-size: 15px; }
 .run-relic-body small { color: #6b5a47; font-size: 11px; }
+
+/* 回転レーン（地図）：デザイン案「回転レーンが地図」 */
+.run-lane-screen { display: flex; flex-direction: column; width: 100%; max-width: 440px; margin: 0 auto; border-radius: 14px; overflow: hidden; background: #22170f; color: #fff3da; box-shadow: 0 8px 24px #0004; }
+.run-lane-belt { position: relative; width: 100%; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, rgba(120,60,20,.45), rgba(0,0,0,0) 70%), repeating-linear-gradient(90deg, #321808 0, #321808 34px, #2a1407 35px, #2a1407 36px); container-type: inline-size; }
+.run-lane-ring { position: absolute; left: 7.7%; top: 2.4%; width: 84.6%; height: 95.6%; box-sizing: border-box; border: 7px solid #57534e; border-radius: 999px; background: linear-gradient(to right, #292524 0%, #1c1917 18%, #1c1917 82%, #292524 100%); box-shadow: 0 10px 24px rgba(0,0,0,.55); }
+.run-lane-board { position: absolute; left: 27.7%; top: 17.9%; width: 44.6%; height: 64.5%; box-sizing: border-box; border: 7px solid #57534e; border-radius: 999px; background: repeating-linear-gradient(1deg, transparent 0 6px, #ffffff07 7px 8px, transparent 9px 14px), linear-gradient(#6a452b, #946237 45%, #704729); box-shadow: inset 0 0 18px rgba(0,0,0,.5); }
+.run-lane-window { position: absolute; left: 24.6%; top: 80.5%; width: 50.8%; height: 16.7%; box-sizing: border-box; border: 2px solid #f5d18d; border-radius: 22px; background: rgba(245,209,141,.1); box-shadow: 0 0 18px rgba(245,209,141,.35); }
+.run-lane-window-label { position: absolute; left: 50%; top: 97.2%; translate: -50% -50%; padding: 1px 10px; border: 1px solid #d8b66a; border-radius: 2px; background: #22170f; color: #f5d18d; font-size: 11px; line-height: 1.6; letter-spacing: .1em; white-space: nowrap; }
+.run-lane-plates { margin: 0; padding: 0; list-style: none; }
+.run-lane-plate { position: absolute; aspect-ratio: 1; transition: left .35s ease, top .35s ease; }
+.run-lane-plate-face { position: relative; display: grid; place-items: center; width: 100%; height: 100%; box-sizing: border-box; border: 3px solid; border-radius: 50%; font-family: 'Sushi Brush', serif; font-size: 6cqi; line-height: 1; }
+.run-lane-plate[data-state='missed'] .run-lane-plate-face { opacity: .5; }
+.run-lane-plate-lid { display: block; width: 100%; height: 100%; box-sizing: border-box; border: 2px solid #6b6b6b; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fafafa, #cfcfcf 42%, #8a8a8a 100%); box-shadow: 0 3px 6px rgba(0,0,0,.6); }
+.run-lane-plate[data-state='empty']::before { content: ''; display: block; width: 100%; height: 100%; box-sizing: border-box; border: 2px dashed rgba(238,215,177,.35); border-radius: 50%; }
+.run-lane-plate-boss { border-color: #a87d1f; background: radial-gradient(circle at 35% 30%, #fff3c4, #e8c56b 45%, #a87d1f 100%); box-shadow: 0 4px 9px rgba(0,0,0,.65), 0 0 14px rgba(245,209,141,.4); color: #3b2a0a; font-size: 8cqi; }
+.run-lane-plate-boss[data-ready='true'] { box-shadow: 0 0 0 4px #f5d18d, 0 0 22px rgba(245,209,141,.8); }
+.run-lane-plate[data-picked='true']::after { content: ''; position: absolute; inset: -6px; border: 3px solid #f5d18d; border-radius: 50%; animation: run-lane-ping 1.6s ease-in-out infinite; }
+@keyframes run-lane-ping { 0%, 100% { opacity: .9; transform: scale(1); } 50% { opacity: .35; transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .run-lane-plate { transition: none; } .run-lane-plate[data-picked='true']::after { animation: none; } }
+.run-lane-sign { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 36%; box-sizing: border-box; padding: 10px 8px 9px; border: 1px solid #ae7847; border-radius: 3px; color: #392a1b; text-align: center; background: repeating-linear-gradient(91deg, transparent 0 12px, #97632a10 13px 14px, transparent 15px 21px), linear-gradient(100deg, #e6bd7e, #f4d7a6 33%, #efcd96 68%, #dfb574); box-shadow: 2px 5px 0 #9a663e, 4px 9px 11px #65422624, inset 0 0 0 4px #f8dcaa90; }
+.run-lane-sign p { margin: 0; font-size: 11px; letter-spacing: .2em; color: #6a5038; }
+.run-lane-sign strong { display: block; font-family: 'Sushi Brush', serif; font-size: 7.5cqi; font-weight: 400; line-height: 1.3; color: #382b1f; }
+.run-lane-sign span { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ae7847; font-size: 12px; line-height: 1.5; }
+.run-lane-sign b { font-size: 18px; color: #a73b2c; font-variant-numeric: tabular-nums; }
+.run-lane-hand { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; border-top: 2px solid #5b3b25; }
+.run-lane-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.run-lane-chips button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; box-sizing: border-box; padding: 6px 8px; border: 2px solid #5b3b25; border-radius: 8px; background: #2e1f14; color: #fff3da; text-align: left; cursor: pointer; }
+.run-lane-chips button[aria-pressed='true'] { border-color: #f5d18d; background: linear-gradient(100deg, #e6bd7e, #f4d7a6 50%, #efcd96); color: #392a1b; }
+.run-lane-chips button > span { flex: none; display: grid; place-items: center; width: 30px; height: 30px; box-sizing: border-box; border: 2px solid; border-radius: 50%; font-family: 'Sushi Brush', serif; font-size: 16px; line-height: 1; }
+.run-lane-chips strong { font-size: 13px; line-height: 1.3; }
+.run-lane-chips-empty { grid-column: 1 / -1; font-size: 13px; color: #f0d9b7; text-align: center; }
+.run-lane-note { margin: 0; min-height: 1.5em; font-size: 13px; color: #f0d9b7; text-align: center; }
+.run-lane-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 10px; }
+.run-lane-rotate { min-height: 52px; padding: 6px 10px; border: 1.5px solid #d8b66a; border-radius: 999px; background: transparent; color: #f5d18d; font-weight: 800; font-size: 14px; line-height: 1.3; cursor: pointer; }
+.run-lane-rotate small { display: block; font-size: 12px; color: #f0d9b7; }
+.run-lane-rotate:disabled { opacity: .4; cursor: default; }
+.run-lane-take { min-height: 52px; font-size: 16px; }
+.run-lane-take:disabled { opacity: .5; cursor: default; }
+.run-lane-help { margin: 0; font-size: 12px; line-height: 1.6; text-align: center; color: #f0d9b7; }
+.run-lane-rotate:focus-visible, .run-lane-chips button:focus-visible { outline: 3px solid #f5d18d; outline-offset: 2px; }
+
+/* 窓から取った皿（お茶・ハプニング・買い物・対戦前） */
+.run-taken { position: relative; flex: none; height: 150px; overflow: hidden; background: repeating-linear-gradient(90deg, #321808 0, #321808 34px, #2a1407 35px, #2a1407 36px); border-bottom: 4px solid #2a1a0e; }
+.run-taken-belt { position: absolute; left: 0; right: 0; top: 30px; height: 84px; box-sizing: border-box; border-top: 7px solid #57534e; border-bottom: 7px solid #57534e; background: linear-gradient(to bottom, #292524 0%, #1c1917 30%, #1c1917 70%, #292524 100%); }
+.run-taken-lid { position: absolute; box-sizing: border-box; border: 2px solid #6b6b6b; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fafafa, #cfcfcf 42%, #8a8a8a 100%); }
+.run-taken-lid--side { top: 56px; width: 32px; height: 32px; opacity: .4; }
+.run-taken-lid--open { left: calc(50% + 32px); top: 2px; width: 58px; height: 58px; box-shadow: 0 8px 12px rgba(0,0,0,.55); transform: rotate(18deg); }
+.run-taken-plate { position: absolute; left: 50%; top: 28px; translate: -50% 0; display: grid; place-items: center; width: 88px; height: 88px; box-sizing: border-box; border: 4px solid; border-radius: 50%; font-family: 'Sushi Brush', serif; font-size: 42px; line-height: 1; }
+.run-taken-label { position: absolute; left: 50%; bottom: 6px; translate: -50% 0; padding: 1px 10px; border: 1px solid #ae7847; border-radius: 2px; background: #f4d7a6; color: #392a1b; font-size: 11px; line-height: 1.7; letter-spacing: .08em; white-space: nowrap; }
+
+/* 勝った皿の山（報酬） */
+.run-stack { position: relative; flex: none; height: 116px; display: grid; place-items: center; background: repeating-linear-gradient(1deg, transparent 0 6px, #ffffff07 7px 8px, transparent 9px 14px), linear-gradient(#5a3a22, #3d2616); border-bottom: 4px solid #2a1a0e; }
+.run-stack-pile { position: relative; width: 110px; height: 90px; }
+.run-stack-pile i { position: absolute; left: 0; width: 110px; height: 22px; box-sizing: border-box; border: 1.5px solid #392a1b; border-radius: 50%; box-shadow: 0 4px 0 #0003; }
+.run-stack-label { position: absolute; right: 16px; bottom: 10px; padding: 1px 10px; border: 1px solid #ae7847; border-radius: 2px; background: #f4d7a6; color: #392a1b; font-size: 11px; line-height: 1.7; letter-spacing: .08em; }
+
+/* 報酬の寿司を品書き札に */
+.run-reward .run-reward-card { border: 1px solid #ae7847; border-radius: 3px; color: #392a1b; background: repeating-linear-gradient(91deg, transparent 0 12px, #97632a10 13px 14px, transparent 15px 21px), linear-gradient(100deg, #e6bd7e, #f4d7a6 33%, #efcd96 68%, #dfb574); box-shadow: 2px 4px 0 #9a663e, 3px 7px 9px #65422624, inset 0 0 0 3px #f8dcaa90; }
+.run-reward .run-reward-card h3 { font-family: 'Sushi Brush', serif; font-weight: 400; font-size: 22px; }
+.run-reward .run-reward-stats span { background: #fffaf0; }
+
+/* 開始画面：暖簾と系統の皿 */
+.run-noren { position: relative; width: 100%; max-width: 560px; padding: 18px 12px 14px; color: #f8edce; text-shadow: 0 1px 2px #102e36; }
+.run-noren-panels { position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: 1fr 1fr 1.12fr 1fr 1fr; gap: 5px; filter: drop-shadow(0 10px 7px #3c2c192b); }
+.run-noren-panels i { border-top: 9px solid #132d35; border-radius: 0 0 2px 3px; background: repeating-linear-gradient(0deg, #ffffff04 0 1px, transparent 1px 3px), linear-gradient(95deg, #19373d, #284b50 18%, #1c3c43 66%, #163239); }
+.run-noren-panels i:nth-child(even) { margin-bottom: 3px; }
+.run-noren > :not(.run-noren-panels) { position: relative; z-index: 1; }
+.run-noren p, .run-noren > span:last-child { color: #f8edce; }
+.run-noren h1 { color: #f8edce; }
+.run-archetype { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 10px; }
+.run-archetype > span:last-child { flex-basis: 100%; }
+.run-archetype-plate { flex: none; display: grid; place-items: center; width: 38px; height: 38px; box-sizing: border-box; border: 3px solid; border-radius: 50%; font-family: 'Sushi Brush', serif; font-size: 19px; line-height: 1; }

@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Card } from '../../types'
 import { BattleScreen, type BattleFinish } from '../battle/BattleScreen'
 import { DraftScreenThree } from '../draft/DraftScreenThree'
 import { SushiArt } from '../../components/SushiArt'
 import { CardEffectText } from '../battle/CardEffectText'
 import {
-  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, RUN_ACT_COUNT, actInfo, actOf, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_HAND_LIMIT, RUN_OPENING_HAND, RUN_START_AP, RUN_COLS, RUN_ROWS, SKIP_REWARD_GOLD,
+  ARCHETYPE_STARTERS, BOSS_NODE_ID, MAX_RUN_BELLY, RUN_ACT_COUNT, actInfo, actOf, STARTER_DECK, REST_DIGEST, RUN_ARCHETYPES, RUN_DRAW_PER_TURN, RUN_HAND_LIMIT, RUN_OPENING_HAND, RUN_START_AP,  SKIP_REWARD_GOLD,
   MIN_DECK_SIZE, aburiAtRest, aburiDeckId, canAburiDeckId, canRemoveCard, chooseBonus, chooseStartRelic, chooseReward, createRun, enterNode, findNode, finishBattle,
-  finishShopLane, leaveShop, reachableNodeIds, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
+  finishShopLane, leaveShop, rotateLane, removeCardAtShop, removeCost, runCard, runDeckCards, runMatchMods, takeRest,
   type RunArchetype, type RunBonusChoice, type RunNode, type RunState,
 } from '../../game/run'
 import { REGULAR_SKILL_BY_ID, RELIC_BY_ID, RELIC_GRADE_LABEL, type RelicId } from '../../data/runRelics'
@@ -16,6 +16,9 @@ import { ACT_BOSSES, ENEMY_CHARACTER_BY_ID, bossRules } from '../../data/runEnem
 import { RUN_EVENT_BY_ID } from '../../data/runEvents'
 import { eventChoiceBlocked, leaveEvent, resolveEvent } from '../../game/runEvents'
 import { RunToolbar } from './RunToolbar'
+import { RunLane } from './RunLane'
+import { PlateStack, TakenPlate } from './PlateBits'
+import { PLATE_KIND } from './plateKinds'
 import { clearRun, loadRun, saveRun } from './runStorage'
 import './RunScreen.css'
 
@@ -50,6 +53,7 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
     if (introDone !== battleKey) {
       return <main className="run-screen">
         <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
+        <TakenPlate kind={node.kind} />
         <div className="run-body"><EncounterIntro run={run} node={node} onStart={() => setIntroDone(battleKey)} /></div>
         {deckOpen && <DeckDialog cards={runDeckCards(run)} onClose={() => setDeckOpen(false)} />}
         {debugPanel}
@@ -91,9 +95,11 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   return (
     <main className="run-screen">
       <RunHeader run={run} onOpenDeck={() => setDeckOpen(true)} />
+      {(run.status === 'rest' || run.status === 'event' || (run.status === 'shop' && !laneOpen)) && node && <TakenPlate kind={node.kind} />}
+      {run.status === 'reward' && <PlateStack count={run.battlesWon} />}
       <div className="run-body">
         {run.status === 'start_relic' && <RunStartRelic run={run} onChoose={id => setRun(chooseStartRelic(run, id))} />}
-        {run.status === 'map' && <RunMap run={run} onEnter={id => setRun(enterNode(run, id))} />}
+        {run.status === 'map' && run.lane && <RunLane run={run} onTake={id => setRun(enterNode(run, id))} onRotate={() => setRun(rotateLane(run))} />}
         {run.status === 'reward' && run.reward && <RunReward run={run} onChoose={id => setRun(chooseReward(run, id))}
           onBonus={choice => setRun(chooseBonus(run, choice))} />}
         {run.status === 'event' && <RunEvent run={run} onChoose={choice => setRun(resolveEvent(run, choice))}
@@ -115,6 +121,15 @@ export function RunScreen({ onExit }: { onExit: () => void }) {
   )
 }
 
+/** 開始画面の系統の皿（デザイン案）。 */
+const ARCHETYPE_PLATE: Record<RunArchetype, { ch: string; rim: string; face: string; mark: string }> = {
+  akami: { ...PLATE_KIND.battle, ch: '赤' },
+  makimono: { ...PLATE_KIND.rest, ch: '巻' },
+  hikari: { ...PLATE_KIND.shop, ch: '光' },
+  kaisen: { ...PLATE_KIND.event, ch: '海' },
+  niku: { ...PLATE_KIND.regular, ch: '肉' },
+}
+
 function RunStart({ saved, onStart, onResume, onExit }: {
   saved: RunState | null
   onStart: (archetype: RunArchetype) => void
@@ -125,7 +140,8 @@ function RunStart({ saved, onStart, onResume, onExit }: {
   return (
     <main className="run-screen">
       <div className="run-body run-start">
-        <header className="run-title">
+        <header className="run-title run-noren">
+          <span className="run-noren-panels" aria-hidden="true"><i /><i /><i /><i /><i /></span>
           <p>ローグライク・調整中</p>
           <h1>寿司はしご</h1>
           <span>寿司屋をはしごして、最後に大将へ挑む</span>
@@ -144,6 +160,7 @@ function RunStart({ saved, onStart, onResume, onExit }: {
             {RUN_ARCHETYPES.map(item => (
               <button type="button" key={item.id} role="radio" aria-checked={archetype === item.id}
                 className="run-archetype" onClick={() => setArchetype(item.id)}>
+                <span className="run-archetype-plate" aria-hidden="true" style={{ borderColor: ARCHETYPE_PLATE[item.id].rim, background: ARCHETYPE_PLATE[item.id].face, color: ARCHETYPE_PLATE[item.id].mark }}>{ARCHETYPE_PLATE[item.id].ch}</span>
                 <strong>{item.name}</strong>
                 <span>{item.detail}</span>
               </button>
@@ -242,66 +259,6 @@ function RunHeader({ run, onOpenDeck }: { run: RunState; onOpenDeck: () => void 
   )
 }
 
-const NODE_LABEL: Record<RunNode['kind'], { mark: string; name: string }> = {
-  battle: { mark: '食', name: '大食い客' },
-  regular: { mark: '常', name: '常連さん' },
-  rest: { mark: '茶', name: 'お茶' },
-  event: { mark: '？', name: 'ハプニング' },
-  shop: { mark: '買', name: '買い物' },
-  boss: { mark: '将', name: '幕のボス' },
-}
-
-const MAP_W = 300
-const ROW_H = 68
-const MAP_H = (RUN_ROWS + 1) * ROW_H + 24
-const nodeX = (node: RunNode) => node.kind === 'boss' ? MAP_W / 2 : MAP_W / (RUN_COLS * 2) * (node.col * 2 + 1)
-const nodeY = (node: RunNode) => 12 + ROW_H / 2 + (RUN_ROWS - node.row) * ROW_H
-
-function RunMap({ run, onEnter }: { run: RunState; onEnter: (id: string) => void }) {
-  const reachable = reachableNodeIds(run)
-  const byId = useMemo(() => new Map(run.nodes.map(node => [node.id, node])), [run.nodes])
-  const visited = new Set(run.visited)
-  const pathEdges = new Set(run.visited.slice(1).map((id, index) => `${run.visited[index]}>${id}`))
-  const mapRef = useRef<HTMLDivElement>(null)
-  // 地図は下から上へ進むので、次に入れる店が見える位置まで送る。
-  useEffect(() => {
-    mapRef.current?.querySelector('[data-state="open"]')?.scrollIntoView({ block: 'center' })
-  }, [run.currentNodeId])
-  return (
-    <section className="run-map-section" aria-label="はしごの地図">
-      <p className="run-map-act">{actOf(run)}幕「{actInfo(actOf(run)).name}」<span>全{RUN_ACT_COUNT}幕・最後に{actInfo(actOf(run)).boss.name}</span></p>
-      <p className="run-map-hint" role="status">{run.currentNodeId === null ? '最初の店を選んでください' : '次の店を選んでください'}</p>
-      <div className="run-map" ref={mapRef} style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}>
-        <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
-          {run.nodes.filter(node => !node.debug).flatMap(node => node.next.map(nextId => {
-            const next = byId.get(nextId)!
-            const walked = pathEdges.has(`${node.id}>${nextId}`)
-            return <line key={`${node.id}>${nextId}`} x1={nodeX(node)} y1={nodeY(node)} x2={nodeX(next)} y2={nodeY(next)}
-              className={walked ? 'run-map-edge run-map-edge--walked' : 'run-map-edge'} />
-          }))}
-        </svg>
-        {run.nodes.filter(node => !node.debug).map(node => {
-          const label = NODE_LABEL[node.kind]
-          const canEnter = reachable.includes(node.id)
-          const state = node.id === run.currentNodeId ? 'current' : visited.has(node.id) ? 'visited' : canEnter ? 'open' : 'closed'
-          return (
-            <button type="button" key={node.id}
-              className={`run-node run-node--${node.kind}`} data-state={state}
-              style={{ left: `${nodeX(node) / MAP_W * 100}%`, top: `${nodeY(node) / MAP_H * 100}%` }}
-              disabled={!canEnter} onClick={() => onEnter(node.id)}
-              title={node.enemy?.skill ? `得意技「${REGULAR_SKILL_BY_ID[node.enemy.skill].name}」：${REGULAR_SKILL_BY_ID[node.enemy.skill].text}` : undefined}
-              aria-label={`${node.kind === 'boss' ? '幕のボス ' : `${node.row + 1}軒目 `}${node.enemy?.label ?? label.name}${node.enemy?.skill ? `（得意技：${REGULAR_SKILL_BY_ID[node.enemy.skill].name}）` : ''}${state === 'visited' || state === 'current' ? '（通過済み）' : canEnter ? '（入れる）' : ''}`}>
-              <span aria-hidden="true">{label.mark}</span>
-            </button>
-          )
-        })}
-      </div>
-      <ul className="run-map-legend" aria-label="凡例">
-        {Object.values(NODE_LABEL).map(item => <li key={item.mark}><span aria-hidden="true">{item.mark}</span>{item.name}</li>)}
-      </ul>
-    </section>
-  )
-}
 
 function CardSummary({ card }: { card: Card }) {
   return <>
