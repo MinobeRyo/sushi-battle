@@ -928,4 +928,23 @@ test('シールド：回復・効果なし・インフラ系の寿司で張り�
   assert.equal(transitionMatch(plain, play(plain, 'tamago'), () => 0.5).state.players[1].shield, undefined, '通常のCPU戦では張らない')
 })
 
+test('防御札：寿司はしごでは使うまで机に残り、通常対戦では相手ターンで消える', () => {
+  const roundtrip = allowDiscard => {
+    let state = createMatch({ mode: 'cpu', deck: Array(13).fill(byId('tamago')), cpuDeckId: 'weak', allowDiscard }, () => 0.999)
+    const guard = { ...rules.toField(byId('cheese')), defenseState: 'ready', turnsLeft: 1 }
+    state = { ...state, players: { ...state.players, 1: { ...state.players[1], field: [guard] } } }
+    for (let i = 0; i < 8 && state.phase !== 'over'; i++) {
+      if (state.phase === 'defending') {
+        // 防御札を使わずに受ける（温存）。
+        state = transitionMatch(state, { type: 'respond_defense', playerId: state.pendingAttack.defenderId, useGari: false, useDefense: false }, () => 0.5).state
+        continue
+      }
+      state = transitionMatch(state, { type: 'end_turn', playerId: state.activePlayerId }, () => 0.5).state
+    }
+    return state.players[1].field.some(card => card.defenseState === 'ready')
+  }
+  assert.equal(roundtrip(true), true, '寿司はしご：温存した防御札は残る')
+  assert.equal(roundtrip(false), false, '通常対戦：相手のターン終了で消える')
+})
+
 console.log(`\n${passed}件のテストに合格しました`)

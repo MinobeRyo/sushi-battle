@@ -74,7 +74,7 @@ export function PlayerStatusPanel({
           <h2 id={headingId} className="player-status-panel__heading">{label}</h2>
           <span className="player-status-panel__gari" data-empty={gari === 0}
             aria-label={`${label}のガリ 残り${gari}個`}>ガリ <strong>{gari}</strong>個</span>
-          {shield > 0 && <span className="player-status-panel__gari player-status-panel__shield" aria-label={`${label}のシールド ${shield}`}>🛡 <strong>{shield}</strong></span>}
+          {shield > 0 && <span className="player-status-panel__shield" role="status" aria-label={`${label}のシールド ${shield}。相手の攻撃を${shield}まで防ぎます`}><svg viewBox="0 0 20 22" width="15" height="17" aria-hidden="true"><path d="M10 1 L18 4 V11 Q18 17 10 21 Q2 17 2 11 V4 Z" fill="#dbeafe" stroke="#1e3a8a" strokeWidth="1.6" strokeLinejoin="round" /></svg>シールド <strong>{shield}</strong></span>}
         </div>
         <div className="player-status-panel__belly" data-level={bellyLevel}>
           <div className="player-status-panel__belly-numbers">

@@ -589,6 +589,8 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
   for (const message of teppanLogs) addLog(state, `${label(state, id)}: ${message}`)
   player.field = player.field.map(card => {
     const { turnAttackBonus: _, attackHalved: __, attackReductionRate: ___, ...persistentCard } = card
+    // 寿司はしごでは、待機中の防御札は使うまで机に残る（期限で消えない）。
+    if (card.defenseState === 'ready' && state.allowDiscard) return card
     return card.defenseState === 'reserved'
       ? { ...persistentCard, defenseState: 'ready' as const, turnsLeft: 1 }
       // 網元の網：いか・たこの持続は減らない。
@@ -600,7 +602,7 @@ function completeTurn(state: MatchState, events: MatchEvent[], random: RandomSou
     delete card.sakuDiscount
   }
   // 次に戻る本人の防御は、相手の終了攻撃まで温存していてもここで失効する。
-  state.players[nextId].field = state.players[nextId].field.filter(card => card.defenseState !== 'ready')
+  if (!state.allowDiscard) state.players[nextId].field = state.players[nextId].field.filter(card => card.defenseState !== 'ready')
   drawWithRefill(state, id, 1 + player.drawBonus, random)
   if (player.kiretaSpent) {
     const refund = player.kiretaRefund ?? 0
