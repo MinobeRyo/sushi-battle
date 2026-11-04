@@ -245,3 +245,6 @@
   font-weight: 800;
   vertical-align: middle;
 }
+
+/* 手札：出すと張れるシールドの量 */
+.battle-hand-card-shield { padding: 0 5px; border-radius: 999px; background: #2563eb; color: #fff; font-weight: 800; white-space: nowrap; }

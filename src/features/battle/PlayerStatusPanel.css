@@ -154,3 +154,7 @@
 @media (prefers-reduced-motion: reduce) {
   .player-status-panel__gauge > span { transition: none; }
 }
+
+/* シールド：ガリと見分けやすい青の札。値が入っている間だけ出る。 */
+.player-status-panel__shield { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border: 2px solid #1e3a8a; border-radius: 6px; background: #2563eb; color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap; box-shadow: 0 0 0 2px #bfdbfe; }
+.player-status-panel__shield strong { font-size: 17px; font-variant-numeric: tabular-nums; }

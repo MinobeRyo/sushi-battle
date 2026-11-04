@@ -6,11 +6,13 @@ import { SushiArt } from '../../components/SushiArt'
 import type { FieldCard, PendingAttack } from '../../game/types'
 import './DefensePrompt.css'
 
-export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY, gari, defenseCard, enemyField = [], attackBuff = {}, kiretaStack = 0, ready, onRespond, onLeave }: {
+export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY, shield = 0, gari, defenseCard, enemyField = [], attackBuff = {}, kiretaStack = 0, ready, onRespond, onLeave }: {
   attack: PendingAttack
   belly: number
   /** 満腹ライン。省略時は100。 */
   maxBelly?: number
+  /** 寿司はしごのシールド。受けるダメージから先に引く。 */
+  shield?: number
   gari: number
   defenseCard?: FieldCard
   enemyField?: FieldCard[]
@@ -36,11 +38,14 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
   const canConfirm = ready && (!useDefense || canDefense && validTarget)
   const gariOnly = attack.source === 'end_turn' && !canDefense && !useDefense
   const guardedDamage = attack.amount - calcGariReduction(attack.amount)
-  const guardedBelly = Math.min(bellyLimit, belly + guardedDamage)
-  const unguardedBelly = Math.min(bellyLimit, belly + attack.amount)
+  // シールドが先にダメージを受ける（残りがお腹に入る）。
+  const net = (damage: number) => Math.max(0, damage - shield)
+  const guardedBelly = Math.min(bellyLimit, belly + net(guardedDamage))
+  const unguardedBelly = Math.min(bellyLimit, belly + net(attack.amount))
+  const shieldNote = (damage: number) => shield > 0 && damage > 0 ? <small className="battle-defense__shield">🛡 シールドが {Math.min(shield, damage)} 防ぐ</small> : null
   const range = (low: number, high: number) => low === high ? String(low) : `${low}〜${high}`
-  const minBelly = Math.min(bellyLimit, belly + preview.min)
-  const maxBelly = Math.min(bellyLimit, belly + preview.max)
+  const minBelly = Math.min(bellyLimit, belly + net(preview.min))
+  const maxBelly = Math.min(bellyLimit, belly + net(preview.max))
   const fieldDamageOptions = { gunkanBoost: makimonoCount(enemyField) >= MAKI_COMP_5, namahamuBoost: namahamuAuraBonus(enemyField), fieldCount: enemyField.length }
   const targetAttack = (card: FieldCard) => calcFieldDmg([card], attackBuff, kiretaStack, boostedBelly, fieldDamageOptions)
   const consumption = [useGari && canGari ? `ガリ −1（残${gari - 1}）` : 'ガリ温存',
@@ -66,7 +71,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
           aria-label={`ガリを使う。ダメージ${guardedDamage}、お腹${belly}から${guardedBelly}。${guardedBelly >= bellyLimit ? '満腹で負け' : `残り${Math.max(0, gari - 1)}個`}`}
           onClick={ready && canGari ? () => onRespond(true, false) : undefined}>
           <span className="battle-defense__choice-title">ガリを使う</span>
-          <strong className="battle-defense__damage">+{guardedDamage}<small>ダメージ</small></strong>
+          <strong className="battle-defense__damage">+{net(guardedDamage)}<small>ダメージ</small></strong>{shieldNote(guardedDamage)}
           <span className="battle-defense__belly">お腹 {belly} → <b>{guardedBelly}</b></span>
           {guardedBelly >= bellyLimit && <span className="battle-defense__lethal">満腹で負け</span>}
           <small className="battle-defense__cost">ガリ −1 · 残{Math.max(0, gari - 1)}個</small>
@@ -75,7 +80,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
           aria-label={`使わない。ダメージ${attack.amount}、お腹${belly}から${unguardedBelly}。${unguardedBelly >= bellyLimit ? '満腹で負け' : `ガリ${gari}個を残す`}`}
           onClick={ready ? () => onRespond(false, false) : undefined}>
           <span className="battle-defense__choice-title">使わない</span>
-          <strong className="battle-defense__damage">+{attack.amount}<small>ダメージ</small></strong>
+          <strong className="battle-defense__damage">+{net(attack.amount)}<small>ダメージ</small></strong>{shieldNote(attack.amount)}
           <span className="battle-defense__belly">お腹 {belly} → <b>{unguardedBelly}</b></span>
           {unguardedBelly >= bellyLimit && <span className="battle-defense__lethal">満腹で負け</span>}
           <small className="battle-defense__cost">消費なし · ガリ{gari}個</small>
@@ -83,7 +88,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
       </div>
     </> : <>
     <div className="battle-defense__preview" aria-live="polite">
-      <div><span>受ける量</span><p><s>+{attack.amount}</s><span aria-hidden="true"> → </span><strong>+{range(preview.min, preview.max)}</strong></p></div>
+      <div><span>受ける量</span><p><s>+{attack.amount}</s><span aria-hidden="true"> → </span><strong>+{range(net(preview.min), net(preview.max))}</strong></p>{shieldNote(preview.max)}</div>
       <div className={maxBelly >= bellyLimit * 0.7 ? 'is-danger' : ''}><span>お腹{maxBelly >= bellyLimit ? ' · 敗北' : maxBelly >= bellyLimit * 0.7 ? ' · 危険' : ''}</span><p>{belly} → <strong>{range(minBelly, maxBelly)}</strong><small> / {MAX_BELLY}</small></p></div>
     </div>
     <div className="battle-defense__options">
@@ -101,7 +106,7 @@ export function DefensePrompt({ attack, belly, maxBelly: bellyLimit = MAX_BELLY,
     {useDefense && needsTarget && <div className="battle-defense__target-area"><div className="battle-defense__targets" role="group" aria-label="防御する相手のカード">
       {preview.targets.map(card => {
         const after = defensePreview(attack, enemyField, attackBuff, kiretaStack, boostedBelly, defenseCard, true, useGari && canGari, card.fid)
-        const afterBelly = Math.min(bellyLimit, belly + after.min)
+        const afterBelly = Math.min(bellyLimit, belly + net(after.min))
         const currentAttack = targetAttack(card)
         const reducedAttack = defenseCard ? targetAttack(withDefenseReduction(card, defenseCard)) : currentAttack
         return <button key={card.fid} type="button" aria-pressed={targetFieldId === card.fid}

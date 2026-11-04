@@ -188,8 +188,7 @@ export function CardDetailSheet({
 
         {!isField && isReservableDefense(card) && (!compact || activeTab === 'defense') && (
           <section className="battle-defense-reserve" aria-labelledby={defenseHeadingId}>
-            <h3 id={defenseHeadingId}>召喚後の防御を予約</h3>
-            <p>攻撃後に防御待機。次の相手の攻撃時、ガリと一緒に選べます。</p>
+            <h3 id={defenseHeadingId}>防御を予約</h3>
             <div className="battle-defense-reserve-options" role="group" aria-labelledby={defenseHeadingId}>
               <button type="button" aria-pressed={!reserveDefense} disabled={!canPlay || !isPresent}
                 onClick={() => setDefenseSelection({ cardKey, reserve: false })}>
