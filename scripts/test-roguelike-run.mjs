@@ -36,32 +36,38 @@ const begin = (archetype, random) => {
 }
 const play = (state, id) => ({ type: 'play_card', playerId: 1, cardInstanceId: state.players[1].hand.find(card => card.id === id).instanceId })
 
-test('地図は3本×8段＋大将で、どの段からも次の段へ進める', () => {
-  for (let seed = 1; seed <= 50; seed++) {
+test('回転レーン：15皿＋最後の席に大皿。窓の3枚から取るか、回してお腹+3', () => {
+  for (let seed = 1; seed <= 30; seed++) {
     const nodes = run.generateRunMap(seeded(seed))
-    assert.equal(nodes.length, run.RUN_ROWS * run.RUN_COLS + 1)
-    const boss = nodes.find(node => node.id === run.BOSS_NODE_ID)
-    assert.equal(boss.kind, 'boss')
-    assert.equal(boss.enemy.cpuDeckId, 'challenge')
-    for (const node of nodes.filter(item => item.row === 0)) assert.equal(node.kind, 'battle')
-    for (const node of nodes.filter(item => item.kind !== 'boss')) {
-      assert.ok(node.next.length >= 1, `${node.id}から先がありません`)
-      if (node.kind === 'battle') assert.ok(node.enemy)
-      for (const nextId of node.next) {
-        const next = nodes.find(item => item.id === nextId)
-        assert.equal(next.row, node.row + 1)
-        if (next.kind !== 'boss') assert.ok(Math.abs(next.col - node.col) <= 1)
-      }
-    }
-    // 斜めの線が交差しない。
-    for (let row = 0; row < run.RUN_ROWS - 1; row++) {
-      for (let col = 0; col < run.RUN_COLS - 1; col++) {
-        const right = nodes.find(n => n.id === run.nodeId(row, col)).next.includes(run.nodeId(row + 1, col + 1))
-        const left = nodes.find(n => n.id === run.nodeId(row, col + 1)).next.includes(run.nodeId(row + 1, col))
-        assert.ok(!(right && left), '斜めの線が交差しています')
-      }
-    }
+    assert.equal(nodes.length, run.LANE_SIZE)
+    assert.equal(nodes[0].kind, 'battle', '最初の皿は必ず対戦')
+    assert.equal(nodes.at(-1).id, run.BOSS_NODE_ID)
+    assert.equal(nodes.at(-1).enemy.cpuDeckId, 'challenge')
   }
+  let state = begin('akami', seeded(3))
+  assert.deepEqual(run.laneWindow(state.lane), ['p0', 'p1', 'p2'])
+  assert.deepEqual(state.lane.seen, ['p0', 'p1', 'p2'])
+  // 回す：1席進み、お腹+3。新しく窓に来た皿は「見た」ことになる。
+  const turned = run.rotateLane(state)
+  assert.deepEqual(run.laneWindow(turned.lane), ['p1', 'p2', 'p3'])
+  assert.equal(turned.belly, state.belly + run.LANE_ROTATE_BELLY)
+  assert.ok(turned.lane.seen.includes('p3'))
+  assert.equal(run.rotateLane({ ...state, belly: 98 }).belly, run.MAX_RUN_BELLY - 1, '回して満腹で倒れはしない')
+  // 取る：席が空き、1席進み、取った枚数+1。
+  const took = run.enterNode(turned, 'p2', seeded(1))
+  assert.equal(took.lane.order.includes('p2'), false)
+  assert.equal(took.lane.picks, 1)
+  assert.equal(took.lane.order[2], null, '取った席は空席のまま回る')
+  assert.deepEqual(run.laneWindow(took.lane), ['p3', 'p4', 'p5'], '窓には空席を飛ばして、いつも3枚の皿が来る')
+  assert.equal(run.reachableNodeIds({ ...took, status: 'map' }).length, 3)
+  // 大皿まで取り切ると、大皿が窓の真ん中に来て、大皿しか取れない。
+  const ready = { ...state, lane: { ...state.lane, picks: run.LANE_PICKS - 1 } }
+  const last = run.enterNode(ready, 'p0', seeded(2))
+  const done = { ...last, status: 'map' }
+  assert.deepEqual(run.reachableNodeIds(done), [run.BOSS_NODE_ID])
+  assert.equal(run.laneWindow(done.lane)[1], run.BOSS_NODE_ID)
+  assert.throws(() => run.rotateLane(done))
+  assert.equal(run.lanePicksLeft(done.lane), 0)
 })
 
 test('序盤の敵は最弱CPUで満腹ライン50、先へ進むほど上がり大将は150', () => {
@@ -107,11 +113,11 @@ test('最初のデッキは汎用10枚＋系統の寿司（肉寿司だけ4枚�
   assert.ok(uses >= makes, `生ハムを使える数（${uses}）が増やすカード数（${makes}）以上`)
 })
 
-test('マスは隣の道にしか進めず、お茶でお腹が30減る', () => {
+test('皿は窓の中からしか取れず、お茶でお腹が30減る', () => {
   let state = begin('akami', seeded(7))
-  assert.deepEqual(run.reachableNodeIds(state), ['r0c0', 'r0c1', 'r0c2'])
+  assert.deepEqual(run.reachableNodeIds(state), ['p0', 'p1', 'p2'])
   assert.throws(() => run.enterNode(state, 'r1c0'))
-  state = run.enterNode(state, 'r0c1')
+  state = run.enterNode(state, 'p1')
   assert.equal(state.status, 'battle')
   assert.deepEqual(run.reachableNodeIds(state), [], '対戦中は次に進めない')
   state = run.finishBattle(state, true, 61, () => 0)
@@ -130,7 +136,7 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
     assert.ok(byId(ids[0]).archetype.includes('hikari'))
     assert.equal(byId(ids[1]).lane, 'general')
   }
-  let state = run.enterNode(begin('niku', seeded(2)), 'r0c0')
+  let state = run.enterNode(begin('niku', seeded(2)), 'p0')
   state = run.finishBattle(state, true, 20, seeded(5))
   assert.ok(state.reward.gold >= 250 && state.reward.gold <= 350)
   assert.equal(state.gold, state.reward.gold)
@@ -145,7 +151,7 @@ test('報酬は系統・汎用・ランダムの重複なし3枚で、選ぶか�
 })
 
 test('負けるとラン終了、大将に勝つとクリア', () => {
-  const state = run.enterNode(begin('kaisen', seeded(9)), 'r0c2')
+  const state = run.enterNode(begin('kaisen', seeded(9)), 'p2')
   assert.equal(run.finishBattle(state, false, 100).status, 'lost')
   // 1・2幕のボスに勝つと報酬（寿司＋器かサイド）を選んで次の幕の入口へ。3幕の大将に勝つとクリア。
   let current = state
@@ -203,18 +209,19 @@ test('3幕：ボスの専用ルールは幕ごと（店長はおすすめだけ�
 })
 
 test('保存は対戦の手前に戻し、壊れたデータは読まない', () => {
-  let state = run.enterNode(begin('makimono', seeded(4)), 'r0c0')
+  let state = run.enterNode(begin('makimono', seeded(4)), 'p0')
   state = run.chooseReward(run.finishBattle(state, true, 10, seeded(1)), null)
-  const next = state.nodes.find(node => node.id === state.currentNodeId).next[0]
-  // 次のマスは対戦にそろえる（マスの種類は抽選なので、ハプニングや買い物のこともある）。
+  const next = run.reachableNodeIds(state)[0]
+  // 次の皿は対戦にそろえる（マスの種類は抽選なので、ハプニングや買い物のこともある）。
   state = { ...state, nodes: state.nodes.map(node => node.id === next
     ? { ...node, kind: 'battle', enemy: run.enemyForRow(node.row, 'battle', () => 0) } : node) }
   const inBattle = run.enterNode(state, next)
   assert.equal(inBattle.status, 'battle')
   const saved = run.runForSave(inBattle)
   assert.equal(saved.status, 'map')
-  assert.equal(saved.currentNodeId, 'r0c0')
+  assert.equal(saved.currentNodeId, 'p0')
   assert.deepEqual(run.reachableNodeIds(saved), run.reachableNodeIds(state))
+  assert.deepEqual(saved.lane, state.lane, '中断したら皿を取る前のレーンに戻る')
   assert.deepEqual(run.parseRun(JSON.stringify(saved)), saved)
   assert.equal(run.parseRun('{broken'), null)
   assert.equal(run.parseRun(JSON.stringify({ ...saved, version: 0 })), null)
@@ -497,21 +504,19 @@ test('器：光り物の研ぎ桶と、汎用の竹皮の包み', () => {
   assert.equal(state.players[1].ap, ap - 3 + 2)
 })
 
-test('常連さん：地図に出て、得意技と1段強いデッキを持つ', () => {
+test('常連さん：レーンに出て、取ると得意技と1段強いデッキを持つ', () => {
   let regulars = 0
   for (let seed = 1; seed <= 40; seed++) {
-    for (const node of run.generateRunMap(seeded(seed))) {
-      if (node.kind !== 'regular') continue
-      regulars += 1
-      assert.ok(node.row > 0, '1マス目は必ず対戦')
-      assert.ok(REGULAR_SKILLS.some(skill => skill.id === node.enemy.skill))
-      assert.notEqual(node.enemy.cpuDeckId, 'weak')
-    }
+    regulars += run.generateRunMap(seeded(seed)).filter(node => node.kind === 'regular').length
   }
   assert.ok(regulars > 0)
+  const state = begin('akami', seeded(5))
+  const nodes = state.nodes.map(node => node.id === 'p1' ? { ...node, kind: 'regular' } : node)
+  const entered = run.enterNode({ ...state, nodes }, 'p1', seeded(6))
+  const node = entered.nodes.find(item => item.id === 'p1')
+  assert.ok(REGULAR_SKILLS.some(skill => skill.id === node.enemy.skill))
+  assert.notEqual(node.enemy.cpuDeckId, 'weak')
   assert.equal(run.enemyForRow(5, 'regular', () => 0).cpuDeckId, 'challenge')
-  assert.equal(run.enemyForRow(5, 'regular', () => 0).maxBelly, run.enemyForRow(5, 'battle', () => 0).maxBelly, '満腹ラインは同じ段の大食い客と同じ')
-  assert.equal(REGULAR_SKILLS.length, 6)
 })
 
 test('常連さん：得意技はCPU側だけに効く', () => {
@@ -547,8 +552,8 @@ test('常連さん：得意技はCPU側だけに効く', () => {
 
 test('常連さんの報酬：寿司3枚（炙り1枚）＋器3つかサイドメニュー3品', () => {
   let state = begin('hikari', seeded(5))
-  state = run.enterNode(state, 'r0c0')
-  const node = state.nodes.find(item => item.id === 'r0c0')
+  state = run.enterNode(state, 'p0')
+  const node = state.nodes.find(item => item.id === 'p0')
   node.kind = 'regular'
   node.enemy = run.enemyForRow(0, 'regular', seeded(1))
   assert.deepEqual(run.runMatchMods(state, node.enemy), { 2: { skill: node.enemy.skill } })
@@ -622,7 +627,7 @@ test('開始時の器：系統を選んだ直後に3つから1つ受け取り、
   assert.equal(chosen.status, 'map')
   assert.deepEqual(chosen.relics, [state.startRelicIds[1]])
   assert.equal(chosen.startRelicIds, undefined)
-  assert.deepEqual(run.reachableNodeIds(chosen), ['r0c0', 'r0c1', 'r0c2'])
+  assert.deepEqual(run.reachableNodeIds(chosen), ['p0', 'p1', 'p2'])
   assert.throws(() => run.chooseStartRelic(chosen, state.startRelicIds[0]), '二度は選べない')
   // 地図は器の抽選の前に作るので、同じ乱数なら第2段までと同じ地図になる。
   assert.deepEqual(state.nodes, run.generateRunMap(seeded(4)))
@@ -649,8 +654,8 @@ test('地図：ハプニングと買い物のマスも出る', () => {
 /** 1段目の左を指定の種類のマスにして入る。 */
 const enterAs = (kind, archetype = 'akami', random = seeded(5), patch = {}) => {
   const state = { ...begin(archetype, random), ...patch }
-  const nodes = state.nodes.map(node => node.id === 'r0c0' ? { ...node, kind, enemy: undefined } : node)
-  return run.enterNode({ ...state, nodes }, 'r0c0', random)
+  const nodes = state.nodes.map(node => node.id === 'p0' ? { ...node, kind, enemy: undefined } : node)
+  return run.enterNode({ ...state, nodes }, 'p0', random)
 }
 
 test('ハプニング：入ると1つ選ばれ、同じものはなるべく出ない', () => {
@@ -839,7 +844,7 @@ test('デバッグ：好きなマスへ飛び、抜けたら今の続きから�
   const node = shop.nodes.find(item => item.id === shop.currentNodeId)
   assert.equal(node.debug, true)
   assert.equal(run.leaveShop(shop).status, 'map')
-  assert.deepEqual(run.reachableNodeIds(run.leaveShop(shop)), ['r0c0', 'r0c1', 'r0c2'], '入口から飛んだら1段目へ')
+  assert.deepEqual(run.reachableNodeIds(run.leaveShop(shop)), ['p0', 'p1', 'p2'], '入口から飛んだら1段目へ')
   const event = debug.debugJump(start, 'event', seeded(1), 'gacha')
   assert.equal(event.event.id, 'gacha')
   for (const kind of ['battle', 'regular']) {
