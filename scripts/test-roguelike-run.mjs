@@ -57,7 +57,9 @@ test('回転レーン：15皿＋最後の席に大皿。窓の3枚から取る�
   const took = run.enterNode(turned, 'p2', seeded(1))
   assert.equal(took.lane.order.includes('p2'), false)
   assert.equal(took.lane.picks, 1)
-  assert.deepEqual(run.laneWindow(took.lane), [null, 'p3', 'p4'], '取った席は空席のまま回る')
+  assert.equal(took.lane.order[2], null, '取った席は空席のまま回る')
+  assert.deepEqual(run.laneWindow(took.lane), ['p3', 'p4', 'p5'], '窓には空席を飛ばして、いつも3枚の皿が来る')
+  assert.equal(run.reachableNodeIds({ ...took, status: 'map' }).length, 3)
   // 大皿まで取り切ると、大皿が窓の真ん中に来て、大皿しか取れない。
   const ready = { ...state, lane: { ...state.lane, picks: run.LANE_PICKS - 1 } }
   const last = run.enterNode(ready, 'p0', seeded(2))

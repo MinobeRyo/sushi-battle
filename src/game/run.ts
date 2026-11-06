@@ -263,6 +263,22 @@ export function laneWindow(lane: RunLane): (string | null)[] {
   return Array.from({ length: LANE_WINDOW }, (_, i) => lane.order[(lane.front + i) % lane.order.length] ?? null)
 }
 
+/**
+ * 窓の3席がすべて皿になるまで、空席を飛ばして先へ進める（取った皿の席が窓に残って選択肢が減らないように）。
+ * 大皿が窓に入らない並びを先に探し、見つからなければ空席だけを避ける。見つからなければ1席進めるだけ。
+ */
+function settleFront(order: readonly (string | null)[], from: number, allowBoss: boolean): number {
+  const n = order.length
+  for (const withBoss of allowBoss ? [true] : [false, true]) {
+    for (let k = 0; k < n; k++) {
+      const front = (from + k) % n
+      const seats = Array.from({ length: LANE_WINDOW }, (_, i) => order[(front + i) % n])
+      if (seats.every(id => id !== null && (withBoss || id !== BOSS_NODE_ID))) return front
+    }
+  }
+  return from % n
+}
+
 /** 大皿までに、あと何枚取るか。 */
 export const lanePicksLeft = (lane: RunLane) => Math.max(0, LANE_PICKS - lane.picks)
 
@@ -304,7 +320,7 @@ export function rotateLane(run: RunState): RunState {
   if (run.status !== 'map' || !run.lane) throw new Error('レーンを回せる状態ではありません')
   if (run.lane.picks >= LANE_PICKS) throw new Error('大皿が来ています')
   return { ...run, belly: Math.min(MAX_RUN_BELLY - 1, run.belly + LANE_ROTATE_BELLY),
-    lane: withSeen({ ...run.lane, front: (run.lane.front + 1) % run.lane.order.length }) }
+    lane: withSeen({ ...run.lane, front: settleFront(run.lane.order, run.lane.front + 1, false) }) }
 }
 
 export function enterNode(run: RunState, id: string, random: RandomSource = Math.random): RunState {
@@ -323,7 +339,7 @@ export function enterNode(run: RunState, id: string, random: RandomSource = Math
     const picks = lane.picks + 1
     // 大皿まで取り切ったら、大皿を窓の真ん中へ回してくる。
     const bossAt = order.indexOf(BOSS_NODE_ID)
-    const front = picks >= LANE_PICKS && bossAt >= 0 ? (bossAt - 1 + order.length) % order.length : (lane.front + 1) % order.length
+    const front = picks >= LANE_PICKS && bossAt >= 0 ? (bossAt - 1 + order.length) % order.length : settleFront(order, lane.front + 1, false)
     nextLane = withSeen({ ...lane, order, front, picks })
   }
   const moved: RunState = { ...run, nodes, lane: nextLane, laneBefore: lane, currentNodeId: id, visited: [...run.visited, id] }

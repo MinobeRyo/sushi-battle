@@ -77,11 +77,16 @@ export function RunLane({ run, onTake, onRotate }: { run: RunState; onTake: (id:
               <li key={`${seat}:${id ?? 'empty'}`} aria-label={label} className="run-lane-plate" data-state={state}
                 data-picked={id !== null && id === selected ? 'true' : undefined}
                 style={{ left: `${(point.x - size / 2) / W * 100}%`, top: `${(point.y - size / 2) / H * 100}%`, width: `${size / W * 100}%` }}>
-                {(state === 'open' || state === 'missed') && kind && (
-                  <span className="run-lane-plate-face" style={{ borderColor: kind.rim, background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 45%), ${kind.face}`, boxShadow: `0 3px 6px rgba(0,0,0,.6), inset 0 -3px ${kind.shade}`, color: kind.mark }}>
-                    <span aria-hidden="true">{kind.ch}</span>
-                  </span>
-                )}
+                {(state === 'open' || state === 'missed') && kind && (() => {
+                  const face = (
+                    <span className="run-lane-plate-face" style={{ borderColor: kind.rim, background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 45%), ${kind.face}`, boxShadow: `0 3px 6px rgba(0,0,0,.6), inset 0 -3px ${kind.shade}`, color: kind.mark }}>
+                      <span aria-hidden="true">{kind.ch}</span>
+                    </span>
+                  )
+                  return state === 'open'
+                    ? <button type="button" className="run-lane-plate-button" aria-label={`${kind.name}を選ぶ`} aria-pressed={id === selected} onClick={() => setSelected(id)}>{face}</button>
+                    : face
+                })()}
                 {state === 'boss' && <span className="run-lane-plate-face run-lane-plate-boss" data-ready={bossReady}><span aria-hidden="true">将</span></span>}
                 {state === 'lid' && <span className="run-lane-plate-lid" aria-hidden="true" />}
               </li>

@@ -434,3 +434,7 @@
   .run-result-stack svg { height: 124px; width: 100px; margin-top: 0; }
   .run-result-hanko { width: 48px; height: 48px; font-size: 32px; top: 12px; left: 16px; }
 }
+
+/* 窓の皿はそのまま押して選べる */
+.run-lane-plate-button { display: block; width: 100%; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.run-lane-plate-button:focus-visible { outline: 3px solid #f5d18d; outline-offset: 3px; }
